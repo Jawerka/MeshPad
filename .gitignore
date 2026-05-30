@@ -1,0 +1,50 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# Android local SDK path (machine-specific)
+**/android/local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Local data (dev)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# FVM
+.fvm/flutter_sdk
+
+# Coverage
+coverage/
+lcov.info
+
+# Native / Rust (future p2p crate)
+target/
+**/generated/
+
+# Web server runtime (Linux headless)
+var/

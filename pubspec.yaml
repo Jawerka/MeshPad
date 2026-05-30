@@ -1,0 +1,35 @@
+name: meshpad_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+workspace:
+  - apps/meshpad
+  - packages/meshpad_core
+  - packages/meshpad_p2p
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  scripts:
+    analyze:
+      run: melos exec -- dart analyze --fatal-infos
+      description: Static analysis for all packages.
+
+    test:
+      run: melos exec --ignore="meshpad" --fail-fast -- dart test
+      description: Unit tests in Dart packages (core, p2p).
+
+    format:
+      run: melos exec -- dart format --set-exit-if-changed .
+      description: Check formatting.
+
+    format:fix:
+      run: melos exec -- dart format .
+      description: Apply formatting.
+
+    flutter:test:
+      run: melos exec --scope="meshpad" -- flutter test
+      description: Flutter widget/integration tests in the app.

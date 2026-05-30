@@ -1,4 +1,9 @@
 export 'src/sync_transport.dart';
 export 'src/fake_sync_transport.dart';
+export 'src/lan/lan_sync_transport.dart';
+export 'src/lan/lan_peer_server.dart';
+export 'src/lan/http_remote_sync_gateway.dart';
+export 'src/lan/lan_sync_codec.dart';
+export 'src/lan/udp_lan_discovery.dart';
 export 'src/lan_discovery_simulator.dart';
 export 'src/pairing_protocol.dart';

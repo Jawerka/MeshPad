@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -200,8 +202,62 @@ class NoteRepository {
     return updated;
   }
 
+  Future<Note> addAttachmentFromBytes(
+    String id, {
+    required String fileName,
+    required List<int> bytes,
+    AttachmentCopyProgressCallback? onAttachmentProgress,
+  }) async {
+    final existing = await getNote(id);
+    if (existing == null) {
+      throw NoteNotFoundException(id);
+    }
+    if (existing.deleted) {
+      throw NoteDeletedException(id);
+    }
+
+    final attachment = await createAttachmentFromBytes(
+      attachmentsDir: _paths.attachmentsDir(id),
+      preferredName: fileName,
+      bytes: bytes,
+      onProgress: onAttachmentProgress,
+    );
+
+    final updated = existing.copyWith(
+      attachments: [...existing.attachments, attachment],
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist(updated);
+    return updated;
+  }
+
   String attachmentPath(String noteId, String fileName) =>
       _paths.attachmentFile(noteId, fileName);
+
+  Future<bool> attachmentMatches(String noteId, AttachmentMeta meta) {
+    return attachmentFileMatches(
+      File(attachmentPath(noteId, meta.name)),
+      meta,
+    );
+  }
+
+  Future<void> storeRemoteAttachment(
+    String noteId,
+    AttachmentMeta meta,
+    List<int> bytes,
+  ) async {
+    await writeAttachmentBytes(
+      attachmentsDir: _paths.attachmentsDir(noteId),
+      meta: meta,
+      bytes: bytes,
+    );
+  }
+
+  Future<List<int>?> readAttachmentBytes(String noteId, String fileName) async {
+    final file = File(attachmentPath(noteId, fileName));
+    if (!await file.exists()) return null;
+    return file.readAsBytes();
+  }
 
   Future<int> pendingOutboxCount() => _db.pendingOutboxCount();
 
@@ -250,14 +306,27 @@ class NoteRepository {
         local.deleted == merged.deleted &&
         local.title == merged.title &&
         local.markdown == markdown &&
-        local.updatedAt == merged.updatedAt;
+        local.updatedAt == merged.updatedAt &&
+        _attachmentsMatch(local.attachments, merged.attachments);
     if (unchanged) return NoteApplyResult.unchanged;
 
-    final note = Note.fromMeta(meta: merged, markdown: markdown).copyWith(
-      attachments: local?.attachments ?? const [],
-    );
+    final note = Note.fromMeta(meta: merged, markdown: markdown);
     await _persist(note);
     return NoteApplyResult.applied;
+  }
+
+  bool _attachmentsMatch(List<AttachmentMeta> a, List<AttachmentMeta> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.name != right.name ||
+          left.size != right.size ||
+          left.sha256 != right.sha256) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<Note> updateNote(

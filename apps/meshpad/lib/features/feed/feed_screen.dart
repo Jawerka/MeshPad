@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meshpad_core/meshpad_core.dart';
-import 'package:path/path.dart' as p;
 
 import '../../core/errors/user_messages.dart';
 import '../../core/models/notes_feed_state.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/services/notes_service.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../devices/devices_sheet.dart';
 import '../settings/settings_sheet.dart';
@@ -456,7 +456,7 @@ class _ComposerSection extends ConsumerStatefulWidget {
 
 class _ComposerSectionState extends ConsumerState<_ComposerSection> {
   final _bodyController = TextEditingController();
-  final _pendingPaths = <String>[];
+  final _pendingFiles = <PlatformFile>[];
   var _saving = false;
   AttachmentCopyProgress? _copyProgress;
 
@@ -467,21 +467,26 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
   }
 
   Future<void> _pickAttachments() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: kIsWeb,
+    );
     if (result == null) return;
     setState(() {
       for (final file in result.files) {
-        final path = file.path;
-        if (path != null && !_pendingPaths.contains(path)) {
-          _pendingPaths.add(path);
-        }
+        if (kIsWeb && file.bytes == null) continue;
+        if (!kIsWeb && file.path == null) continue;
+        final duplicate = _pendingFiles.any(
+          (existing) => existing.name == file.name && existing.size == file.size,
+        );
+        if (!duplicate) _pendingFiles.add(file);
       }
     });
   }
 
   Future<void> _submit() async {
     final body = _bodyController.text.trim();
-    if (body.isEmpty && _pendingPaths.isEmpty || _saving) return;
+    if (body.isEmpty && _pendingFiles.isEmpty || _saving) return;
     setState(() {
       _saving = true;
       _copyProgress = null;
@@ -489,8 +494,19 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
     try {
       await ref.read(notesListProvider.notifier).createNote(
             markdown: body,
-            attachmentPaths: List.of(_pendingPaths),
-            onAttachmentProgress: _pendingPaths.isEmpty
+            attachmentPaths: kIsWeb
+                ? const []
+                : _pendingFiles.map((file) => file.path!).toList(),
+            attachmentBytes: kIsWeb
+                ? [
+                    for (final file in _pendingFiles)
+                      NoteAttachmentBytes(
+                        name: file.name,
+                        bytes: file.bytes!,
+                      ),
+                  ]
+                : const [],
+            onAttachmentProgress: _pendingFiles.isEmpty
                 ? null
                 : (progress) {
                     if (mounted) setState(() => _copyProgress = progress);
@@ -498,7 +514,7 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
           );
       _bodyController.clear();
       setState(() {
-        _pendingPaths.clear();
+        _pendingFiles.clear();
         _copyProgress = null;
       });
     } finally {
@@ -513,7 +529,6 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
 
   @override
   Widget build(BuildContext context) {
-    final attachmentsEnabled = !kIsWeb;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
@@ -553,17 +568,18 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
                     ],
                   ),
                 ),
-              if (_pendingPaths.isNotEmpty)
+              if (_pendingFiles.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final path in _pendingPaths)
+                      for (final file in _pendingFiles)
                         _PendingAttachmentChip(
-                          path: path,
-                          onRemove: () => setState(() => _pendingPaths.remove(path)),
+                          name: file.name,
+                          onRemove: () =>
+                              setState(() => _pendingFiles.remove(file)),
                         ),
                     ],
                   ),
@@ -571,12 +587,11 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (attachmentsEnabled)
-                    IconButton(
-                      onPressed: _saving ? null : _pickAttachments,
-                      icon: const Icon(Icons.attach_file),
-                      tooltip: 'Прикрепить файл',
-                    ),
+                  IconButton(
+                    onPressed: _saving ? null : _pickAttachments,
+                    icon: const Icon(Icons.attach_file),
+                    tooltip: 'Прикрепить файл',
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _bodyController,
@@ -620,14 +635,13 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
 }
 
 class _PendingAttachmentChip extends StatelessWidget {
-  const _PendingAttachmentChip({required this.path, required this.onRemove});
+  const _PendingAttachmentChip({required this.name, required this.onRemove});
 
-  final String path;
+  final String name;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final name = p.basename(path);
     final isImage = isImageAttachment(
       AttachmentMeta(name: name, size: 0, mime: mimeFromFileName(name)),
     );

@@ -12,6 +12,8 @@
 - **Sprint 1:** Drift DB, `NoteRepository` (FS + index), models Device/SyncEvent.
 - **Sprint 2:** Chat UI — sidebar, feed, composer, inline edit, trash, Markdown preview.
 - **Sprint 3:** Attachments, image preview/lightbox, FTS search, sync outbox indicator, trash TTL purge.
-- **Sprint 4 (partial):** Device identity, SyncEngine with LWW/tombstone, FakeSyncHub, devices sheet UI, outbox retry and sync status badges.
+- **Sprint 4 (partial):** Device identity, SyncEngine, FakeSyncHub, LAN HTTP/UDP sync transport with PIN pairing over LAN.
 - **Sprint 5 (partial):** Windows/Linux system tray, settings sheet, customizable data directory, auto-sync loop, rebuild index, Android Share-to, WorkManager background maintenance, headless HTTP server (`apps/meshpad_server`), Web client via `meshpad_api_client`.
 - **Sprint 6 (partial):** Manual update check in settings, LAN discovery stub UI, lazy paginated feed, MeshPadException and sync error messages, PIN pairing protocol models, update download link, attachment copy progress UI.
+- **Sprint 4 (continued):** `LanSyncTransport` — LAN HTTP sync + UDP discovery + PIN pairing; синхронизация вложений по LAN.
+- **Sprint 5 (continued):** Web-клиент — загрузка вложений через `PUT /api/notes/<id>/attachments/<name>`.

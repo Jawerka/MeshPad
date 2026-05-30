@@ -78,6 +78,8 @@ class DeviceIdentityStore {
     required String peerId,
     required String name,
     String icon = 'device',
+    String? lanHost,
+    int? lanHttpPort,
   }) async {
     final trustedDir = Directory(p.join(_paths.devicesRoot, 'trusted'));
     await trustedDir.create(recursive: true);
@@ -88,9 +90,30 @@ class DeviceIdentityStore {
       icon: icon,
       trustedAt: DateTime.now().toUtc(),
       lastSeenAt: DateTime.now().toUtc(),
+      lanHost: lanHost,
+      lanHttpPort: lanHttpPort,
     );
-    await File(_paths.trustedDeviceFile(peerId)).writeAsString(
-      const JsonEncoder.withIndent('  ').convert(record.toJson()),
+    await _writeTrustedRecord(record);
+  }
+
+  Future<void> updateLanEndpoint({
+    required String peerId,
+    required String lanHost,
+    required int lanHttpPort,
+  }) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(
+      TrustedDeviceRecord(
+        peerId: record.peerId,
+        name: record.name,
+        icon: record.icon,
+        trustedAt: record.trustedAt,
+        lastSeenAt: record.lastSeenAt,
+        lanHost: lanHost,
+        lanHttpPort: lanHttpPort,
+      ),
     );
   }
 
@@ -102,21 +125,34 @@ class DeviceIdentityStore {
   }
 
   Future<void> markPeerSeen(String peerId) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(
+      TrustedDeviceRecord(
+        peerId: record.peerId,
+        name: record.name,
+        icon: record.icon,
+        trustedAt: record.trustedAt,
+        lastSeenAt: DateTime.now().toUtc(),
+        lanHost: record.lanHost,
+        lanHttpPort: record.lanHttpPort,
+      ),
+    );
+  }
+
+  Future<TrustedDeviceRecord?> _loadTrustedRecord(String peerId) async {
     final file = File(_paths.trustedDeviceFile(peerId));
-    if (!await file.exists()) return;
+    if (!await file.exists()) return null;
 
     final json =
         jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-    final record = TrustedDeviceRecord.fromJson(json);
-    final updated = TrustedDeviceRecord(
-      peerId: record.peerId,
-      name: record.name,
-      icon: record.icon,
-      trustedAt: record.trustedAt,
-      lastSeenAt: DateTime.now().toUtc(),
-    );
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(updated.toJson()),
+    return TrustedDeviceRecord.fromJson(json);
+  }
+
+  Future<void> _writeTrustedRecord(TrustedDeviceRecord record) async {
+    await File(_paths.trustedDeviceFile(record.peerId)).writeAsString(
+      const JsonEncoder.withIndent('  ').convert(record.toJson()),
     );
   }
 }

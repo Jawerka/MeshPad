@@ -47,19 +47,40 @@ class DiscoveryService {
     final transport = _ref.read(syncTransportProvider);
     await transport.start();
 
-    _eventsSub ??= transport.events.listen((event) {
+    _eventsSub ??= transport.events.listen((event) async {
       if (event is! PeerDiscovered) return;
       _ref.read(discoveredPeersProvider.notifier).upsert(
             DiscoveredPeer.fromEvent(event),
           );
+
+      if (transport is! LanSyncTransport) return;
+      final endpoint = transport.endpointFor(event.peerId);
+      if (endpoint == null) return;
+
+      final trusted = await _ref.read(trustedDevicesProvider.future);
+      if (!trusted.any((d) => d.peerId == event.peerId)) return;
+
+      final store = await _ref.read(deviceStoreProvider.future);
+      await store.updateLanEndpoint(
+        peerId: event.peerId,
+        lanHost: endpoint.host,
+        lanHttpPort: endpoint.httpPort,
+      );
     });
 
-    _simulator ??= LanDiscoverySimulator(transport);
-    _simulator!.start();
+    if (transport is FakeSyncTransport) {
+      _simulator ??= LanDiscoverySimulator(transport);
+      _simulator!.start();
+    }
   }
 
   void dispose() {
     unawaited(_eventsSub?.cancel());
     _simulator?.dispose();
   }
+}
+
+LanSyncTransport? readLanSyncTransport(WidgetRef ref) {
+  final transport = ref.read(syncTransportProvider);
+  return transport is LanSyncTransport ? transport : null;
 }

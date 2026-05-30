@@ -33,6 +33,7 @@ class MeshPadHttpServer {
     router.delete('/api/notes/<id>', _deleteNote);
     router.post('/api/notes/<id>/restore', _restoreNote);
     router.get('/api/notes/<noteId>/attachments/<fileName>', _getAttachment);
+    router.put('/api/notes/<noteId>/attachments/<fileName>', _putAttachment);
     router.get('/api/trash', _listTrash);
     router.get('/api/search', _searchNotes);
 
@@ -166,6 +167,7 @@ class MeshPadHttpServer {
     String noteId,
     String fileName,
   ) async {
+    final decodedName = Uri.decodeComponent(fileName);
     final note = await repository.getNote(noteId);
     if (note == null || note.deleted) {
       return Response.notFound('note not found');
@@ -173,7 +175,7 @@ class MeshPadHttpServer {
 
     AttachmentMeta? attachment;
     for (final item in note.attachments) {
-      if (item.name == fileName) {
+      if (item.name == decodedName) {
         attachment = item;
         break;
       }
@@ -182,7 +184,7 @@ class MeshPadHttpServer {
       return Response.notFound('attachment not found');
     }
 
-    final path = repository.attachmentPath(noteId, fileName);
+    final path = repository.attachmentPath(noteId, decodedName);
     final file = File(path);
     if (!await file.exists()) {
       return Response.notFound('file missing');
@@ -196,6 +198,42 @@ class MeshPadHttpServer {
         'cache-control': 'public, max-age=3600',
       },
     );
+  }
+
+  Future<Response> _putAttachment(
+    Request request,
+    String noteId,
+    String fileName,
+  ) async {
+    final decodedName = Uri.decodeComponent(fileName);
+    final bytes = await request.read().expand((chunk) => chunk).toList();
+    if (bytes.isEmpty) {
+      return Response(
+        400,
+        body: jsonEncode({'error': 'empty_body'}),
+        headers: _jsonHeaders,
+      );
+    }
+
+    try {
+      final note = await repository.addAttachmentFromBytes(
+        noteId,
+        fileName: decodedName,
+        bytes: bytes,
+      );
+      return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
+    } on NoteNotFoundException {
+      return Response.notFound(
+        jsonEncode({'error': 'note_not_found'}),
+        headers: _jsonHeaders,
+      );
+    } on NoteDeletedException {
+      return Response(
+        400,
+        body: jsonEncode({'error': 'note_deleted'}),
+        headers: _jsonHeaders,
+      );
+    }
   }
 
   Map<String, dynamic> _noteJson(Note note) => {

@@ -31,4 +31,28 @@ void main() {
     expect(devices.length, 1);
     expect(devices.first.name, 'Phone');
   });
+
+  test('persists LAN endpoint for trusted peer', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(
+      peerId: 'peer-1',
+      name: 'Laptop',
+      lanHost: '192.168.1.10',
+      lanHttpPort: 45838,
+    );
+
+    var devices = await store.listTrustedDevices();
+    expect(devices.first.lanHost, '192.168.1.10');
+    expect(devices.first.lanHttpPort, 45838);
+
+    await store.updateLanEndpoint(
+      peerId: 'peer-1',
+      lanHost: '192.168.1.11',
+      lanHttpPort: 45839,
+    );
+
+    devices = await store.listTrustedDevices();
+    expect(devices.first.lanHost, '192.168.1.11');
+    expect(devices.first.lanHttpPort, 45839);
+  });
 }

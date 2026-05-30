@@ -99,6 +99,19 @@ class MeshPadApiClient {
     return noteFromApiBody(response.body);
   }
 
+  Future<Note> uploadAttachment({
+    required String noteId,
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    final response = await _putBytes(
+      '/api/notes/$noteId/attachments/${Uri.encodeComponent(fileName)}',
+      bytes,
+    );
+    _ensureOk(response);
+    return noteFromApiBody(response.body);
+  }
+
   Uri attachmentUri(String noteId, String fileName) {
     return _uri(
       '/api/notes/$noteId/attachments/${Uri.encodeComponent(fileName)}',
@@ -133,6 +146,14 @@ class MeshPadApiClient {
       _uri(path),
       headers: _jsonHeaders,
       body: jsonEncode(body),
+    );
+  }
+
+  Future<http.Response> _putBytes(String path, List<int> bytes) {
+    return _http.put(
+      _uri(path),
+      headers: {'Content-Type': 'application/octet-stream'},
+      body: bytes,
     );
   }
 

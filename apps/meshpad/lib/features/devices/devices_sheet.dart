@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../../core/providers/discovery_providers.dart';
+import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/theme/device_icons.dart';
 import '../../core/theme/meshpad_colors.dart';
@@ -105,15 +108,29 @@ class DevicesSheet extends ConsumerWidget {
                                 peerId: device.peerId,
                                 icon: peerIconFor(device.icon),
                                 accent: peerAccentColor(device.peerId),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.link_off_outlined),
-                                  tooltip: 'Отозвать доверие',
-                                  onPressed: () async {
-                                    final store =
-                                        await ref.read(deviceStoreProvider.future);
-                                    await store.revokeTrust(device.peerId);
-                                    ref.invalidate(trustedDevicesProvider);
-                                  },
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.sync),
+                                      tooltip: 'Синхронизировать',
+                                      onPressed: () => _runSyncWithPeer(
+                                        context,
+                                        ref,
+                                        device,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.link_off_outlined),
+                                      tooltip: 'Отозвать доверие',
+                                      onPressed: () async {
+                                        final store = await ref
+                                            .read(deviceStoreProvider.future);
+                                        await store.revokeTrust(device.peerId);
+                                        ref.invalidate(trustedDevicesProvider);
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -127,7 +144,7 @@ class DevicesSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Демо LAN-discovery до libp2p/mDNS',
+                      'UDP discovery в локальной сети (до libp2p/mDNS)',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: MeshPadColors.textMuted,
                           ),
@@ -182,11 +199,15 @@ class DevicesSheet extends ConsumerWidget {
     WidgetRef ref,
     DiscoveredPeer peer,
   ) async {
+    final lan = readLanSyncTransport(ref);
+    final endpoint = lan?.endpointFor(peer.peerId);
     final store = await ref.read(deviceStoreProvider.future);
     await store.trustDevice(
       peerId: peer.peerId,
       name: peer.displayName,
       icon: 'device',
+      lanHost: endpoint?.host,
+      lanHttpPort: endpoint?.httpPort,
     );
     ref.read(discoveredPeersProvider.notifier).remove(peer.peerId);
     ref.invalidate(trustedDevicesProvider);
@@ -197,6 +218,64 @@ class DevicesSheet extends ConsumerWidget {
     }
   }
 
+  Future<void> _runSyncWithPeer(
+    BuildContext context,
+    WidgetRef ref,
+    Device peer,
+  ) async {
+    final transport = ref.read(syncTransportProvider);
+    await transport.start();
+
+    if (transport is LanSyncTransport) {
+      rememberPeerEndpoint(transport, peer);
+    }
+
+    final completer = Completer<SyncTransportEvent>();
+    late final StreamSubscription<SyncTransportEvent> sub;
+    sub = transport.events.listen((event) {
+      if (event is SyncCompleted || event is SyncFailed) {
+        if (!completer.isCompleted) completer.complete(event);
+      }
+    });
+
+    await transport.requestSync(peerId: peer.peerId);
+    final event = await completer.future.timeout(
+      const Duration(seconds: 120),
+      onTimeout: () => SyncFailed(message: 'Таймаут синхронизации'),
+    );
+    await sub.cancel();
+
+    if (!context.mounted) return;
+
+    final message = switch (event) {
+      SyncCompleted(:final noteCount) => noteCount > 0
+          ? 'Синхронизировано заметок: $noteCount'
+          : 'Синхронизация завершена',
+      SyncFailed(:final message) => message,
+      _ => 'Синхронизация завершена',
+    };
+
+    if (event is SyncCompleted) {
+      final store = await ref.read(deviceStoreProvider.future);
+      await store.markPeerSeen(peer.peerId);
+      if (transport is LanSyncTransport) {
+        final endpoint = transport.endpointFor(peer.peerId);
+        if (endpoint != null) {
+          await store.updateLanEndpoint(
+            peerId: peer.peerId,
+            lanHost: endpoint.host,
+            lanHttpPort: endpoint.httpPort,
+          );
+        }
+      }
+      ref.invalidate(trustedDevicesProvider);
+      ref.invalidate(notesListProvider);
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
     final result = await ref.read(syncControllerProvider).runSync();
     if (!context.mounted) return;
@@ -205,7 +284,7 @@ class DevicesSheet extends ConsumerWidget {
       SyncRunStatus.noPeers => result.message ?? 'Нет устройств для синхронизации',
       SyncRunStatus.completed => result.noteCount > 0
           ? 'Синхронизировано заметок: ${result.noteCount}'
-          : 'Синхронизация завершена (ожидание libp2p)',
+          : 'Синхронизация завершена',
       SyncRunStatus.failed =>
         result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };
@@ -215,72 +294,211 @@ class DevicesSheet extends ConsumerWidget {
 
   Future<void> _showPinPairingDialog(BuildContext context, WidgetRef ref) async {
     final pin = generatePairingPin();
-    final remotePinController = TextEditingController();
+    final identity = await ref.read(localIdentityProvider.future);
+    final lan = readLanSyncTransport(ref);
+
+    if (lan != null) {
+      await lan.setPairingOffer(
+        PinPairingOffer(
+          peerId: identity.peerId,
+          displayName: identity.displayName,
+          pin: pin,
+          expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
+        ),
+      );
+    }
+
     if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('PIN-pairing'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Покажите этот PIN на другом устройстве. '
-              'После подключения libp2p сопряжение завершится автоматически.',
-              style: Theme.of(dialogContext).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            SelectableText(
-              pin,
-              style: Theme.of(dialogContext).textTheme.headlineMedium?.copyWith(
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.bold,
+      builder: (dialogContext) => _PinPairingDialog(
+        pin: pin,
+        lanAvailable: lan != null,
+        discovered: ref.read(discoveredPeersProvider),
+        onConfirm: (remotePin, targetPeer) async {
+          final store = await ref.read(deviceStoreProvider.future);
+
+          if (lan != null && targetPeer != null) {
+            final endpoint = lan.endpointFor(targetPeer.peerId);
+            if (endpoint != null) {
+              final offer = await lan.fetchPairingOffer(endpoint);
+              if (offer != null && offer.pin == remotePin) {
+                final ok = await lan.confirmPairingOnPeer(
+                  endpoint: endpoint,
+                  confirm: PinPairingConfirm(
+                    peerId: offer.peerId,
+                    pin: remotePin,
                   ),
-              textAlign: TextAlign.center,
-            ),
+                );
+                if (ok) {
+                  await store.trustDevice(
+                    peerId: offer.peerId,
+                    name: offer.displayName,
+                    lanHost: endpoint.host,
+                    lanHttpPort: endpoint.httpPort,
+                  );
+                  ref.invalidate(trustedDevicesProvider);
+                  ref
+                      .read(discoveredPeersProvider.notifier)
+                      .remove(offer.peerId);
+                  return true;
+                }
+              }
+            }
+            return false;
+          }
+
+          await store.trustDevice(
+            peerId: 'pin-$remotePin',
+            name: 'Устройство (PIN)',
+          );
+          ref.invalidate(trustedDevicesProvider);
+          return true;
+        },
+        onClose: () async {
+          if (lan != null) await lan.setPairingOffer(null);
+        },
+      ),
+    );
+    if (lan != null) await lan.setPairingOffer(null);
+  }
+}
+
+class _PinPairingDialog extends StatefulWidget {
+  const _PinPairingDialog({
+    required this.pin,
+    required this.lanAvailable,
+    required this.discovered,
+    required this.onConfirm,
+    required this.onClose,
+  });
+
+  final String pin;
+  final bool lanAvailable;
+  final List<DiscoveredPeer> discovered;
+  final Future<bool> Function(String remotePin, DiscoveredPeer? targetPeer)
+      onConfirm;
+  final Future<void> Function() onClose;
+
+  @override
+  State<_PinPairingDialog> createState() => _PinPairingDialogState();
+}
+
+class _PinPairingDialogState extends State<_PinPairingDialog> {
+  final _remotePinController = TextEditingController();
+  DiscoveredPeer? _selectedPeer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.discovered.isNotEmpty) {
+      _selectedPeer = widget.discovered.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    _remotePinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('PIN-pairing'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.lanAvailable
+                ? 'Покажите этот PIN на другом устройстве. '
+                    'Выберите устройство в списке «Обнаруженные» для подтверждения.'
+                : 'Покажите этот PIN на другом устройстве.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          SelectableText(
+            widget.pin,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  letterSpacing: 4,
+                  fontWeight: FontWeight.bold,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          if (widget.lanAvailable && widget.discovered.length > 1) ...[
             const SizedBox(height: 16),
-            TextField(
-              controller: remotePinController,
+            DropdownButtonFormField<DiscoveredPeer>(
+              initialValue: _selectedPeer,
               decoration: const InputDecoration(
-                labelText: 'PIN другого устройства',
-                hintText: '000000',
+                labelText: 'Устройство в сети',
               ),
-              keyboardType: TextInputType.number,
-              maxLength: 6,
+              items: [
+                for (final peer in widget.discovered)
+                  DropdownMenuItem(
+                    value: peer,
+                    child: Text(peer.displayName),
+                  ),
+              ],
+              onChanged: (peer) => setState(() => _selectedPeer = peer),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Закрыть'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final remotePin = remotePinController.text.trim();
-              if (!isValidPairingPin(remotePin)) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Введите 6-значный PIN')),
-                );
-                return;
-              }
-              // Stub until libp2p validates PinPairingConfirm on the wire.
-              final store = await ref.read(deviceStoreProvider.future);
-              await store.trustDevice(
-                peerId: 'pin-$remotePin',
-                name: 'Устройство (PIN)',
-              );
-              ref.invalidate(trustedDevicesProvider);
-              if (dialogContext.mounted) Navigator.pop(dialogContext);
-            },
-            child: const Text('Подтвердить'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _remotePinController,
+            decoration: const InputDecoration(
+              labelText: 'PIN другого устройства',
+              hintText: '000000',
+            ),
+            keyboardType: TextInputType.number,
+            maxLength: 6,
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await widget.onClose();
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Закрыть'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final remotePin = _remotePinController.text.trim();
+            if (!isValidPairingPin(remotePin)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Введите 6-значный PIN')),
+              );
+              return;
+            }
+
+            if (widget.lanAvailable && widget.discovered.isNotEmpty) {
+              final target = _selectedPeer ?? widget.discovered.first;
+              final ok = await widget.onConfirm(remotePin, target);
+              if (!context.mounted) return;
+              if (ok) {
+                Navigator.pop(context);
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Не удалось подтвердить PIN. Проверьте устройство в сети.',
+                  ),
+                ),
+              );
+              return;
+            }
+
+            await widget.onConfirm(remotePin, null);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Подтвердить'),
+        ),
+      ],
     );
-    remotePinController.dispose();
   }
 }
 

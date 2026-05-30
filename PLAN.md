@@ -298,7 +298,8 @@ MeshPad/
 - [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
 - [x] LAN discovery заглушка (демо-пиры до libp2p/mDNS)
 - [x] PIN-pairing протокол (модели сообщений)
-- [ ] libp2p MVP (LAN + PIN)
+- [x] LAN sync HTTP/UDP + PIN over LAN (interim transport до native libp2p)
+- [ ] Native libp2p MVP (LAN + PIN)
 - [x] UI: устройства, PIN-заглушка, «Синхронизировать»
 - [x] Outbox retry + статусы на карточках (pending / error)
 

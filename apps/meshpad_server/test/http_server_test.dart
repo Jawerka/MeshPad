@@ -76,6 +76,40 @@ void main() {
     expect(restore.statusCode, 200);
   });
 
+  test('PUT attachment uploads file to note', () async {
+    final router = server().buildRouter();
+
+    final create = await router.call(
+      Request(
+        'POST',
+        Uri.parse('http://localhost/api/notes'),
+        body: '{"markdown":"with attachment"}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    expect(create.statusCode, 201);
+    final id = RegExp(r'"id":"([^"]+)"').firstMatch(await create.readAsString())!.group(1)!;
+
+    final payload = [1, 2, 3, 4, 5];
+    final upload = await router.call(
+      Request(
+        'PUT',
+        Uri.parse('http://localhost/api/notes/$id/attachments/photo.bin'),
+        body: payload,
+        headers: {'Content-Type': 'application/octet-stream'},
+      ),
+    );
+    expect(upload.statusCode, 200);
+
+    final note = await repo.getNote(id);
+    expect(note?.attachments.length, 1);
+    expect(note?.attachments.first.name, 'photo.bin');
+    expect(
+      await repo.attachmentMatches(id, note!.attachments.first),
+      isTrue,
+    );
+  });
+
   test('OPTIONS returns CORS headers', () async {
     final response = await corsHeaders()(
       (request) => Response.ok(''),

@@ -104,5 +104,86 @@ Future<String> sha256OfFile(String path) async {
   return sha256.convert(bytes).toString();
 }
 
+/// Returns true when [file] exists and matches [meta] size (and sha256 if set).
+Future<bool> attachmentFileMatches(File file, AttachmentMeta meta) async {
+  if (!await file.exists()) return false;
+  final length = await file.length();
+  if (length != meta.size) return false;
+  if (meta.sha256 == null) return true;
+  return await sha256OfFile(file.path) == meta.sha256;
+}
+
+/// Writes attachment bytes into [attachmentsDir] and returns metadata.
+Future<AttachmentMeta> createAttachmentFromBytes({
+  required String attachmentsDir,
+  required String preferredName,
+  required List<int> bytes,
+  AttachmentCopyProgressCallback? onProgress,
+  int fileIndex = 1,
+  int fileCount = 1,
+}) async {
+  await Directory(attachmentsDir).create(recursive: true);
+
+  final safeName = _uniqueName(attachmentsDir, preferredName);
+  final dest = File(p.join(attachmentsDir, safeName));
+  final totalBytes = bytes.length;
+
+  onProgress?.call(
+    AttachmentCopyProgress(
+      fileName: safeName,
+      copiedBytes: 0,
+      totalBytes: totalBytes,
+      fileIndex: fileIndex,
+      fileCount: fileCount,
+    ),
+  );
+
+  await dest.writeAsBytes(bytes, flush: true);
+
+  onProgress?.call(
+    AttachmentCopyProgress(
+      fileName: safeName,
+      copiedBytes: totalBytes,
+      totalBytes: totalBytes,
+      fileIndex: fileIndex,
+      fileCount: fileCount,
+    ),
+  );
+
+  final hash = await sha256OfFile(dest.path);
+  return AttachmentMeta(
+    name: safeName,
+    size: totalBytes,
+    mime: mimeFromFileName(safeName),
+    sha256: hash,
+  );
+}
+
+Future<AttachmentMeta> writeAttachmentBytes({
+  required String attachmentsDir,
+  required AttachmentMeta meta,
+  required List<int> bytes,
+}) async {
+  if (bytes.length != meta.size) {
+    throw StateError(
+      'Attachment size mismatch for ${meta.name}: expected ${meta.size}, got ${bytes.length}',
+    );
+  }
+
+  await Directory(attachmentsDir).create(recursive: true);
+  final dest = File(p.join(attachmentsDir, meta.name));
+  await dest.writeAsBytes(bytes, flush: true);
+
+  if (meta.sha256 != null) {
+    final hash = await sha256OfFile(dest.path);
+    if (hash != meta.sha256) {
+      await dest.delete();
+      throw StateError('Attachment sha256 mismatch for ${meta.name}');
+    }
+  }
+
+  return meta;
+}
+
 String attachmentReferenceMarkdown(String fileName) =>
     '![$fileName](attachments/${Uri.encodeComponent(fileName)})';

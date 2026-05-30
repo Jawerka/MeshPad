@@ -23,6 +23,7 @@ flowchart TB
   end
   subgraph p2p [packages/meshpad_p2p]
     Transport[Sync Transport API]
+    Lan[LAN HTTP + UDP]
     Native[libp2p Native - later]
     Fake[Fake Transport]
   end
@@ -35,6 +36,7 @@ flowchart TB
   Sync --> FS
   Sync --> DB
   Sync --> Transport
+  Transport --> Lan
   Transport --> Fake
   Transport --> Native
 ```
@@ -74,6 +76,7 @@ Headless-процесс `apps/meshpad_server`:
 | GET | `/api/notes/<id>` | полная заметка + вложения |
 | POST | `/api/notes` | создать заметку (JSON body) |
 | PUT | `/api/notes/<id>` | обновить заметку |
+| PUT | `/api/notes/<id>/attachments/<name>` | загрузить вложение (octet-stream) |
 | DELETE | `/api/notes/<id>` | в корзину |
 | POST | `/api/notes/<id>/restore` | восстановить |
 | GET | `/api/trash` | корзина |
@@ -81,3 +84,15 @@ Headless-процесс `apps/meshpad_server`:
 | GET | `/api/notes/<id>/attachments/<name>` | файл вложения |
 
 Запуск: `.\scripts\run-server.ps1` (порт 8787 по умолчанию).
+
+## LAN sync (interim P2P)
+
+Desktop/Android используют `LanSyncTransport`:
+
+- UDP broadcast `:45837` — discovery пиров в LAN
+- HTTP `/meshpad/p2p/*` — каталог заметок, push/pull, PIN-pairing, вложения (`GET/PUT .../attachments/<name>`)
+- Адрес peer (`lan_host`, `lan_http_port`) сохраняется в `devices/trusted/` для sync без активного UDP
+- Дельта sync: `meta.json` + `note.md` + файлы вложений (проверка sha256/size)
+- Доверенные устройства синхронизируются через «Синхронизировать»
+
+Native libp2p заменит UDP/HTTP-слой позже; интерфейс `SyncTransport` сохраняется.

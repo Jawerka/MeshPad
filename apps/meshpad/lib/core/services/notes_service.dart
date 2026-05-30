@@ -1,6 +1,14 @@
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_api_client/meshpad_api_client.dart';
 
+/// In-memory attachment payload for Web upload (no local file path).
+class NoteAttachmentBytes {
+  const NoteAttachmentBytes({required this.name, required this.bytes});
+
+  final String name;
+  final List<int> bytes;
+}
+
 /// UI-facing notes access — local repository or remote HTTP API (Web).
 abstract class NotesService {
   Future<String?> get localDataDir;
@@ -22,6 +30,7 @@ abstract class NotesService {
     String title = '',
     required String markdown,
     List<String> attachmentPaths = const [],
+    List<NoteAttachmentBytes> attachmentBytes = const [],
     AttachmentCopyProgressCallback? onAttachmentProgress,
   });
 
@@ -31,6 +40,8 @@ abstract class NotesService {
     String noteId,
     String sourcePath, {
     AttachmentCopyProgressCallback? onAttachmentProgress,
+    List<int>? bytes,
+    String? fileName,
   });
 
   Future<void> deleteNote(String id);
@@ -79,6 +90,7 @@ class LocalNotesService implements NotesService {
     String title = '',
     required String markdown,
     List<String> attachmentPaths = const [],
+    List<NoteAttachmentBytes> attachmentBytes = const [],
     AttachmentCopyProgressCallback? onAttachmentProgress,
   }) async {
     await repository.createNote(
@@ -98,6 +110,8 @@ class LocalNotesService implements NotesService {
     String noteId,
     String sourcePath, {
     AttachmentCopyProgressCallback? onAttachmentProgress,
+    List<int>? bytes,
+    String? fileName,
   }) =>
       repository.addAttachment(
         noteId,
@@ -165,14 +179,43 @@ class RemoteNotesService implements NotesService {
     String title = '',
     required String markdown,
     List<String> attachmentPaths = const [],
+    List<NoteAttachmentBytes> attachmentBytes = const [],
     AttachmentCopyProgressCallback? onAttachmentProgress,
   }) async {
     if (attachmentPaths.isNotEmpty) {
       throw const SyncTransportException(
-        'Вложения в Web-клиенте пока не поддерживаются',
+        'Локальные пути вложений недоступны в Web-клиенте',
       );
     }
-    await _client.createNote(title: title, markdown: markdown);
+
+    final note = await _client.createNote(title: title, markdown: markdown);
+    final uploads = attachmentBytes;
+    for (var i = 0; i < uploads.length; i++) {
+      final upload = uploads[i];
+      onAttachmentProgress?.call(
+        AttachmentCopyProgress(
+          fileName: upload.name,
+          copiedBytes: 0,
+          totalBytes: upload.bytes.length,
+          fileIndex: i + 1,
+          fileCount: uploads.length,
+        ),
+      );
+      await _client.uploadAttachment(
+        noteId: note.id,
+        fileName: upload.name,
+        bytes: upload.bytes,
+      );
+      onAttachmentProgress?.call(
+        AttachmentCopyProgress(
+          fileName: upload.name,
+          copiedBytes: upload.bytes.length,
+          totalBytes: upload.bytes.length,
+          fileIndex: i + 1,
+          fileCount: uploads.length,
+        ),
+      );
+    }
     _invalidate();
   }
 
@@ -187,10 +230,34 @@ class RemoteNotesService implements NotesService {
     String noteId,
     String sourcePath, {
     AttachmentCopyProgressCallback? onAttachmentProgress,
-  }) {
-    throw const SyncTransportException(
-      'Вложения в Web-клиенте пока не поддерживаются',
+    List<int>? bytes,
+    String? fileName,
+  }) async {
+    if (bytes == null || fileName == null) {
+      throw const SyncTransportException(
+        'Добавление вложений по пути недоступно в Web-клиенте',
+      );
+    }
+    onAttachmentProgress?.call(
+      AttachmentCopyProgress(
+        fileName: fileName,
+        copiedBytes: 0,
+        totalBytes: bytes.length,
+      ),
     );
+    await _client.uploadAttachment(
+      noteId: noteId,
+      fileName: fileName,
+      bytes: bytes,
+    );
+    onAttachmentProgress?.call(
+      AttachmentCopyProgress(
+        fileName: fileName,
+        copiedBytes: bytes.length,
+        totalBytes: bytes.length,
+      ),
+    );
+    _invalidate();
   }
 
   @override

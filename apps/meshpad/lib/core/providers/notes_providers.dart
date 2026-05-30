@@ -168,6 +168,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     String title = '',
     required String markdown,
     List<String> attachmentPaths = const [],
+    List<NoteAttachmentBytes> attachmentBytes = const [],
     AttachmentCopyProgressCallback? onAttachmentProgress,
   }) async {
     final service = await ref.read(notesServiceProvider.future);
@@ -175,6 +176,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
       title: title,
       markdown: markdown,
       attachmentPaths: attachmentPaths,
+      attachmentBytes: attachmentBytes,
       onAttachmentProgress: onAttachmentProgress,
     );
     await reload();

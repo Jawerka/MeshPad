@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
@@ -36,8 +38,17 @@ final syncEngineProvider = FutureProvider<SyncEngine>((ref) async {
   final identity = await ref.watch(localIdentityProvider.future);
   return SyncEngine(notes: repo, identity: identity);
 });
-final syncTransportProvider = Provider<FakeSyncTransport>((ref) {
-  final transport = FakeSyncTransport();
+final syncTransportProvider = Provider<SyncTransport>((ref) {
+  if (ref.watch(isWebClientProvider)) {
+    final transport = FakeSyncTransport();
+    ref.onDispose(transport.dispose);
+    return transport;
+  }
+
+  final transport = LanSyncTransport(
+    getEngine: () => ref.read(syncEngineProvider.future),
+    getIdentity: () => ref.read(localIdentityProvider.future),
+  );
   ref.onDispose(transport.dispose);
   return transport;
 });
@@ -98,12 +109,42 @@ class SyncController {
 
       var total = 0;
       for (final peer in trusted) {
-        final eventFuture = transport.events.first;
+        if (transport is LanSyncTransport) {
+          rememberPeerEndpoint(transport, peer);
+        }
+
+        final completer = Completer<SyncTransportEvent>();
+        late final StreamSubscription<SyncTransportEvent> sub;
+        sub = transport.events.listen((event) {
+          if (event is SyncCompleted || event is SyncFailed) {
+            if (!completer.isCompleted) completer.complete(event);
+          }
+        });
+
         await transport.requestSync(peerId: peer.peerId);
-        final event = await eventFuture;
+        final event = await completer.future.timeout(
+          const Duration(seconds: 120),
+          onTimeout: () => SyncFailed(message: 'Таймаут синхронизации'),
+        );
+        await sub.cancel();
+
+        if (event is SyncFailed) {
+          throw SyncTransportException(event.message);
+        }
         if (event is SyncCompleted) total += event.noteCount;
+
         final store = await _ref.read(deviceStoreProvider.future);
         await store.markPeerSeen(peer.peerId);
+        if (transport is LanSyncTransport) {
+          final endpoint = transport.endpointFor(peer.peerId);
+          if (endpoint != null) {
+            await store.updateLanEndpoint(
+              peerId: peer.peerId,
+              lanHost: endpoint.host,
+              lanHttpPort: endpoint.httpPort,
+            );
+          }
+        }
       }
 
       _invalidateSyncState();
@@ -128,5 +169,21 @@ class SyncController {
     _ref.invalidate(outboxFailedCountProvider);
     _ref.invalidate(notesListProvider);
     _ref.invalidate(trustedDevicesProvider);
+  }
+}
+
+void rememberPeerEndpoint(LanSyncTransport transport, Device peer) {
+  final live = transport.endpointFor(peer.peerId);
+  if (live != null) return;
+
+  if (peer.hasLanEndpoint) {
+    transport.rememberEndpoint(
+      LanPeerEndpoint(
+        peerId: peer.peerId,
+        displayName: peer.name,
+        host: peer.lanHost!,
+        httpPort: peer.lanHttpPort!,
+      ),
+    );
   }
 }

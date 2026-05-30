@@ -21,4 +21,5 @@ class SyncEvent {
   static const entityNote = 'note';
   static const opUpsert = 'upsert';
   static const opDelete = 'delete';
+  static const opPurge = 'purge';
 }

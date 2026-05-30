@@ -267,25 +267,27 @@ MeshPad/
 - [x] FVM / версия Flutter, analyze_options, melos
 - [x] Первый `flutter test` (smoke)
 
-### Спринт 1 — Данные (в работе)
+### Спринт 1 — Данные
 
 - [x] Модели Note, Attachment, Device, SyncEvent
 - [x] FS repository: read/write note folder
 - [x] Drift schema + миграция v1
 - [x] Unit-тесты round-trip FS ↔ DB
 
-### Спринт 2 — UI каркас (в работе)
+### Спринт 2 — UI каркас
 
 - [x] Theme из ref
 - [x] Лента + карточка + composer
 - [x] Создание и редактирование
 - [x] Корзина UI
 
-### Спринт 3 — Локальная логика
+### Спринт 3 — Локальная логика (в работе)
 
-- CRUD, вложения, thumbnails
-- Поиск FTS
-- Outbox (локальный, без сети)
+- [x] Вложения (FS + индекс)
+- [x] Превью изображений и лайтбокс
+- [x] Поиск FTS по телу note.md
+- [x] Outbox (локальный) + индикатор в UI
+- [x] Автоочистка корзины (7 дней)
 
 ### Спринт 4 — Sync
 

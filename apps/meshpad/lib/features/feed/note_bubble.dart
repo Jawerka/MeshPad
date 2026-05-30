@@ -5,6 +5,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../core/providers/notes_providers.dart';
 import '../../core/theme/meshpad_colors.dart';
+import 'attachment_grid.dart';
 import 'feed_screen.dart';
 
 class NoteBubble extends ConsumerStatefulWidget {
@@ -12,10 +13,12 @@ class NoteBubble extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.isTrash = false,
+    this.pendingSync = false,
   });
 
   final Note note;
   final bool isTrash;
+  final bool pendingSync;
 
   @override
   ConsumerState<NoteBubble> createState() => _NoteBubbleState();
@@ -62,6 +65,7 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
   @override
   Widget build(BuildContext context) {
     final note = widget.note;
+    final dataDirAsync = ref.watch(dataDirProvider);
 
     return Card(
       child: Padding(
@@ -141,6 +145,11 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                 ),
               ],
             ),
+            dataDirAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (dataDir) => AttachmentGrid(note: note, dataDir: dataDir),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -152,6 +161,19 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                   formatNoteDate(note.updatedAt),
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
+                if (widget.pendingSync) ...[
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.cloud_upload_outlined,
+                    size: 14,
+                    color: MeshPadColors.textMuted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'в очереди',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
               ],
             ),
             if (_editing) ...[

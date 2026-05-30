@@ -86,7 +86,7 @@ flutter run -d windows
 
 Другие платформы: `.\scripts\run.ps1 -Device chrome` или `-Device android` (эмулятор: `.\scripts\launch-emulator.ps1`).
 
-Позиция и размер окна (Windows) сохраняются в `%LOCALAPPDATA%\MeshPad\window_state.ini` в **логических координатах 96 DPI** с учётом масштаба монитора из системы. При смене масштаба Windows окно пересчитывается корректно.
+Позиция и размер окна (Windows) сохраняются в `%LOCALAPPDATA%\MeshPad\window_state.ini` как физические пиксели `WINDOWPLACEMENT` (v3).
 
 ### Windows: «symlink support» / Developer Mode
 

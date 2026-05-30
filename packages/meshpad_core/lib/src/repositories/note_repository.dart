@@ -5,7 +5,9 @@ import '../database/database.dart';
 import '../models/note.dart';
 import '../models/note_folder.dart';
 import '../models/note_meta.dart';
+import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
+import '../storage/attachment_storage.dart';
 import '../storage/meshpad_paths.dart';
 import '../storage/note_folder_repository.dart';
 
@@ -28,10 +30,13 @@ class NoteRepository {
   final Uuid _uuid;
   final String defaultAuthor;
 
+  MeshPadPaths get paths => _paths;
+
   Future<Note> createNote({
     String title = '',
     String markdown = '',
     String? author,
+    List<String> attachmentPaths = const [],
   }) async {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
@@ -49,7 +54,28 @@ class NoteRepository {
       markdown: markdown,
     );
     await _fs.write(folder);
-    final note = Note.fromMeta(meta: meta, markdown: markdown);
+    var attachments = <AttachmentMeta>[];
+    for (final path in attachmentPaths) {
+      attachments.add(
+        await copyAttachmentIntoNote(
+          attachmentsDir: _paths.attachmentsDir(id),
+          sourcePath: path,
+        ),
+      );
+    }
+    final note = Note.fromMeta(meta: meta, markdown: markdown).copyWith(
+      attachments: attachments,
+      updatedAt: attachments.isEmpty ? now : DateTime.now().toUtc(),
+    );
+    if (attachments.isNotEmpty) {
+      await _fs.write(
+        NoteFolder(
+          path: _paths.noteDir(id),
+          meta: note.toMeta(),
+          markdown: markdown,
+        ),
+      );
+    }
     await _indexNote(note);
     await _enqueue(SyncEvent.opUpsert, id);
     return note;
@@ -76,12 +102,73 @@ class NoteRepository {
         query.orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
     }
     final rows = await query.get();
-    return rows.map(_noteFromRow).toList();
+    return _notesFromRows(rows);
   }
 
   Future<List<Note>> listTrash() async {
     final rows = await _db.watchTrashNotes();
-    return rows.map(_noteFromRow).toList();
+    return _notesFromRows(rows);
+  }
+
+  Future<List<NoteSearchHit>> searchNotes(String query, {int limit = 50}) async {
+    final hits = await _db.searchFts(query, limit: limit);
+    if (hits.isEmpty) return [];
+
+    final ids = hits.map((h) => h.noteId).toList();
+    final rows = await (_db.select(_db.notes)..where((t) => t.id.isIn(ids))).get();
+    final notesById = {for (final n in await _notesFromRows(rows)) n.id: n};
+
+    return [
+      for (final hit in hits)
+        if (notesById.containsKey(hit.noteId))
+          NoteSearchHit(note: notesById[hit.noteId]!, snippet: hit.snippet),
+    ];
+  }
+
+  Future<Note> addAttachment(String id, String sourceFilePath) async {
+    final existing = await getNote(id);
+    if (existing == null) {
+      throw StateError('Note not found: $id');
+    }
+    if (existing.deleted) {
+      throw StateError('Cannot attach to deleted note: $id');
+    }
+
+    final attachment = await copyAttachmentIntoNote(
+      attachmentsDir: _paths.attachmentsDir(id),
+      sourcePath: sourceFilePath,
+    );
+
+    final updated = existing.copyWith(
+      attachments: [...existing.attachments, attachment],
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist(updated);
+    return updated;
+  }
+
+  String attachmentPath(String noteId, String fileName) =>
+      _paths.attachmentFile(noteId, fileName);
+
+  Future<int> pendingOutboxCount() => _db.pendingOutboxCount();
+
+  Future<Set<String>> pendingOutboxNoteIds() => _db.pendingOutboxNoteIds();
+
+  Future<List<SyncEvent>> listOutbox() async {
+    final rows = await _db.listOutboxEntries();
+    return rows
+        .map(
+          (row) => SyncEvent(
+            id: row.id,
+            entityType: row.entityType,
+            entityId: row.entityId,
+            operation: row.operation,
+            payload: row.payload,
+            createdAt: row.createdAt,
+            retryCount: row.retryCount,
+          ),
+        )
+        .toList();
   }
 
   Future<Note> updateNote(
@@ -130,8 +217,24 @@ class NoteRepository {
     await _enqueue(SyncEvent.opUpsert, id);
   }
 
+  /// Permanently removes notes in trash older than [ttl].
+  Future<int> purgeExpiredTrash({Duration ttl = const Duration(days: 7)}) async {
+    final cutoff = DateTime.now().toUtc().subtract(ttl);
+    final trash = await listTrash();
+    var purged = 0;
+    for (final note in trash) {
+      final deletedAt = note.deletedAt;
+      if (deletedAt != null && deletedAt.isBefore(cutoff)) {
+        await _purgeNote(note.id);
+        purged++;
+      }
+    }
+    return purged;
+  }
+
   /// Rebuild Drift index from file system (FS wins).
   Future<int> reconcileFromFilesystem() async {
+    await purgeExpiredTrash();
     final ids = await _fs.listNoteIds(includeDeleted: true);
     var count = 0;
     for (final id in ids) {
@@ -142,6 +245,12 @@ class NoteRepository {
       count++;
     }
     return count;
+  }
+
+  Future<void> _purgeNote(String id) async {
+    await _fs.deleteNoteFolder(id);
+    await _db.deleteNoteRow(id);
+    await _enqueue(SyncEvent.opPurge, id);
   }
 
   Future<void> _persist(Note note) async {
@@ -191,7 +300,21 @@ class NoteRepository {
     );
   }
 
-  Note _noteFromRow(NoteRow row) => Note(
+  Future<List<Note>> _notesFromRows(List<NoteRow> rows) async {
+    if (rows.isEmpty) return [];
+    final ids = rows.map((r) => r.id).toList();
+    final attachmentsMap = await _db.attachmentsByNoteIds(ids);
+    return rows
+        .map(
+          (row) => _noteFromRow(
+            row,
+            attachmentsMap[row.id] ?? const [],
+          ),
+        )
+        .toList();
+  }
+
+  Note _noteFromRow(NoteRow row, List<AttachmentMeta> attachments) => Note(
         id: row.id,
         title: row.title,
         markdown: row.markdown,
@@ -200,6 +323,7 @@ class NoteRepository {
         author: row.author,
         deleted: row.deleted,
         deletedAt: row.deletedAt,
+        attachments: attachments,
       );
 }
 

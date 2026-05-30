@@ -11,3 +11,4 @@
 - Git repository, Android AVD `MeshPad_API36`, `scripts/launch-emulator.ps1`.
 - **Sprint 1:** Drift DB, `NoteRepository` (FS + index), models Device/SyncEvent.
 - **Sprint 2:** Chat UI — sidebar, feed, composer, inline edit, trash, Markdown preview.
+- **Sprint 3:** Attachments, image preview/lightbox, FTS search, sync outbox indicator, trash TTL purge.

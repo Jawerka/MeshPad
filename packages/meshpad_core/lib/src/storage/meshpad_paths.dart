@@ -11,4 +11,11 @@ class MeshPadPaths {
   String get syncRoot => p.join(root, 'sync');
 
   String noteDir(String id) => p.join(notesRoot, id);
+
+  String attachmentsDir(String noteId) => p.join(noteDir(noteId), 'attachments');
+
+  String attachmentFile(String noteId, String fileName) =>
+      p.join(attachmentsDir(noteId), fileName);
+
+  String thumbsDir(String noteId) => p.join(noteDir(noteId), '.thumbs');
 }

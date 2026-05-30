@@ -43,6 +43,13 @@ class NoteFolderRepository {
     await mdFile.writeAsString(folder.markdown);
   }
 
+  Future<void> deleteNoteFolder(String id) async {
+    final dir = Directory(notePath(id));
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
   Future<List<String>> listNoteIds({bool includeDeleted = false}) async {
     final root = Directory(notesRoot);
     if (!await root.exists()) return [];

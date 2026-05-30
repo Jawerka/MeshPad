@@ -7,7 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../core/providers/notes_providers.dart';
+import '../../core/providers/sync_providers.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../devices/devices_sheet.dart';
+import '../settings/settings_sheet.dart';
 import 'note_bubble.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -24,13 +27,13 @@ class FeedScreen extends ConsumerWidget {
     }
 
     final notesAsync = ref.watch(notesListProvider);
-    final pendingSyncAsync = ref.watch(pendingSyncNoteIdsProvider);
+    final syncStatusesAsync = ref.watch(noteSyncStatusesProvider);
 
     return notesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Ошибка: $e')),
       data: (notes) {
-        final pendingIds = pendingSyncAsync.valueOrNull ?? const {};
+        final syncMap = syncStatusesAsync.valueOrNull ?? const {};
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -53,7 +56,8 @@ class FeedScreen extends ConsumerWidget {
                               child: NoteBubble(
                                 note: note,
                                 isTrash: mode == FeedMode.trash,
-                                pendingSync: pendingIds.contains(note.id),
+                                syncStatus: syncMap[note.id] ??
+                                    NoteSyncStatus.synced,
                               ),
                             ),
                           ),
@@ -245,12 +249,20 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                     ),
                   ),
                 IconButton(
-                  icon: Icon(
-                    Icons.search,
-                    color: _searchOpen ? MeshPadColors.primary : null,
-                  ),
+                  icon: const Icon(Icons.search),
+                  color: _searchOpen ? MeshPadColors.primary : null,
                   tooltip: 'Поиск',
                   onPressed: _toggleSearch,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.devices),
+                  tooltip: 'Устройства',
+                  onPressed: () => DevicesSheet.show(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  tooltip: 'Настройки',
+                  onPressed: () => SettingsSheet.show(context),
                 ),
               ],
               if (!isTrash || widget.count > 0)

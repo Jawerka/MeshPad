@@ -2,14 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/notes_providers.dart';
+import '../../core/providers/sync_providers.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../platform/desktop_shell.dart';
 import '../feed/feed_screen.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  @override
+  void initState() {
+    super.initState();
+    if (DesktopShell.isSupported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        DesktopShell.instance.onSync =
+            () => ref.read(syncControllerProvider).runSync();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mode = ref.watch(feedModeProvider);
     final topPadding = MediaQuery.paddingOf(context).top;
 

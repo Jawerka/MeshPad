@@ -88,6 +88,8 @@ flutter run -d windows
 
 Позиция и размер окна (Windows) сохраняются в `%LOCALAPPDATA%\MeshPad\window_state.ini` как физические пиксели `WINDOWPLACEMENT` (v3).
 
+На Windows/Linux при закрытии окна приложение сворачивается в **системный трей** (иконка в области уведомлений). Меню: «Открыть», «Синхронизировать», «Выход».
+
 ### Windows: «symlink support» / Developer Mode
 
 Flutter с плагинами (`path_provider`, `sqlite3`) на Windows нужны **симлинки**. Включите **режим разработчика**:

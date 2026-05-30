@@ -10,6 +10,10 @@ class MeshPadPaths {
   String get devicesRoot => p.join(root, 'devices');
   String get syncRoot => p.join(root, 'sync');
 
+  String get localIdentityFile => p.join(devicesRoot, 'local_identity.json');
+
+  String trustedDeviceFile(String peerId) => p.join(devicesRoot, 'trusted', '$peerId.json');
+
   String noteDir(String id) => p.join(notesRoot, id);
 
   String attachmentsDir(String noteId) => p.join(noteDir(noteId), 'attachments');

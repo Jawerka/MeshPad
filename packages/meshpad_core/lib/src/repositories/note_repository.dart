@@ -5,11 +5,14 @@ import '../database/database.dart';
 import '../models/note.dart';
 import '../models/note_folder.dart';
 import '../models/note_meta.dart';
+import '../models/note_head.dart';
 import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
 import '../storage/attachment_storage.dart';
 import '../storage/meshpad_paths.dart';
 import '../storage/note_folder_repository.dart';
+import '../sync/lww_merge.dart';
+import '../sync/remote_note_snapshot.dart';
 
 /// Coordinates file-system storage (source of truth) and Drift index.
 class NoteRepository {
@@ -79,6 +82,23 @@ class NoteRepository {
     await _indexNote(note);
     await _enqueue(SyncEvent.opUpsert, id);
     return note;
+  }
+
+  Future<List<NoteHead>> catalogHeads() async {
+    final ids = await _fs.listNoteIds(includeDeleted: true);
+    final heads = <NoteHead>[];
+    for (final id in ids) {
+      final folder = await _fs.read(id);
+      if (folder == null) continue;
+      heads.add(
+        NoteHead(
+          id: id,
+          updatedAt: folder.meta.updatedAt,
+          deleted: folder.meta.deleted,
+        ),
+      );
+    }
+    return heads;
   }
 
   Future<Note?> getNote(String id) async {
@@ -169,6 +189,42 @@ class NoteRepository {
           ),
         )
         .toList();
+  }
+
+  Future<void> removeOutboxEntry(int id) => _db.removeOutboxEntry(id);
+
+  Future<void> incrementOutboxRetry(int id) => _db.incrementOutboxRetry(id);
+
+  Future<NoteApplyResult> applyRemoteMerge(
+    NoteMeta remoteMeta,
+    String remoteMarkdown,
+  ) async {
+    final local = await getNote(remoteMeta.id);
+    final localMeta = local?.toMeta();
+    final merged = mergeNoteMeta(localMeta, remoteMeta);
+    if (merged == null) return NoteApplyResult.unchanged;
+
+    final remoteWins = local == null ||
+        remoteMeta.updatedAt.isAfter(local.updatedAt) ||
+        (remoteMeta.updatedAt == local.updatedAt && merged == remoteMeta);
+
+    if (local != null && !remoteWins) {
+      return NoteApplyResult.skippedLocalNewer;
+    }
+
+    final markdown = remoteMarkdown;
+    final unchanged = local != null &&
+        local.deleted == merged.deleted &&
+        local.title == merged.title &&
+        local.markdown == markdown &&
+        local.updatedAt == merged.updatedAt;
+    if (unchanged) return NoteApplyResult.unchanged;
+
+    final note = Note.fromMeta(meta: merged, markdown: markdown).copyWith(
+      attachments: local?.attachments ?? const [],
+    );
+    await _persist(note);
+    return NoteApplyResult.applied;
   }
 
   Future<Note> updateNote(

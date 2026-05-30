@@ -99,11 +99,22 @@ class _LightboxDialogState extends State<_LightboxDialog> {
                 itemCount: widget.imagePaths.length,
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (context, index) {
-                  return InteractiveViewer(
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(context).pop(),
                     child: Center(
-                      child: Image.file(
-                        File(widget.imagePaths[index]),
+                      child: FittedBox(
                         fit: BoxFit.contain,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {},
+                          child: InteractiveViewer(
+                            child: Image.file(
+                              File(widget.imagePaths[index]),
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   );

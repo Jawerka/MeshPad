@@ -1,13 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+
+import '../storage/app_settings_store.dart';
 
 const _defaultAuthor = 'Это устройство';
 
+final appSettingsStoreProvider = Provider<AppSettingsStore>((ref) {
+  return AppSettingsStore();
+});
+
 final dataDirProvider = FutureProvider<String>((ref) async {
-  final dir = await getApplicationSupportDirectory();
-  return p.join(dir.path, 'meshpad');
+  final store = ref.watch(appSettingsStoreProvider);
+  return store.loadDataDir();
+});
+
+final customDataDirProvider = FutureProvider<bool>((ref) async {
+  final store = ref.watch(appSettingsStoreProvider);
+  return store.isUsingCustomDataDir();
 });
 
 final noteRepositoryProvider = FutureProvider<NoteRepository>((ref) async {

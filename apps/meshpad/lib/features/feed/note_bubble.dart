@@ -13,12 +13,12 @@ class NoteBubble extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.isTrash = false,
-    this.pendingSync = false,
+    this.syncStatus = NoteSyncStatus.synced,
   });
 
   final Note note;
   final bool isTrash;
-  final bool pendingSync;
+  final NoteSyncStatus syncStatus;
 
   @override
   ConsumerState<NoteBubble> createState() => _NoteBubbleState();
@@ -161,17 +161,31 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                   formatNoteDate(note.updatedAt),
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
-                if (widget.pendingSync) ...[
+                if (widget.syncStatus != NoteSyncStatus.synced) ...[
                   const SizedBox(width: 8),
-                  const Icon(
-                    Icons.cloud_upload_outlined,
+                  Icon(
+                    switch (widget.syncStatus) {
+                      NoteSyncStatus.pending => Icons.cloud_upload_outlined,
+                      NoteSyncStatus.error => Icons.cloud_off_outlined,
+                      NoteSyncStatus.synced => Icons.check,
+                    },
                     size: 14,
-                    color: MeshPadColors.textMuted,
+                    color: widget.syncStatus == NoteSyncStatus.error
+                        ? MeshPadColors.danger
+                        : MeshPadColors.textMuted,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'в очереди',
-                    style: Theme.of(context).textTheme.labelSmall,
+                    switch (widget.syncStatus) {
+                      NoteSyncStatus.pending => 'в очереди',
+                      NoteSyncStatus.error => 'ошибка sync',
+                      NoteSyncStatus.synced => '',
+                    },
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: widget.syncStatus == NoteSyncStatus.error
+                              ? MeshPadColors.danger
+                              : null,
+                        ),
                   ),
                 ],
               ],

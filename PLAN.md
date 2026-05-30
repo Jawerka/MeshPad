@@ -281,7 +281,7 @@ MeshPad/
 - [x] Создание и редактирование
 - [x] Корзина UI
 
-### Спринт 3 — Локальная логика (в работе)
+### Спринт 3 — Локальная логика
 
 - [x] Вложения (FS + индекс)
 - [x] Превью изображений и лайтбокс
@@ -289,18 +289,21 @@ MeshPad/
 - [x] Outbox (локальный) + индикатор в UI
 - [x] Автоочистка корзины (7 дней)
 
-### Спринт 4 — Sync
+### Спринт 4 — Sync (в работе)
 
-- Device identity
-- FakeSyncTransport + тесты merge/LWW/tombstone
-- libp2p MVP (LAN + PIN)
-- Очередь, retry, статусы на UI
+- [x] Device identity (`local_identity.json`, trusted/)
+- [x] SyncEngine + LWW/tombstone + outbox ack
+- [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
+- [ ] libp2p MVP (LAN + PIN)
+- [x] UI: устройства, PIN-заглушка, «Синхронизировать»
+- [x] Outbox retry + статусы на карточках (pending / error)
 
-### Спринт 5 — Платформы
+### Спринт 5 — Платформы (в работе)
 
-- Android share + WorkManager
-- Windows/Linux tray
-- Linux headless + Web client
+- [ ] Android share + WorkManager
+- [x] Windows/Linux tray (свернуть в трей, меню)
+- [ ] Linux headless + Web client
+- [x] Настройки: путь данных, о приложении
 
 ### Спринт 6 — Полировка
 

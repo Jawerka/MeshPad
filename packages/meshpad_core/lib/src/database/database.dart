@@ -258,6 +258,19 @@ class MeshPadDatabase extends _$MeshPadDatabase {
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
   }
+
+  Future<void> removeOutboxEntry(int id) async {
+    await (delete(syncOutbox)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> incrementOutboxRetry(int id) async {
+    final row = await (select(syncOutbox)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    if (row == null) return;
+    await (update(syncOutbox)..where((t) => t.id.equals(id))).write(
+      SyncOutboxCompanion(retryCount: Value(row.retryCount + 1)),
+    );
+  }
 }
 
 String escapeFtsQuery(String raw) {

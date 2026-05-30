@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/theme/meshpad_theme.dart';
 import 'features/shell/app_shell.dart';
+import 'platform/desktop_shell.dart';
 
 class MeshPadApp extends ConsumerWidget {
   const MeshPadApp({super.key});
@@ -29,5 +30,6 @@ class MeshPadApp extends ConsumerWidget {
 
 Future<void> bootstrapMeshPadApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initDesktopShell();
   await initializeDateFormatting('ru');
 }

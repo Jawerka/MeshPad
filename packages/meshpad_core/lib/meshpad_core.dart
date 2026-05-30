@@ -1,4 +1,10 @@
-export 'src/models/note_meta.dart';
+export 'src/database/database.dart';
+export 'src/models/device.dart';
+export 'src/models/note.dart';
 export 'src/models/note_folder.dart';
+export 'src/models/note_meta.dart';
+export 'src/models/sync_event.dart';
+export 'src/repositories/note_repository.dart';
+export 'src/storage/meshpad_paths.dart';
 export 'src/storage/note_folder_repository.dart';
 export 'src/sync/lww_merge.dart';

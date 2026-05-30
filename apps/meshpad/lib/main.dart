@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+Future<void> main() async {
+  await bootstrapMeshPadApp();
   runApp(const ProviderScope(child: MeshPadApp()));
 }

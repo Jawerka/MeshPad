@@ -68,6 +68,58 @@ flutter run
 
 Другой AVD: Android Studio → Device Manager → Create Virtual Device.
 
+## Запуск приложения
+
+Приложение Flutter — в **`apps/meshpad`**, не в корне репозитория.
+
+```powershell
+cd D:\Documents\Projects\MeshPad
+.\scripts\run.ps1
+```
+
+Или вручную:
+
+```powershell
+cd D:\Documents\Projects\MeshPad\apps\meshpad
+flutter run -d windows
+```
+
+Другие платформы: `.\scripts\run.ps1 -Device chrome` или `-Device android` (эмулятор: `.\scripts\launch-emulator.ps1`).
+
+Позиция и размер окна (Windows) сохраняются в `%LOCALAPPDATA%\MeshPad\window_state.ini` в **логических координатах 96 DPI** с учётом масштаба монитора из системы. При смене масштаба Windows окно пересчитывается корректно.
+
+### Windows: «symlink support» / Developer Mode
+
+Flutter с плагинами (`path_provider`, `sqlite3`) на Windows нужны **симлинки**. Включите **режим разработчика**:
+
+1. `Win + I` → **Конфиденциальность и безопасность** → **Для разработчиков** → **Режим разработчика** — **Вкл.**
+2. Или в PowerShell: `start ms-settings:developers`
+3. Перезапустите терминал и снова: `.\scripts\run.ps1`
+
+На LTSC/корпоративных образах пункт может быть заблокирован политикой — тогда запускайте Web: `.\scripts\run.ps1 -Device chrome`.
+
+## Тестовый прогон
+
+Локальный аналог CI (codegen → analyze → unit + widget tests):
+
+```powershell
+.\scripts\test-run.ps1
+```
+
+Опции:
+
+```powershell
+.\scripts\test-run.ps1 -SkipBootstrap      # быстрее, если deps уже на месте
+.\scripts\test-run.ps1 -WithFormat         # + проверка dart format
+.\scripts\test-run.ps1 -WithBuild          # + сборка Windows debug
+```
+
+Только analyze + тесты без codegen/bootstrap:
+
+```powershell
+dart run melos run check
+```
+
 ## Команды (после bootstrap)
 
 ```powershell

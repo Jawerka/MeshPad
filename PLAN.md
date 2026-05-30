@@ -260,26 +260,26 @@ MeshPad/
 
 Зависимости: `1 → 2 → 3 → 4 → 5`; Web-сервер может идти параллельно с `5` после стабильного `meshpad_core`.
 
-### Спринт 0 — Инфраструктура (текущий)
+### Спринт 0 — Инфраструктура
 
 - [x] PLAN.md, docs, scripts, CI skeleton
-- [ ] Monorepo: `apps/meshpad`, `packages/meshpad_core`
-- [ ] FVM / версия Flutter, analyze_options, melos
-- [ ] Первый `flutter test` (smoke)
+- [x] Monorepo: `apps/meshpad`, `packages/meshpad_core`
+- [x] FVM / версия Flutter, analyze_options, melos
+- [x] Первый `flutter test` (smoke)
 
-### Спринт 1 — Данные
+### Спринт 1 — Данные (в работе)
 
-- Модели Note, Attachment, Device, SyncEvent
-- FS repository: read/write note folder
-- Drift schema + миграция v1
-- Unit-тесты round-trip FS ↔ DB
+- [x] Модели Note, Attachment, Device, SyncEvent
+- [x] FS repository: read/write note folder
+- [x] Drift schema + миграция v1
+- [x] Unit-тесты round-trip FS ↔ DB
 
-### Спринт 2 — UI каркас
+### Спринт 2 — UI каркас (в работе)
 
-- Theme из ref
-- Лента + карточка + composer
-- Создание/редактирование заметки
-- Корзина UI
+- [x] Theme из ref
+- [x] Лента + карточка + composer
+- [x] Создание и редактирование
+- [x] Корзина UI
 
 ### Спринт 3 — Локальная логика
 

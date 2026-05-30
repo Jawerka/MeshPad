@@ -33,3 +33,7 @@ melos:
     flutter:test:
       run: melos exec --scope="meshpad" -- flutter test
       description: Flutter widget/integration tests in the app.
+
+    check:
+      run: melos run analyze && melos run test && melos run flutter:test
+      description: Local CI — analyze + all tests.

@@ -26,6 +26,9 @@ jobs:
       - name: Bootstrap
         run: melos bootstrap
 
+      - name: Codegen
+        run: cd packages/meshpad_core && dart run build_runner build
+
       - name: Analyze
         run: melos run analyze
 

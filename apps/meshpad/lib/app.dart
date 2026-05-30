@@ -1,43 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-/// Root shell — Sprint 2 will replace with chat feed from ref/.
-class MeshPadApp extends StatelessWidget {
+import 'core/theme/meshpad_theme.dart';
+import 'features/shell/app_shell.dart';
+
+class MeshPadApp extends ConsumerWidget {
   const MeshPadApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'MeshPad',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.dark(
-          surface: const Color(0xFF0f1419),
-          primary: const Color(0xFF6b9fff),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0f1419),
-        useMaterial3: true,
-      ),
+      theme: MeshPadTheme.dark(),
       locale: const Locale('ru'),
-      home: const _PlaceholderHome(),
+      supportedLocales: const [Locale('ru')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const AppShell(),
     );
   }
 }
 
-class _PlaceholderHome extends StatelessWidget {
-  const _PlaceholderHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('MeshPad')),
-      body: const Center(
-        child: Text(
-          'Лента заметок — в разработке (Спринт 2).\n'
-          'См. ref/ и PLAN.md.',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
+Future<void> bootstrapMeshPadApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ru');
 }

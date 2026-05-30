@@ -4,8 +4,9 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project,
+                             const meshpad::WindowState& window_state)
+    : project_(project), window_state_(window_state) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -13,6 +14,9 @@ bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
   }
+
+  // Exact placement via SetWindowPlacement (avoids drift from CreateWindow scaling).
+  meshpad::ApplyWindowState(GetHandle(), window_state_);
 
   RECT frame = GetClientArea();
 

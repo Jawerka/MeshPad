@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meshpad/core/storage/app_settings.dart';
 import 'package:meshpad/core/storage/app_settings_store.dart';
 import 'package:path/path.dart' as p;
 
@@ -22,8 +23,11 @@ void main() {
     }
   });
 
-  test('loadDataDir returns default when settings missing', () async {
-    expect(await store.loadDataDir(), p.join(tempDir.path, 'default_meshpad'));
+  test('loadSettings returns defaults when file missing', () async {
+    final settings = await store.loadSettings();
+    expect(settings.dataDir, p.join(tempDir.path, 'default_meshpad'));
+    expect(settings.autoSyncEnabled, isTrue);
+    expect(settings.autoSyncIntervalMinutes, 15);
   });
 
   test('saveDataDir persists custom path', () async {
@@ -34,11 +38,31 @@ void main() {
     expect(await store.isUsingCustomDataDir(), isTrue);
   });
 
-  test('clearCustomDataDir restores default', () async {
+  test('saveSettings persists auto sync options', () async {
+    await store.saveSettings(
+      AppSettings(
+        dataDir: await store.defaultDataDir(),
+        autoSyncEnabled: false,
+        autoSyncIntervalMinutes: 30,
+      ),
+    );
+
+    final loaded = await store.loadSettings();
+    expect(loaded.autoSyncEnabled, isFalse);
+    expect(loaded.autoSyncIntervalMinutes, 30);
+  });
+
+  test('clearCustomDataDir restores default path', () async {
     await store.saveDataDir(p.join(tempDir.path, 'custom_notes'));
     await store.clearCustomDataDir();
 
     expect(await store.isUsingCustomDataDir(), isFalse);
     expect(await store.loadDataDir(), p.join(tempDir.path, 'default_meshpad'));
+  });
+
+  test('AppSettings clamps sync interval', () {
+    expect(AppSettings.clampInterval(1), 5);
+    expect(AppSettings.clampInterval(200), 120);
+    expect(AppSettings.clampInterval(15), 15);
   });
 }

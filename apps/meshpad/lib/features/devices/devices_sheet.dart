@@ -3,7 +3,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+
+import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/theme/device_icons.dart';
 import '../../core/theme/meshpad_colors.dart';
 
 class DevicesSheet extends ConsumerWidget {
@@ -25,6 +29,11 @@ class DevicesSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final identityAsync = ref.watch(localIdentityProvider);
     final trustedAsync = ref.watch(trustedDevicesProvider);
+    final discovered = ref.watch(discoveredPeersProvider);
+    final trustedIds = trustedAsync.valueOrNull?.map((d) => d.peerId).toSet() ?? {};
+    final visibleDiscovered = discovered
+        .where((peer) => !trustedIds.contains(peer.peerId))
+        .toList();
 
     return DraggableScrollableSheet(
       expand: false,
@@ -61,7 +70,8 @@ class DevicesSheet extends ConsumerWidget {
                         title: 'Это устройство',
                         name: identity.displayName,
                         peerId: identity.peerId,
-                        icon: _iconFor(identity.icon),
+                        icon: peerIconFor(identity.icon),
+                        accent: peerAccentColor(identity.peerId),
                         trailing: IconButton(
                           icon: const Icon(Icons.sync),
                           tooltip: 'Синхронизировать',
@@ -95,7 +105,8 @@ class DevicesSheet extends ConsumerWidget {
                                 title: device.name,
                                 name: device.name,
                                 peerId: device.peerId,
-                                icon: _iconFor(device.icon),
+                                icon: peerIconFor(device.icon),
+                                accent: peerAccentColor(device.peerId),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.link_off_outlined),
                                   tooltip: 'Отозвать доверие',
@@ -112,6 +123,47 @@ class DevicesSheet extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 20),
+                    Text(
+                      'Обнаруженные',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Демо LAN-discovery до libp2p/mDNS',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: MeshPadColors.textMuted,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (visibleDiscovered.isEmpty)
+                      Text(
+                        'Поиск устройств в локальной сети…',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: MeshPadColors.textMuted,
+                            ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          for (final peer in visibleDiscovered)
+                            _DeviceCard(
+                              title: 'В сети',
+                              name: peer.displayName,
+                              peerId: peer.peerId,
+                              icon: Icons.wifi_tethering,
+                              accent: peerAccentColor(peer.peerId),
+                              trailing: FilledButton.tonal(
+                                onPressed: () => _trustDiscoveredPeer(
+                                  context,
+                                  ref,
+                                  peer,
+                                ),
+                                child: const Text('Доверять'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 20),
                     OutlinedButton.icon(
                       onPressed: () => _showPinPairingDialog(context, ref),
                       icon: const Icon(Icons.pin_outlined),
@@ -125,6 +177,26 @@ class DevicesSheet extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _trustDiscoveredPeer(
+    BuildContext context,
+    WidgetRef ref,
+    DiscoveredPeer peer,
+  ) async {
+    final store = await ref.read(deviceStoreProvider.future);
+    await store.trustDevice(
+      peerId: peer.peerId,
+      name: peer.displayName,
+      icon: 'device',
+    );
+    ref.read(discoveredPeersProvider.notifier).remove(peer.peerId);
+    ref.invalidate(trustedDevicesProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('«${peer.displayName}» добавлено')),
+      );
+    }
   }
 
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
@@ -201,13 +273,6 @@ class DevicesSheet extends ConsumerWidget {
       ),
     );
   }
-
-  IconData _iconFor(String icon) => switch (icon) {
-        'phone' => Icons.smartphone,
-        'tablet' => Icons.tablet,
-        'laptop' => Icons.laptop,
-        _ => Icons.devices_other,
-      };
 }
 
 class _DeviceCard extends StatelessWidget {
@@ -216,6 +281,7 @@ class _DeviceCard extends StatelessWidget {
     required this.name,
     required this.peerId,
     required this.icon,
+    required this.accent,
     this.trailing,
   });
 
@@ -223,6 +289,7 @@ class _DeviceCard extends StatelessWidget {
   final String name;
   final String peerId;
   final IconData icon;
+  final Color accent;
   final Widget? trailing;
 
   @override
@@ -232,7 +299,10 @@ class _DeviceCard extends StatelessWidget {
 
     return Card(
       child: ListTile(
-        leading: Icon(icon, color: MeshPadColors.primary),
+        leading: CircleAvatar(
+          backgroundColor: accent.withValues(alpha: 0.22),
+          child: Icon(icon, color: accent),
+        ),
         title: Text(name),
         subtitle: Text('$title · $shortId'),
         trailing: trailing,

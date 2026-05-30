@@ -12,6 +12,7 @@ export 'src/storage/attachment_storage.dart';
 export 'src/storage/device_identity_store.dart';
 export 'src/storage/meshpad_paths.dart';
 export 'src/storage/note_folder_repository.dart';
+export 'src/sync/headless_maintenance.dart';
 export 'src/sync/lww_merge.dart';
 export 'src/sync/note_sync_status.dart';
 export 'src/sync/outbox_processor.dart';

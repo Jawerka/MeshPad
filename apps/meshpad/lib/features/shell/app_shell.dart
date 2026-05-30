@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/notes_providers.dart';
+import '../../core/providers/discovery_providers.dart';
+import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../platform/desktop_shell.dart';
@@ -18,12 +20,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
-    if (DesktopShell.isSupported) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(syncLoopProvider).start();
+      ref.read(discoveryServiceProvider).start();
+      if (DesktopShell.isSupported) {
         DesktopShell.instance.onSync =
             () => ref.read(syncControllerProvider).runSync();
-      });
-    }
+      }
+    });
   }
 
   @override

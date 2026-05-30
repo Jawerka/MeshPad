@@ -294,6 +294,7 @@ MeshPad/
 - [x] Device identity (`local_identity.json`, trusted/)
 - [x] SyncEngine + LWW/tombstone + outbox ack
 - [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
+- [x] LAN discovery заглушка (демо-пиры до libp2p/mDNS)
 - [ ] libp2p MVP (LAN + PIN)
 - [x] UI: устройства, PIN-заглушка, «Синхронизировать»
 - [x] Outbox retry + статусы на карточках (pending / error)
@@ -303,12 +304,14 @@ MeshPad/
 - [ ] Android share + WorkManager
 - [x] Windows/Linux tray (свернуть в трей, меню)
 - [ ] Linux headless + Web client
-- [x] Настройки: путь данных, о приложении
+- [x] Настройки: путь данных, автосинхронизация, проверка данных
+- [x] Android Share-to (текст и файлы)
+- [x] WorkManager фоновое обслуживание (reconcile + purge)
 
-### Спринт 6 — Полировка
+### Спринт 6 — Полировка (в работе)
 
 - Ленивая лента, прогресс файлов
-- Проверка обновлений (ручная загрузка)
+- [x] Проверка обновлений (ручная загрузка)
 - Обработка ошибок сети
 
 ---

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,8 @@ class DesktopShell with TrayListener, WindowListener {
 
   VoidCallback? onShowWindow;
   Future<void> Function()? onSync;
+  var _trayInitialized = false;
+  var _shuttingDown = false;
 
   static bool get isSupported =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux);
@@ -39,6 +42,7 @@ class DesktopShell with TrayListener, WindowListener {
       ),
     );
     trayManager.addListener(this);
+    _trayInitialized = true;
   }
 
   Future<void> showMainWindow() async {
@@ -52,7 +56,7 @@ class DesktopShell with TrayListener, WindowListener {
 
   @override
   void onTrayIconMouseDown() {
-    showMainWindow();
+    unawaited(showMainWindow());
   }
 
   @override
@@ -64,24 +68,49 @@ class DesktopShell with TrayListener, WindowListener {
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
       case 'show':
-        showMainWindow();
+        unawaited(showMainWindow());
       case 'sync':
-        onSync?.call();
+        unawaited(onSync?.call());
       case 'exit':
-        trayManager.destroy();
-        exit(0);
+        unawaited(shutdown());
     }
   }
 
   @override
   void onWindowClose() {
-    hideToTray();
+    unawaited(hideToTray());
+  }
+
+  /// Removes tray icon and closes the app. Must await native cleanup before exit.
+  Future<void> shutdown() async {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+
+    await destroyTray();
+    try {
+      await windowManager.setPreventClose(false);
+      await windowManager.destroy();
+    } catch (_) {
+      // Window may already be gone.
+    }
+    exit(0);
+  }
+
+  Future<void> destroyTray() async {
+    if (!isSupported || !_trayInitialized) return;
+
+    trayManager.removeListener(this);
+    windowManager.removeListener(this);
+    try {
+      await trayManager.destroy();
+    } catch (_) {
+      // Tray may already be destroyed.
+    }
+    _trayInitialized = false;
   }
 
   Future<void> dispose() async {
-    if (!isSupported) return;
-    trayManager.removeListener(this);
-    windowManager.removeListener(this);
+    await destroyTray();
   }
 }
 
@@ -94,3 +123,5 @@ Future<void> initDesktopShell({
 }
 
 Future<void> showDesktopWindow() => DesktopShell.instance.showMainWindow();
+
+Future<void> shutdownDesktopShell() => DesktopShell.instance.shutdown();

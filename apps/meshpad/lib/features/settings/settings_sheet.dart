@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_info.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
+import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/services/update_checker.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../devices/devices_sheet.dart';
 
@@ -28,6 +31,7 @@ class SettingsSheet extends ConsumerStatefulWidget {
 
 class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   bool _busy = false;
+  final _updateChecker = UpdateChecker();
 
   Future<void> _changeDataDir(String currentPath) async {
     if (_busy) return;
@@ -120,10 +124,79 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     }
   }
 
+  Future<void> _checkUpdates() async {
+    if (_busy) return;
+
+    setState(() => _busy = true);
+    try {
+      final result = await _updateChecker.check();
+      if (!mounted) return;
+
+      final message = switch (result.status) {
+        UpdateCheckStatus.upToDate => 'Установлена актуальная версия $kAppVersion',
+        UpdateCheckStatus.updateAvailable =>
+          'Доступна версия ${result.latestVersion}',
+        UpdateCheckStatus.unavailable =>
+          result.message ?? 'Не удалось проверить обновления',
+      };
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Обновления'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Закрыть'),
+            ),
+            if (result.status == UpdateCheckStatus.updateAvailable &&
+                result.downloadUrl != null)
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Скачать'),
+              ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _updateChecker.close();
+    super.dispose();
+  }
+
+  Future<void> _rebuildIndex() async {
+    if (_busy) return;
+
+    setState(() => _busy = true);
+    try {
+      final count = await ref.read(settingsControllerProvider).rebuildIndex();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Индекс пересобран: $count заметок')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dataDirAsync = ref.watch(dataDirProvider);
     final customDirAsync = ref.watch(customDataDirProvider);
+    final settingsAsync = ref.watch(appSettingsProvider);
     final failedAsync = ref.watch(outboxFailedCountProvider);
 
     return Padding(
@@ -208,16 +281,77 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
               DevicesSheet.show(context);
             },
           ),
+          settingsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (e, _) => Text('Настройки sync: $e'),
+            data: (settings) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Автосинхронизация'),
+                  subtitle: Text(
+                    settings.autoSyncEnabled
+                        ? 'Каждые ${settings.autoSyncIntervalMinutes} мин.'
+                        : 'Выключена',
+                  ),
+                  value: settings.autoSyncEnabled,
+                  onChanged: _busy
+                      ? null
+                      : (value) async {
+                          await ref
+                              .read(settingsControllerProvider)
+                              .setAutoSyncEnabled(value);
+                        },
+                ),
+                if (settings.autoSyncEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final minutes in const [5, 15, 30, 60])
+                          ChoiceChip(
+                            label: Text('$minutes мин'),
+                            selected:
+                                settings.autoSyncIntervalMinutes == minutes,
+                            onSelected: _busy
+                                ? null
+                                : (_) async {
+                                    await ref
+                                        .read(settingsControllerProvider)
+                                        .setAutoSyncIntervalMinutes(minutes);
+                                  },
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.build_circle_outlined),
+            title: const Text('Проверить данные'),
+            subtitle: const Text('Пересобрать индекс из файлов на диске'),
+            onTap: _busy ? null : _rebuildIndex,
+          ),
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: const Text('О приложении'),
-            subtitle: const Text('MeshPad 0.1.0 · local-first Markdown'),
+            subtitle: Text('MeshPad $kAppVersion · local-first Markdown'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.system_update_alt),
+            title: const Text('Проверить обновления'),
+            onTap: _busy ? null : _checkUpdates,
           ),
           const SizedBox(height: 8),
           Text(
-            'Проверка обновлений и libp2p-синхронизация — в следующих спринтах.',
+            'libp2p-синхронизация — в следующем спринте.',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: MeshPadColors.textMuted,
                 ),

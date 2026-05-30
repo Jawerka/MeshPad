@@ -13,4 +13,5 @@
 - **Sprint 2:** Chat UI — sidebar, feed, composer, inline edit, trash, Markdown preview.
 - **Sprint 3:** Attachments, image preview/lightbox, FTS search, sync outbox indicator, trash TTL purge.
 - **Sprint 4 (partial):** Device identity, SyncEngine with LWW/tombstone, FakeSyncHub, devices sheet UI, outbox retry and sync status badges.
-- **Sprint 5 (partial):** Windows/Linux system tray, settings sheet.
+- **Sprint 5 (partial):** Windows/Linux system tray, settings sheet, customizable data directory, auto-sync loop, rebuild index, Android Share-to, WorkManager background maintenance.
+- **Sprint 6 (partial):** Manual update check in settings, LAN discovery stub UI.

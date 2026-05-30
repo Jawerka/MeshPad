@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
+import '../../platform/background_sync.dart';
 import 'notes_providers.dart';
+import 'sync_loop_provider.dart';
 import 'sync_providers.dart';
 
 final settingsControllerProvider = Provider<SettingsController>((ref) {
@@ -38,7 +41,37 @@ class SettingsController {
 
   Future<bool> isCustomDataDir() => _store.isUsingCustomDataDir();
 
+  Future<void> setAutoSyncEnabled(bool enabled) async {
+    final current = await _store.loadSettings();
+    final next = current.copyWith(autoSyncEnabled: enabled);
+    await _store.saveSettings(next);
+    _ref.invalidate(appSettingsProvider);
+    await _ref.read(syncLoopProvider).reloadSettings();
+    await BackgroundSyncRegistrar.applySettings(next);
+  }
+
+  Future<void> setAutoSyncIntervalMinutes(int minutes) async {
+    final current = await _store.loadSettings();
+    final next = current.copyWith(
+      autoSyncIntervalMinutes: AppSettings.clampInterval(minutes),
+    );
+    await _store.saveSettings(next);
+    _ref.invalidate(appSettingsProvider);
+    await _ref.read(syncLoopProvider).reloadSettings();
+    await BackgroundSyncRegistrar.applySettings(next);
+  }
+
+  Future<int> rebuildIndex() async {
+    final repo = await _ref.read(noteRepositoryProvider.future);
+    final count = await repo.reconcileFromFilesystem();
+    await _ref.read(notesListProvider.notifier).reload();
+    _ref.invalidate(outboxCountProvider);
+    _ref.invalidate(noteSyncStatusesProvider);
+    return count;
+  }
+
   void _reloadAllDataProviders() {
+    _ref.invalidate(appSettingsProvider);
     _ref.invalidate(dataDirProvider);
     _ref.invalidate(customDataDirProvider);
     _ref.invalidate(noteRepositoryProvider);

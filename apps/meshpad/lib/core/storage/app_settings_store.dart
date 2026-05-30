@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'app_settings.dart';
+
 /// Persists app preferences outside the data directory (so path can be relocated).
 class AppSettingsStore {
   AppSettingsStore({
@@ -38,43 +40,50 @@ class AppSettingsStore {
 
   Future<String> defaultDataDir() => _defaultDataDir();
 
-  Future<String> loadDataDir() async {
+  Future<AppSettings> loadSettings() async {
+    final defaultDir = await defaultDataDir();
     final file = await _settingsFile();
     if (!await file.exists()) {
-      return defaultDataDir();
+      return AppSettings(dataDir: defaultDir);
     }
 
     try {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      final custom = json['data_dir'] as String?;
-      if (custom == null || custom.trim().isEmpty) {
-        return defaultDataDir();
-      }
-      return p.normalize(custom.trim());
+      return AppSettings.fromJson(json, defaultDataDir: defaultDir);
     } catch (_) {
-      return defaultDataDir();
+      return AppSettings(dataDir: defaultDir);
     }
   }
 
-  Future<void> saveDataDir(String path) async {
-    final normalized = p.normalize(path.trim());
+  Future<void> saveSettings(AppSettings settings) async {
+    final defaultDir = await defaultDataDir();
     final file = await _settingsFile();
+    await file.parent.create(recursive: true);
     await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert({'data_dir': normalized}),
+      const JsonEncoder.withIndent('  ').convert(
+        settings.toJson(defaultDataDir: defaultDir),
+      ),
     );
   }
 
+  Future<String> loadDataDir() async {
+    final settings = await loadSettings();
+    return p.normalize(settings.dataDir ?? await defaultDataDir());
+  }
+
+  Future<void> saveDataDir(String path) async {
+    final current = await loadSettings();
+    await saveSettings(current.copyWith(dataDir: p.normalize(path.trim())));
+  }
+
   Future<void> clearCustomDataDir() async {
-    final file = await _settingsFile();
-    if (await file.exists()) {
-      await file.delete();
-    }
+    final current = await loadSettings();
+    await saveSettings(current.copyWith(clearDataDir: true));
   }
 
   Future<bool> isUsingCustomDataDir() async {
-    final current = await loadDataDir();
-    final defaultDir = await defaultDataDir();
-    return p.normalize(current) != p.normalize(defaultDir);
+    final settings = await loadSettings();
+    return settings.isUsingCustomDataDir(await defaultDataDir());
   }
 }

@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meshpad/core/models/notes_feed_state.dart';
 import 'package:meshpad/core/providers/notes_providers.dart';
 import 'package:meshpad/features/shell/app_shell.dart';
-import 'package:meshpad_core/meshpad_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class _EmptyNotesListNotifier extends NotesListNotifier {
   @override
-  Future<List<Note>> build() async => [];
+  Future<NotesFeedState> build() async => const NotesFeedState();
 }
 
 void main() {

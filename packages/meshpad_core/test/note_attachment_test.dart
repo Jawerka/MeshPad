@@ -58,4 +58,21 @@ void main() {
     expect(note.attachments.length, 1);
     expect(note.attachments.first.mime, 'image/png');
   });
+
+  test('copyAttachmentIntoNote reports progress', () async {
+    final source = File(p.join(tempDir.path, 'large.bin'));
+    await source.writeAsBytes(List.filled(64 * 1024, 7));
+
+    final progressEvents = <AttachmentCopyProgress>[];
+    await copyAttachmentIntoNote(
+      attachmentsDir: p.join(tempDir.path, 'note', 'attachments'),
+      sourcePath: source.path,
+      onProgress: progressEvents.add,
+    );
+
+    expect(progressEvents, isNotEmpty);
+    expect(progressEvents.last.copiedBytes, 64 * 1024);
+    expect(progressEvents.last.totalBytes, 64 * 1024);
+    expect(progressEvents.last.fraction, 1.0);
+  });
 }

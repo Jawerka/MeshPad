@@ -1,0 +1,17 @@
+name: meshpad_api_client
+description: HTTP client for MeshPad server API (Web client backend).
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  http: ^1.2.2
+  meshpad_core:
+    path: ../meshpad_core
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

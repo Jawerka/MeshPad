@@ -7,26 +7,35 @@ import 'notes_providers.dart';
 final _outboxProcessor = OutboxProcessor();
 
 final deviceStoreProvider = FutureProvider<DeviceIdentityStore>((ref) async {
+  if (ref.watch(isWebClientProvider)) {
+    throw UnsupportedError('Device store unavailable on Web');
+  }
   final dataDir = await ref.watch(dataDirProvider.future);
-  return DeviceIdentityStore(paths: MeshPadPaths(dataDir));
+  return DeviceIdentityStore(paths: MeshPadPaths(dataDir!));
 });
 
 final localIdentityProvider = FutureProvider<LocalDeviceIdentity>((ref) async {
+  if (ref.watch(isWebClientProvider)) {
+    throw UnsupportedError('Device identity unavailable on Web');
+  }
   final store = await ref.watch(deviceStoreProvider.future);
   return store.loadOrCreateIdentity(defaultDisplayName: 'Это устройство');
 });
 
 final trustedDevicesProvider = FutureProvider<List<Device>>((ref) async {
+  if (ref.watch(isWebClientProvider)) return [];
   final store = await ref.watch(deviceStoreProvider.future);
   return store.listTrustedDevices();
 });
 
 final syncEngineProvider = FutureProvider<SyncEngine>((ref) async {
+  if (ref.watch(isWebClientProvider)) {
+    throw UnsupportedError('Sync engine unavailable on Web');
+  }
   final repo = await ref.watch(noteRepositoryProvider.future);
   final identity = await ref.watch(localIdentityProvider.future);
   return SyncEngine(notes: repo, identity: identity);
 });
-
 final syncTransportProvider = Provider<FakeSyncTransport>((ref) {
   final transport = FakeSyncTransport();
   ref.onDispose(transport.dispose);
@@ -35,12 +44,14 @@ final syncTransportProvider = Provider<FakeSyncTransport>((ref) {
 
 final noteSyncStatusesProvider =
     FutureProvider<Map<String, NoteSyncStatus>>((ref) async {
+  if (ref.watch(isWebClientProvider)) return {};
   ref.watch(notesListProvider);
   final repo = await ref.watch(noteRepositoryProvider.future);
   return _outboxProcessor.statusMap(await repo.listOutbox());
 });
 
 final outboxFailedCountProvider = FutureProvider<int>((ref) async {
+  if (ref.watch(isWebClientProvider)) return 0;
   final repo = await ref.watch(noteRepositoryProvider.future);
   return _outboxProcessor.failedCount(repo);
 });
@@ -65,6 +76,12 @@ class SyncController {
   final Ref _ref;
 
   Future<SyncRunResult> runSync() async {
+    if (_ref.read(isWebClientProvider)) {
+      return const SyncRunResult(
+        SyncRunStatus.noPeers,
+        message: 'Синхронизация недоступна в Web-клиенте',
+      );
+    }
     final trusted = await _ref.read(trustedDevicesProvider.future);
     if (trusted.isEmpty) {
       return const SyncRunResult(
@@ -94,9 +111,12 @@ class SyncController {
     } catch (e) {
       await _outboxProcessor.recordSyncFailure(repo);
       _invalidateSyncState();
+      final message = e is MeshPadException
+          ? e.message
+          : meshPadExceptionUserMessage(e);
       return SyncRunResult(
         SyncRunStatus.failed,
-        message: e.toString(),
+        message: message,
       );
     }
   }

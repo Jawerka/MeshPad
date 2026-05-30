@@ -7,6 +7,13 @@ flowchart TB
   subgraph ui [apps/meshpad]
     Widgets[Widgets]
     Providers[Riverpod Providers]
+    WebMode[Web mode kIsWeb]
+  end
+  subgraph api [packages/meshpad_api_client]
+    HttpClient[REST Client]
+  end
+  subgraph server [apps/meshpad_server]
+    HttpApi[Shelf HTTP API]
   end
   subgraph core [packages/meshpad_core]
     Domain[Domain Models]
@@ -20,6 +27,9 @@ flowchart TB
     Fake[Fake Transport]
   end
   Widgets --> Providers
+  WebMode --> HttpClient
+  HttpClient --> HttpApi
+  HttpApi --> core
   Providers --> Domain
   Providers --> Sync
   Sync --> FS
@@ -50,9 +60,24 @@ flowchart TB
 
 ## Web / Linux server
 
-Headless-процесс на Linux:
+Headless-процесс `apps/meshpad_server`:
 
-- тот же `meshpad_core` + HTTP API;
-- Web-клиент (Flutter web) ходит в API, P2P остаётся на сервере.
+- тот же `meshpad_core` + REST API на Shelf;
+- Web-клиент (Flutter web) ходит в API; P2P остаётся на сервере (позже).
 
-Детали API — отдельная спецификация после MVP desktop/mobile.
+### HTTP API (MVP)
+
+| Метод | Путь | Ответ |
+|-------|------|-------|
+| GET | `/api/health` | `{ "status": "ok" }` |
+| GET | `/api/notes` | массив `{ id, title, author, created_at, preview, … }` |
+| GET | `/api/notes/<id>` | полная заметка + вложения |
+| POST | `/api/notes` | создать заметку (JSON body) |
+| PUT | `/api/notes/<id>` | обновить заметку |
+| DELETE | `/api/notes/<id>` | в корзину |
+| POST | `/api/notes/<id>/restore` | восстановить |
+| GET | `/api/trash` | корзина |
+| GET | `/api/search?q=` | FTS-поиск |
+| GET | `/api/notes/<id>/attachments/<name>` | файл вложения |
+
+Запуск: `.\scripts\run-server.ps1` (порт 8787 по умолчанию).

@@ -65,7 +65,8 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
   @override
   Widget build(BuildContext context) {
     final note = widget.note;
-    final dataDirAsync = ref.watch(dataDirProvider);
+    final notesService = ref.watch(notesServiceProvider).valueOrNull;
+    final dataDir = ref.watch(dataDirProvider).valueOrNull;
 
     return Card(
       child: Padding(
@@ -145,10 +146,13 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                 ),
               ],
             ),
-            dataDirAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (dataDir) => AttachmentGrid(note: note, dataDir: dataDir),
+            AttachmentGrid(
+              note: note,
+              dataDir: dataDir,
+              attachmentUriBuilder: notesService == null
+                  ? null
+                  : (attachment) =>
+                      notesService.attachmentUri(note.id, attachment.name),
             ),
             const SizedBox(height: 8),
             Row(

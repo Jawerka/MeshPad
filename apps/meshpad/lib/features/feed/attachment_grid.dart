@@ -1,21 +1,22 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../core/theme/meshpad_colors.dart';
+import 'attachment_thumbnail.dart';
 import 'lightbox.dart';
 
 class AttachmentGrid extends StatelessWidget {
   const AttachmentGrid({
     super.key,
     required this.note,
-    required this.dataDir,
+    this.dataDir,
+    this.attachmentUriBuilder,
     this.onTapImage,
   });
 
   final Note note;
-  final String dataDir;
+  final String? dataDir;
+  final Uri? Function(AttachmentMeta attachment)? attachmentUriBuilder;
   final void Function(int index, List<AttachmentMeta> images)? onTapImage;
 
   @override
@@ -36,16 +37,17 @@ class AttachmentGrid extends StatelessWidget {
             children: [
               for (var i = 0; i < images.length; i++)
                 _ImageTile(
-                  path: noteAttachmentPath(note, images[i], dataDir),
+                  image: _imageSource(note, images[i]),
                   onTap: () {
                     if (onTapImage != null) {
                       onTapImage!(i, images);
                     } else {
                       showImageLightbox(
                         context,
-                        images
-                            .map((a) => noteAttachmentPath(note, a, dataDir))
-                            .toList(),
+                        [
+                          for (final image in images)
+                            _imageSource(note, image).lightboxSource,
+                        ],
                         initialIndex: i,
                       );
                     }
@@ -66,12 +68,38 @@ class AttachmentGrid extends StatelessWidget {
       ],
     );
   }
+
+  _ImageSource _imageSource(Note note, AttachmentMeta attachment) {
+    final remote = attachmentUriBuilder?.call(attachment);
+    if (remote != null) {
+      return _ImageSource.network(remote.toString());
+    }
+    final dir = dataDir;
+    if (dir != null) {
+      return _ImageSource.file(noteAttachmentPath(note, attachment, dir));
+    }
+    return const _ImageSource.missing();
+  }
+}
+
+class _ImageSource {
+  const _ImageSource.file(this.path) : url = null, missing = false;
+
+  const _ImageSource.network(this.url) : path = null, missing = false;
+
+  const _ImageSource.missing() : path = null, url = null, missing = true;
+
+  final String? path;
+  final String? url;
+  final bool missing;
+
+  String get lightboxSource => url ?? path ?? '';
 }
 
 class _ImageTile extends StatelessWidget {
-  const _ImageTile({required this.path, required this.onTap});
+  const _ImageTile({required this.image, required this.onTap});
 
-  final String path;
+  final _ImageSource image;
   final VoidCallback onTap;
 
   @override
@@ -81,20 +109,29 @@ class _ImageTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(MeshPadColors.radiusMd),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(MeshPadColors.radiusMd),
-        child: Image.file(
-          File(path),
-          width: 120,
-          height: 120,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            width: 120,
-            height: 120,
-            color: MeshPadColors.backgroundElevated,
-            alignment: Alignment.center,
-            child: const Icon(Icons.broken_image_outlined),
-          ),
-        ),
+        child: _buildImage(),
       ),
+    );
+  }
+
+  Widget _buildImage() {
+    if (image.missing) {
+      return _errorBox();
+    }
+    return buildAttachmentThumbnail(
+      path: image.path,
+      url: image.url,
+      errorBox: _errorBox(),
+    );
+  }
+
+  Widget _errorBox() {
+    return Container(
+      width: 120,
+      height: 120,
+      color: MeshPadColors.backgroundElevated,
+      alignment: Alignment.center,
+      child: const Icon(Icons.broken_image_outlined),
     );
   }
 }

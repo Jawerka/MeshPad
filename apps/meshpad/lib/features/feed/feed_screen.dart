@@ -1,11 +1,13 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:path/path.dart' as p;
 
+import '../../core/errors/user_messages.dart';
+import '../../core/models/notes_feed_state.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/theme/meshpad_colors.dart';
@@ -31,42 +33,155 @@ class FeedScreen extends ConsumerWidget {
 
     return notesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Ошибка: $e')),
-      data: (notes) {
+      error: (e, _) => Center(child: Text(userFacingError(e))),
+      data: (feed) {
         final syncMap = syncStatusesAsync.valueOrNull ?? const {};
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FeedHeader(mode: mode, count: notes.length),
+            _FeedHeader(mode: mode, count: feed.notes.length),
             Expanded(
-              child: notes.isEmpty
+              child: feed.notes.isEmpty
                   ? _EmptyFeed(mode: mode)
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      itemCount: notes.length,
-                      itemBuilder: (context, index) {
-                        final note = notes[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: MeshPadColors.chatMaxWidth,
-                              ),
-                              child: NoteBubble(
-                                note: note,
-                                isTrash: mode == FeedMode.trash,
-                                syncStatus: syncMap[note.id] ??
-                                    NoteSyncStatus.synced,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                  : _PaginatedFeedList(
+                      feed: feed,
+                      mode: mode,
+                      syncMap: syncMap,
                     ),
             ),
             if (mode == FeedMode.feed) const _ComposerSection(),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _PaginatedFeedList extends ConsumerStatefulWidget {
+  const _PaginatedFeedList({
+    required this.feed,
+    required this.mode,
+    required this.syncMap,
+  });
+
+  final NotesFeedState feed;
+  final FeedMode mode;
+  final Map<String, NoteSyncStatus> syncMap;
+
+  @override
+  ConsumerState<_PaginatedFeedList> createState() => _PaginatedFeedListState();
+}
+
+class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
+  final _scrollController = ScrollController();
+  var _didInitialScroll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PaginatedFeedList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.feed.notes.length != oldWidget.feed.notes.length &&
+        !widget.feed.isLoadingMore &&
+        widget.feed.notes.length > oldWidget.feed.notes.length &&
+        widget.feed.notes.last.id != oldWidget.feed.notes.last.id) {
+      _scrollToBottom();
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || widget.mode != FeedMode.feed) return;
+    if (_scrollController.position.pixels > 240) return;
+
+    final feed = ref.read(notesListProvider).valueOrNull;
+    if (feed == null || !feed.hasMoreOlder || feed.isLoadingMore) return;
+
+    final beforeExtent = _scrollController.position.maxScrollExtent;
+    final beforePixels = _scrollController.position.pixels;
+
+    ref.read(notesListProvider.notifier).loadOlder().then((_) {
+      if (!mounted) return;
+      _preserveScrollAfterPrepend(beforeExtent: beforeExtent, beforePixels: beforePixels);
+    });
+  }
+
+  void _preserveScrollAfterPrepend({
+    required double beforeExtent,
+    required double beforePixels,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final delta = _scrollController.position.maxScrollExtent - beforeExtent;
+      if (delta > 0) {
+        _scrollController.jumpTo(beforePixels + delta);
+      }
+    });
+  }
+
+  void _scrollToBottom() {
+    if (widget.mode != FeedMode.feed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _didInitialScroll = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_didInitialScroll && widget.feed.notes.isNotEmpty) {
+      _scrollToBottom();
+    }
+
+    final notes = widget.feed.notes;
+    final headerCount = widget.feed.isLoadingMore ? 1 : 0;
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      itemCount: notes.length + headerCount,
+      itemBuilder: (context, index) {
+        if (headerCount > 0 && index == 0) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        final noteIndex = index - headerCount;
+        final note = notes[noteIndex];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: MeshPadColors.chatMaxWidth,
+              ),
+              child: NoteBubble(
+                note: note,
+                isTrash: widget.mode == FeedMode.trash,
+                syncStatus:
+                    widget.syncMap[note.id] ?? NoteSyncStatus.synced,
+              ),
+            ),
+          ),
         );
       },
     );
@@ -89,7 +204,7 @@ class _SearchFeed extends ConsumerWidget {
         Expanded(
           child: resultsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Ошибка: $e')),
+            error: (e, _) => Center(child: Text(userFacingError(e))),
             data: (hits) {
               if (hits.isEmpty) {
                 return Center(
@@ -194,6 +309,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
   @override
   Widget build(BuildContext context) {
     final isTrash = widget.mode == FeedMode.trash;
+    final isWeb = ref.watch(isWebClientProvider);
     final outboxAsync = ref.watch(outboxCountProvider);
     final outboxCount = outboxAsync.valueOrNull ?? 0;
 
@@ -226,7 +342,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
               ),
               const Spacer(),
               if (!isTrash) ...[
-                if (outboxCount > 0)
+                if (!isWeb && outboxCount > 0)
                   Tooltip(
                     message: 'В очереди синхронизации: $outboxCount',
                     child: Padding(
@@ -254,11 +370,12 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   tooltip: 'Поиск',
                   onPressed: _toggleSearch,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.devices),
-                  tooltip: 'Устройства',
-                  onPressed: () => DevicesSheet.show(context),
-                ),
+                if (!isWeb)
+                  IconButton(
+                    icon: const Icon(Icons.devices),
+                    tooltip: 'Устройства',
+                    onPressed: () => DevicesSheet.show(context),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   tooltip: 'Настройки',
@@ -341,6 +458,7 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
   final _bodyController = TextEditingController();
   final _pendingPaths = <String>[];
   var _saving = false;
+  AttachmentCopyProgress? _copyProgress;
 
   @override
   void dispose() {
@@ -364,21 +482,38 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
   Future<void> _submit() async {
     final body = _bodyController.text.trim();
     if (body.isEmpty && _pendingPaths.isEmpty || _saving) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _copyProgress = null;
+    });
     try {
       await ref.read(notesListProvider.notifier).createNote(
             markdown: body,
             attachmentPaths: List.of(_pendingPaths),
+            onAttachmentProgress: _pendingPaths.isEmpty
+                ? null
+                : (progress) {
+                    if (mounted) setState(() => _copyProgress = progress);
+                  },
           );
       _bodyController.clear();
-      setState(_pendingPaths.clear);
+      setState(() {
+        _pendingPaths.clear();
+        _copyProgress = null;
+      });
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _copyProgress = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final attachmentsEnabled = !kIsWeb;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
@@ -392,6 +527,32 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_copyProgress != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _copyProgress!.fileCount > 1
+                            ? 'Копирование ${_copyProgress!.fileName} '
+                                '(${_copyProgress!.fileIndex}/${_copyProgress!.fileCount})'
+                            : 'Копирование ${_copyProgress!.fileName}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: MeshPadColors.textMuted,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: _copyProgress!.isIndeterminate
+                            ? null
+                            : _copyProgress!.fraction,
+                        minHeight: 3,
+                      ),
+                    ],
+                  ),
+                ),
               if (_pendingPaths.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -410,11 +571,12 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  IconButton(
-                    onPressed: _saving ? null : _pickAttachments,
-                    icon: const Icon(Icons.attach_file),
-                    tooltip: 'Прикрепить файл',
-                  ),
+                  if (attachmentsEnabled)
+                    IconButton(
+                      onPressed: _saving ? null : _pickAttachments,
+                      icon: const Icon(Icons.attach_file),
+                      tooltip: 'Прикрепить файл',
+                    ),
                   Expanded(
                     child: TextField(
                       controller: _bodyController,
@@ -465,19 +627,17 @@ class _PendingAttachmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = path.split(Platform.pathSeparator).last;
+    final name = p.basename(path);
     final isImage = isImageAttachment(
       AttachmentMeta(name: name, size: 0, mime: mimeFromFileName(name)),
     );
 
     return InputChip(
       label: Text(name, overflow: TextOverflow.ellipsis),
-      avatar: isImage
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.file(File(path), width: 24, height: 24, fit: BoxFit.cover),
-            )
-          : const Icon(Icons.insert_drive_file, size: 18),
+      avatar: Icon(
+        isImage ? Icons.image_outlined : Icons.insert_drive_file,
+        size: 18,
+      ),
       onDeleted: onRemove,
       visualDensity: VisualDensity.compact,
     );

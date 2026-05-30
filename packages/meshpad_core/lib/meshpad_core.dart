@@ -1,3 +1,5 @@
+export 'src/errors/meshpad_exception.dart';
+export 'src/models/attachment_copy_progress.dart';
 export 'src/database/database.dart';
 export 'src/models/local_device_identity.dart';
 export 'src/models/device.dart';

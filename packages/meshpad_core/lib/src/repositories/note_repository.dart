@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../models/attachment_copy_progress.dart';
 import '../models/note.dart';
 import '../models/note_folder.dart';
 import '../models/note_meta.dart';
@@ -9,6 +10,7 @@ import '../models/note_head.dart';
 import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
 import '../storage/attachment_storage.dart';
+import '../errors/meshpad_exception.dart';
 import '../storage/meshpad_paths.dart';
 import '../storage/note_folder_repository.dart';
 import '../sync/lww_merge.dart';
@@ -40,6 +42,7 @@ class NoteRepository {
     String markdown = '',
     String? author,
     List<String> attachmentPaths = const [],
+    AttachmentCopyProgressCallback? onAttachmentProgress,
   }) async {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
@@ -58,11 +61,14 @@ class NoteRepository {
     );
     await _fs.write(folder);
     var attachments = <AttachmentMeta>[];
-    for (final path in attachmentPaths) {
+    for (var i = 0; i < attachmentPaths.length; i++) {
       attachments.add(
         await copyAttachmentIntoNote(
           attachmentsDir: _paths.attachmentsDir(id),
-          sourcePath: path,
+          sourcePath: attachmentPaths[i],
+          onProgress: onAttachmentProgress,
+          fileIndex: i + 1,
+          fileCount: attachmentPaths.length,
         ),
       );
     }
@@ -125,6 +131,28 @@ class NoteRepository {
     return _notesFromRows(rows);
   }
 
+  /// Active notes count (non-deleted).
+  Future<int> countActiveNotes() async {
+    final countExp = _db.notes.id.count();
+    final query = _db.selectOnly(_db.notes)
+      ..addColumns([countExp])
+      ..where(_db.notes.deleted.equals(false));
+    final row = await query.getSingle();
+    return row.read(countExp) ?? 0;
+  }
+
+  /// Slice of active notes in ascending [createdAt] order.
+  Future<List<Note>> listNotesSlice({
+    required int offset,
+    int limit = 40,
+  }) async {
+    final query = _db.select(_db.notes)
+      ..where((t) => t.deleted.equals(false))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+      ..limit(limit, offset: offset);
+    return _notesFromRows(await query.get());
+  }
+
   Future<List<Note>> listTrash() async {
     final rows = await _db.watchTrashNotes();
     return _notesFromRows(rows);
@@ -145,18 +173,23 @@ class NoteRepository {
     ];
   }
 
-  Future<Note> addAttachment(String id, String sourceFilePath) async {
+  Future<Note> addAttachment(
+    String id,
+    String sourceFilePath, {
+    AttachmentCopyProgressCallback? onAttachmentProgress,
+  }) async {
     final existing = await getNote(id);
     if (existing == null) {
-      throw StateError('Note not found: $id');
+      throw NoteNotFoundException(id);
     }
     if (existing.deleted) {
-      throw StateError('Cannot attach to deleted note: $id');
+      throw NoteDeletedException(id);
     }
 
     final attachment = await copyAttachmentIntoNote(
       attachmentsDir: _paths.attachmentsDir(id),
       sourcePath: sourceFilePath,
+      onProgress: onAttachmentProgress,
     );
 
     final updated = existing.copyWith(

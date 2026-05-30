@@ -1,8 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../../core/providers/discovery_providers.dart';
@@ -208,19 +206,21 @@ class DevicesSheet extends ConsumerWidget {
       SyncRunStatus.completed => result.noteCount > 0
           ? 'Синхронизировано заметок: ${result.noteCount}'
           : 'Синхронизация завершена (ожидание libp2p)',
-      SyncRunStatus.failed => result.message ?? 'Ошибка синхронизации',
+      SyncRunStatus.failed =>
+        result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showPinPairingDialog(BuildContext context, WidgetRef ref) async {
-    final pin = (100000 + Random.secure().nextInt(900000)).toString();
+    final pin = generatePairingPin();
+    final remotePinController = TextEditingController();
     if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('PIN-pairing'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -229,12 +229,12 @@ class DevicesSheet extends ConsumerWidget {
             Text(
               'Покажите этот PIN на другом устройстве. '
               'После подключения libp2p сопряжение завершится автоматически.',
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(dialogContext).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             SelectableText(
               pin,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              style: Theme.of(dialogContext).textTheme.headlineMedium?.copyWith(
                     letterSpacing: 4,
                     fontWeight: FontWeight.bold,
                   ),
@@ -242,6 +242,7 @@ class DevicesSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: remotePinController,
               decoration: const InputDecoration(
                 labelText: 'PIN другого устройства',
                 hintText: '000000',
@@ -253,25 +254,33 @@ class DevicesSheet extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Закрыть'),
           ),
           FilledButton(
             onPressed: () async {
-              // Stub: manual trust for testing until libp2p lands.
+              final remotePin = remotePinController.text.trim();
+              if (!isValidPairingPin(remotePin)) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Введите 6-значный PIN')),
+                );
+                return;
+              }
+              // Stub until libp2p validates PinPairingConfirm on the wire.
               final store = await ref.read(deviceStoreProvider.future);
               await store.trustDevice(
-                peerId: 'manual-${DateTime.now().millisecondsSinceEpoch}',
+                peerId: 'pin-$remotePin',
                 name: 'Устройство (PIN)',
               );
               ref.invalidate(trustedDevicesProvider);
-              if (context.mounted) Navigator.pop(context);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
-            child: const Text('Добавить (заглушка)'),
+            child: const Text('Подтвердить'),
           ),
         ],
       ),
     );
+    remotePinController.dispose();
   }
 }
 

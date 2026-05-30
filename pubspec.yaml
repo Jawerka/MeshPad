@@ -6,6 +6,8 @@ environment:
 
 workspace:
   - apps/meshpad
+  - apps/meshpad_server
+  - packages/meshpad_api_client
   - packages/meshpad_core
   - packages/meshpad_p2p
 

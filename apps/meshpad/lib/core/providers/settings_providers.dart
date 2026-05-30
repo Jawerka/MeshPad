@@ -70,6 +70,18 @@ class SettingsController {
     return count;
   }
 
+  Future<void> setApiBaseUrl(String url) async {
+    await _ref.read(webApiSettingsStoreProvider).saveBaseUrl(url);
+    _reloadWebProviders();
+  }
+
+  void _reloadWebProviders() {
+    _ref.invalidate(webApiBaseUrlProvider);
+    _ref.invalidate(notesServiceProvider);
+    _ref.invalidate(notesListProvider);
+    _ref.invalidate(searchResultsProvider);
+  }
+
   void _reloadAllDataProviders() {
     _ref.invalidate(appSettingsProvider);
     _ref.invalidate(dataDirProvider);

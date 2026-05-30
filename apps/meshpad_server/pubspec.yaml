@@ -1,0 +1,18 @@
+name: meshpad_server
+description: Headless HTTP API for MeshPad (Linux server / Web client backend).
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  meshpad_core:
+    path: ../../packages/meshpad_core
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

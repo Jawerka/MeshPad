@@ -1,18 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import 'lightbox_image.dart';
 
 Future<void> showImageLightbox(
   BuildContext context,
-  List<String> imagePaths, {
+  List<String> imageSources, {
   int initialIndex = 0,
 }) {
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black87,
     builder: (context) => _LightboxDialog(
-      imagePaths: imagePaths,
+      imageSources: imageSources,
       initialIndex: initialIndex,
     ),
   );
@@ -20,11 +19,11 @@ Future<void> showImageLightbox(
 
 class _LightboxDialog extends StatefulWidget {
   const _LightboxDialog({
-    required this.imagePaths,
+    required this.imageSources,
     required this.initialIndex,
   });
 
-  final List<String> imagePaths;
+  final List<String> imageSources;
   final int initialIndex;
 
   @override
@@ -38,7 +37,7 @@ class _LightboxDialogState extends State<_LightboxDialog> {
   @override
   void initState() {
     super.initState();
-    _index = widget.initialIndex.clamp(0, widget.imagePaths.length - 1);
+    _index = widget.initialIndex.clamp(0, widget.imageSources.length - 1);
     _controller = PageController(initialPage: _index);
   }
 
@@ -48,152 +47,96 @@ class _LightboxDialogState extends State<_LightboxDialog> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final hasMultiple = widget.imagePaths.length > 1;
-
-    return Shortcuts(
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.escape): _CloseIntent(),
-        SingleActivator(LogicalKeyboardKey.arrowLeft): _PrevIntent(),
-        SingleActivator(LogicalKeyboardKey.arrowRight): _NextIntent(),
-      },
-      child: Actions(
-        actions: {
-          _CloseIntent: CallbackAction<_CloseIntent>(
-            onInvoke: (_) {
-              Navigator.of(context).pop();
-              return null;
-            },
-          ),
-          _PrevIntent: CallbackAction<_PrevIntent>(
-            onInvoke: (_) {
-              if (_index > 0) {
-                _controller.previousPage(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                );
-              }
-              return null;
-            },
-          ),
-          _NextIntent: CallbackAction<_NextIntent>(
-            onInvoke: (_) {
-              if (_index < widget.imagePaths.length - 1) {
-                _controller.nextPage(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                );
-              }
-              return null;
-            },
-          ),
-        },
-        child: Focus(
-          autofocus: true,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              PageView.builder(
-                controller: _controller,
-                itemCount: widget.imagePaths.length,
-                onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {},
-                          child: InteractiveViewer(
-                            child: Image.file(
-                              File(widget.imagePaths[index]),
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                top: 16,
-                right: 16,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              if (hasMultiple) ...[
-                Positioned(
-                  left: 8,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.chevron_left,
-                      color: _index > 0 ? Colors.white : Colors.white24,
-                      size: 36,
-                    ),
-                    onPressed: _index > 0
-                        ? () => _controller.previousPage(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                            )
-                        : null,
-                  ),
-                ),
-                Positioned(
-                  right: 8,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.chevron_right,
-                      color: _index < widget.imagePaths.length - 1
-                          ? Colors.white
-                          : Colors.white24,
-                      size: 36,
-                    ),
-                    onPressed: _index < widget.imagePaths.length - 1
-                        ? () => _controller.nextPage(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                            )
-                        : null,
-                  ),
-                ),
-                Positioned(
-                  bottom: 24,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${_index + 1} / ${widget.imagePaths.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+  void _goTo(int delta) {
+    final next = _index + delta;
+    if (next < 0 || next >= widget.imageSources.length) return;
+    _controller.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
     );
   }
-}
 
-class _CloseIntent extends Intent {
-  const _CloseIntent();
-}
+  @override
+  Widget build(BuildContext context) {
+    final hasMultiple = widget.imageSources.length > 1;
 
-class _PrevIntent extends Intent {
-  const _PrevIntent();
-}
-
-class _NextIntent extends Intent {
-  const _NextIntent();
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.imageSources.length,
+          onPageChanged: (i) => setState(() => _index = i),
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pop(),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: InteractiveViewer(
+                      child: buildLightboxImage(widget.imageSources[index]),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        Positioned(
+          top: 16,
+          right: 16,
+          child: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        if (hasMultiple) ...[
+          Positioned(
+            left: 8,
+            child: IconButton(
+              icon: Icon(
+                Icons.chevron_left,
+                color: _index > 0 ? Colors.white : Colors.white24,
+                size: 36,
+              ),
+              onPressed: _index > 0 ? () => _goTo(-1) : null,
+            ),
+          ),
+          Positioned(
+            right: 8,
+            child: IconButton(
+              icon: Icon(
+                Icons.chevron_right,
+                color: _index < widget.imageSources.length - 1
+                    ? Colors.white
+                    : Colors.white24,
+                size: 36,
+              ),
+              onPressed:
+                  _index < widget.imageSources.length - 1 ? () => _goTo(1) : null,
+            ),
+          ),
+          Positioned(
+            bottom: 24,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${_index + 1} / ${widget.imageSources.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

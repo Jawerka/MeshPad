@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/attachment_copy_progress.dart';
 import '../models/note_meta.dart';
+import '../errors/meshpad_exception.dart';
 
 /// MIME guess from file extension (MVP — no magic bytes).
 String? mimeFromFileName(String name) {
@@ -30,10 +32,13 @@ Future<AttachmentMeta> copyAttachmentIntoNote({
   required String attachmentsDir,
   required String sourcePath,
   String? preferredName,
+  AttachmentCopyProgressCallback? onProgress,
+  int fileIndex = 1,
+  int fileCount = 1,
 }) async {
   final source = File(sourcePath);
   if (!await source.exists()) {
-    throw StateError('Attachment source not found: $sourcePath');
+    throw AttachmentNotFoundException(sourcePath);
   }
 
   await Directory(attachmentsDir).create(recursive: true);
@@ -41,16 +46,45 @@ Future<AttachmentMeta> copyAttachmentIntoNote({
   final baseName = preferredName ?? p.basename(sourcePath);
   final safeName = _uniqueName(attachmentsDir, baseName);
   final dest = File(p.join(attachmentsDir, safeName));
-  await source.copy(dest.path);
+  final totalBytes = await source.length();
 
-  final bytes = await dest.readAsBytes();
-  final digest = sha256.convert(bytes).toString();
+  onProgress?.call(
+    AttachmentCopyProgress(
+      fileName: safeName,
+      copiedBytes: 0,
+      totalBytes: totalBytes,
+      fileIndex: fileIndex,
+      fileCount: fileCount,
+    ),
+  );
+
+  final input = source.openRead();
+  final output = dest.openWrite();
+  var copiedBytes = 0;
+
+  await input.forEach((chunk) {
+    output.add(chunk);
+    copiedBytes += chunk.length;
+    onProgress?.call(
+      AttachmentCopyProgress(
+        fileName: safeName,
+        copiedBytes: copiedBytes,
+        totalBytes: totalBytes,
+        fileIndex: fileIndex,
+        fileCount: fileCount,
+      ),
+    );
+  });
+
+  await output.flush();
+  await output.close();
+  final hash = await sha256OfFile(dest.path);
 
   return AttachmentMeta(
     name: safeName,
-    size: bytes.length,
+    size: copiedBytes,
     mime: mimeFromFileName(safeName),
-    sha256: digest,
+    sha256: hash,
   );
 }
 

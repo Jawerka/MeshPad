@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/errors/user_messages.dart';
 import '../../core/constants/app_info.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
@@ -153,7 +155,13 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
             if (result.status == UpdateCheckStatus.updateAvailable &&
                 result.downloadUrl != null)
               FilledButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () async {
+                  final uri = Uri.tryParse(result.downloadUrl!);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                  if (context.mounted) Navigator.pop(context);
+                },
                 child: const Text('Скачать'),
               ),
           ],
@@ -192,8 +200,62 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     }
   }
 
+  Future<void> _saveApiUrl(String currentUrl) async {
+    if (_busy) return;
+
+    final controller = TextEditingController(text: currentUrl);
+    final nextUrl = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('URL сервера MeshPad'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'http://127.0.0.1:8787',
+            labelText: 'Базовый URL API',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (nextUrl == null || nextUrl.isEmpty || nextUrl == currentUrl || !mounted) {
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(settingsControllerProvider).setApiBaseUrl(nextUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Сервер: $nextUrl')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(userFacingError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWeb = ref.watch(isWebClientProvider);
     final dataDirAsync = ref.watch(dataDirProvider);
     final customDirAsync = ref.watch(customDataDirProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
@@ -223,135 +285,169 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           const SizedBox(height: 16),
           Text('Настройки', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
-          dataDirAsync.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('Ошибка: $e'),
-            data: (path) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.folder_outlined),
-                  title: const Text('Папка данных'),
-                  subtitle: Text(
-                    path,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                  trailing: _busy
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.chevron_right),
-                  onTap: _busy ? null : () => _changeDataDir(path),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: customDirAsync.when(
-                    data: (isCustom) => isCustom
-                        ? TextButton(
-                            onPressed: _busy ? null : _resetDataDir,
-                            child: const Text('По умолчанию'),
+          if (isWeb)
+            ref.watch(webApiBaseUrlProvider).when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text(userFacingError(e)),
+                  data: (url) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.cloud_outlined),
+                    title: const Text('Сервер API'),
+                    subtitle: Text(
+                      url,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    trailing: _busy
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const SizedBox.shrink(),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                        : const Icon(Icons.chevron_right),
+                    onTap: _busy ? null : () => _saveApiUrl(url),
                   ),
-                ),
-              ],
-            ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.devices),
-            title: const Text('Устройства и синхронизация'),
-            trailing: failedAsync.when(
-              data: (count) => count > 0
-                  ? Chip(
-                      label: Text('$count'),
-                      visualDensity: VisualDensity.compact,
-                    )
-                  : null,
-              loading: () => null,
-              error: (_, __) => null,
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              DevicesSheet.show(context);
-            },
-          ),
-          settingsAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (e, _) => Text('Настройки sync: $e'),
-            data: (settings) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Автосинхронизация'),
-                  subtitle: Text(
-                    settings.autoSyncEnabled
-                        ? 'Каждые ${settings.autoSyncIntervalMinutes} мин.'
-                        : 'Выключена',
+                )
+          else
+            dataDirAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Ошибка: $e'),
+              data: (path) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.folder_outlined),
+                    title: const Text('Папка данных'),
+                    subtitle: Text(
+                      path ?? '',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    trailing: _busy
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chevron_right),
+                    onTap: _busy || path == null
+                        ? null
+                        : () => _changeDataDir(path),
                   ),
-                  value: settings.autoSyncEnabled,
-                  onChanged: _busy
-                      ? null
-                      : (value) async {
-                          await ref
-                              .read(settingsControllerProvider)
-                              .setAutoSyncEnabled(value);
-                        },
-                ),
-                if (settings.autoSyncEnabled)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final minutes in const [5, 15, 30, 60])
-                          ChoiceChip(
-                            label: Text('$minutes мин'),
-                            selected:
-                                settings.autoSyncIntervalMinutes == minutes,
-                            onSelected: _busy
-                                ? null
-                                : (_) async {
-                                    await ref
-                                        .read(settingsControllerProvider)
-                                        .setAutoSyncIntervalMinutes(minutes);
-                                  },
-                          ),
-                      ],
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: customDirAsync.when(
+                      data: (isCustom) => isCustom
+                          ? TextButton(
+                              onPressed: _busy ? null : _resetDataDir,
+                              child: const Text('По умолчанию'),
+                            )
+                          : const SizedBox.shrink(),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.build_circle_outlined),
-            title: const Text('Проверить данные'),
-            subtitle: const Text('Пересобрать индекс из файлов на диске'),
-            onTap: _busy ? null : _rebuildIndex,
-          ),
+          if (!isWeb) ...[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.devices),
+              title: const Text('Устройства и синхронизация'),
+              trailing: failedAsync.when(
+                data: (count) => count > 0
+                    ? Chip(
+                        label: Text('$count'),
+                        visualDensity: VisualDensity.compact,
+                      )
+                    : null,
+                loading: () => null,
+                error: (_, __) => null,
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                DevicesSheet.show(context);
+              },
+            ),
+            settingsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (e, _) => Text('Настройки sync: $e'),
+              data: (settings) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Автосинхронизация'),
+                    subtitle: Text(
+                      settings.autoSyncEnabled
+                          ? 'Каждые ${settings.autoSyncIntervalMinutes} мин.'
+                          : 'Выключена',
+                    ),
+                    value: settings.autoSyncEnabled,
+                    onChanged: _busy
+                        ? null
+                        : (value) async {
+                            await ref
+                                .read(settingsControllerProvider)
+                                .setAutoSyncEnabled(value);
+                          },
+                  ),
+                  if (settings.autoSyncEnabled)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final minutes in const [5, 15, 30, 60])
+                            ChoiceChip(
+                              label: Text('$minutes мин'),
+                              selected:
+                                  settings.autoSyncIntervalMinutes == minutes,
+                              onSelected: _busy
+                                  ? null
+                                  : (_) async {
+                                      await ref
+                                          .read(settingsControllerProvider)
+                                          .setAutoSyncIntervalMinutes(minutes);
+                                    },
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.build_circle_outlined),
+              title: const Text('Проверить данные'),
+              subtitle: const Text('Пересобрать индекс из файлов на диске'),
+              onTap: _busy ? null : _rebuildIndex,
+            ),
+          ],
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: const Text('О приложении'),
-            subtitle: Text('MeshPad $kAppVersion · local-first Markdown'),
+            subtitle: Text(
+              isWeb
+                  ? 'MeshPad Web · $kAppVersion'
+                  : 'MeshPad $kAppVersion · local-first Markdown',
+            ),
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.system_update_alt),
-            title: const Text('Проверить обновления'),
-            onTap: _busy ? null : _checkUpdates,
-          ),
+          if (!isWeb)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.system_update_alt),
+              title: const Text('Проверить обновления'),
+              onTap: _busy ? null : _checkUpdates,
+            ),
           const SizedBox(height: 8),
           Text(
-            'libp2p-синхронизация — в следующем спринте.',
+            isWeb
+                ? 'Web-клиент подключается к headless-серверу (meshpad_server).'
+                : 'libp2p-синхронизация — в следующем спринте.',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: MeshPadColors.textMuted,
                 ),

@@ -21,11 +21,13 @@ class _AppShellState extends ConsumerState<AppShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(syncLoopProvider).start();
-      ref.read(discoveryServiceProvider).start();
-      if (DesktopShell.isSupported) {
-        DesktopShell.instance.onSync =
-            () => ref.read(syncControllerProvider).runSync();
+      if (!ref.read(isWebClientProvider)) {
+        ref.read(syncLoopProvider).start();
+        ref.read(discoveryServiceProvider).start();
+        if (DesktopShell.isSupported) {
+          DesktopShell.instance.onSync =
+              () => ref.read(syncControllerProvider).runSync();
+        }
       }
     });
   }

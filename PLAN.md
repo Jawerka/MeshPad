@@ -172,7 +172,9 @@
 ```text
 MeshPad/
   apps/meshpad/              # Flutter-приложение (UI + platform channels)
+  apps/meshpad_server/       # Headless HTTP API (Linux / Web backend)
   packages/
+    meshpad_api_client/      # HTTP-клиент для Web / thin clients
     meshpad_core/            # домен, FS, индекс, sync engine (чистый Dart)
     meshpad_p2p/             # интерфейс + fake + будущий FFI
   ref/                       # HTML/CSS референс (не в сборке)
@@ -295,24 +297,25 @@ MeshPad/
 - [x] SyncEngine + LWW/tombstone + outbox ack
 - [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
 - [x] LAN discovery заглушка (демо-пиры до libp2p/mDNS)
+- [x] PIN-pairing протокол (модели сообщений)
 - [ ] libp2p MVP (LAN + PIN)
 - [x] UI: устройства, PIN-заглушка, «Синхронизировать»
 - [x] Outbox retry + статусы на карточках (pending / error)
 
 ### Спринт 5 — Платформы (в работе)
 
-- [ ] Android share + WorkManager
+- [x] Android Share-to + WorkManager (фоновое обслуживание)
 - [x] Windows/Linux tray (свернуть в трей, меню)
-- [ ] Linux headless + Web client
+- [x] Linux headless HTTP API (`apps/meshpad_server`)
+- [x] Web client (Flutter web → API)
 - [x] Настройки: путь данных, автосинхронизация, проверка данных
-- [x] Android Share-to (текст и файлы)
-- [x] WorkManager фоновое обслуживание (reconcile + purge)
 
 ### Спринт 6 — Полировка (в работе)
 
-- Ленивая лента, прогресс файлов
-- [x] Проверка обновлений (ручная загрузка)
-- Обработка ошибок сети
+- [x] Ленивая лента (пагинация при прокрутке вверх)
+- [x] Обработка ошибок сети (`MeshPadException`, сообщения sync)
+- [x] Прогресс копирования больших вложений
+- [x] Проверка обновлений (ручная загрузка + ссылка)
 
 ---
 

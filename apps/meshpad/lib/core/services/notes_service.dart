@@ -139,8 +139,6 @@ class RemoteNotesService implements NotesService {
   RemoteNotesService(this._client);
 
   final MeshPadApiClient _client;
-  List<Note>? _activeCache;
-  NoteSort? _activeCacheSort;
 
   @override
   Future<String?> get localDataDir async => null;
@@ -149,34 +147,16 @@ class RemoteNotesService implements NotesService {
   Uri? attachmentUri(String noteId, String fileName) =>
       _client.attachmentUri(noteId, fileName);
 
-  Future<List<Note>> _activeNotes({NoteSort sort = NoteSort.createdAt}) async {
-    if (_activeCache != null && _activeCacheSort == sort) {
-      return _activeCache!;
-    }
-    _activeCache = await _client.listNotes(sort: sort);
-    _activeCacheSort = sort;
-    return _activeCache!;
-  }
-
-  void _invalidate() {
-    _activeCache = null;
-    _activeCacheSort = null;
-  }
-
   @override
-  Future<int> countActiveNotes() async => (await _activeNotes()).length;
+  Future<int> countActiveNotes() => _client.countActiveNotes();
 
   @override
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
-  }) async {
-    final all = await _activeNotes(sort: sort);
-    if (offset >= all.length) return [];
-    final end = offset + limit;
-    return all.sublist(offset, end > all.length ? all.length : end);
-  }
+  }) =>
+      _client.listNotesSlice(offset: offset, limit: limit, sort: sort);
 
   @override
   Future<List<Note>> listTrash() => _client.listTrash();
@@ -227,13 +207,11 @@ class RemoteNotesService implements NotesService {
         ),
       );
     }
-    _invalidate();
   }
 
   @override
   Future<void> updateNote(String id, {String? title, String? markdown}) async {
     await _client.updateNote(id, title: title, markdown: markdown);
-    _invalidate();
   }
 
   @override
@@ -268,19 +246,16 @@ class RemoteNotesService implements NotesService {
         totalBytes: bytes.length,
       ),
     );
-    _invalidate();
   }
 
   @override
   Future<void> deleteNote(String id) async {
     await _client.deleteNote(id);
-    _invalidate();
   }
 
   @override
   Future<void> restoreNote(String id) async {
     await _client.restoreNote(id);
-    _invalidate();
   }
 
   @override

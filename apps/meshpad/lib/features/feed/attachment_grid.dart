@@ -154,6 +154,7 @@ class _ImageTile extends StatelessWidget {
     }
     return buildAttachmentThumbnail(
       path: source.path,
+      thumbPath: source.thumbPath,
       url: source.url,
       errorBox: _errorBox(),
     );

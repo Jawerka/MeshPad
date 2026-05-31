@@ -27,6 +27,7 @@ class MeshPadHttpServer {
     });
 
     router.get('/api/notes', _listNotes);
+    router.get('/api/notes/count', _countNotes);
     router.get('/api/notes/<id>', _getNote);
     router.post('/api/notes', _createNote);
     router.put('/api/notes/<id>', _updateNote);
@@ -42,9 +43,29 @@ class MeshPadHttpServer {
 
   Future<Response> _listNotes(Request request) async {
     final sort = _parseNoteSort(request.url.queryParameters['sort']);
+    final params = request.url.queryParameters;
+    final offset = int.tryParse(params['offset'] ?? '') ?? 0;
+    final limitRaw = int.tryParse(params['limit'] ?? '') ?? 0;
+
+    if (limitRaw > 0 || offset > 0) {
+      final limit = limitRaw > 0 ? limitRaw.clamp(1, 200) : 40;
+      final notes = await repository.listNotesSlice(
+        offset: offset,
+        limit: limit,
+        sort: sort,
+      );
+      final body = notes.map(_noteJson).toList();
+      return Response.ok(jsonEncode(body), headers: _jsonHeaders);
+    }
+
     final notes = await repository.listNotes(sort: sort);
     final body = notes.map(_noteJson).toList();
     return Response.ok(jsonEncode(body), headers: _jsonHeaders);
+  }
+
+  Future<Response> _countNotes(Request request) async {
+    final count = await repository.countActiveNotes();
+    return Response.ok(jsonEncode({'count': count}), headers: _jsonHeaders);
   }
 
   NoteSort _parseNoteSort(String? raw) {
@@ -241,10 +262,9 @@ class MeshPadHttpServer {
     }
   }
 
-  Map<String, dynamic> _noteJson(Note note) => {
+  Map<String, dynamic> _noteSummaryJson(Note note) => {
         'id': note.id,
         'title': note.title,
-        'markdown': note.markdown,
         'author': note.author,
         'created_at': note.createdAt.toIso8601String(),
         'updated_at': note.updatedAt.toIso8601String(),
@@ -260,6 +280,11 @@ class MeshPadHttpServer {
               'sha256': a.sha256,
             },
         ],
+      };
+
+  Map<String, dynamic> _noteJson(Note note) => {
+        ..._noteSummaryJson(note),
+        'markdown': note.markdown,
       };
 
   static String _preview(String markdown) {

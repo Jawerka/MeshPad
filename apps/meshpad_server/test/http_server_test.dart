@@ -110,6 +110,39 @@ void main() {
     );
   });
 
+  test('GET /api/notes supports pagination and count', () async {
+    final router = server().buildRouter();
+
+    for (var i = 0; i < 5; i++) {
+      final create = await router.call(
+        Request(
+          'POST',
+          Uri.parse('http://localhost/api/notes'),
+          body: '{"markdown":"note $i"}',
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+      expect(create.statusCode, 201);
+    }
+
+    final count = await router.call(
+      Request('GET', Uri.parse('http://localhost/api/notes/count')),
+    );
+    expect(count.statusCode, 200);
+    expect(await count.readAsString(), contains('"count":5'));
+
+    final page = await router.call(
+      Request(
+        'GET',
+        Uri.parse('http://localhost/api/notes?offset=2&limit=2'),
+      ),
+    );
+    expect(page.statusCode, 200);
+    final decoded = (await page.readAsString());
+    expect(decoded.startsWith('['), isTrue);
+    expect(decoded.split('"id"').length - 1, 2);
+  });
+
   test('OPTIONS returns CORS headers', () async {
     final response = await corsHeaders()(
       (request) => Response.ok(''),

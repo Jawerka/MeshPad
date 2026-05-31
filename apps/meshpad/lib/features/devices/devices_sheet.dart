@@ -205,23 +205,23 @@ class DevicesSheet extends ConsumerWidget {
                               trailing: compact
                                   ? null
                                   : FilledButton.tonal(
-                                      onPressed: () => _trustDiscoveredPeer(
+                                      onPressed: () => _showPinPairingDialog(
                                         context,
                                         ref,
-                                        peer,
+                                        targetPeer: peer,
                                       ),
-                                      child: const Text('Доверять'),
+                                      child: const Text('PIN'),
                                     ),
                               footer: compact
                                   ? Align(
                                       alignment: Alignment.centerRight,
                                       child: FilledButton.tonal(
-                                        onPressed: () => _trustDiscoveredPeer(
+                                        onPressed: () => _showPinPairingDialog(
                                           context,
                                           ref,
-                                          peer,
+                                          targetPeer: peer,
                                         ),
-                                        child: const Text('Доверять'),
+                                        child: const Text('PIN'),
                                       ),
                                     )
                                   : null,
@@ -368,30 +368,6 @@ class DevicesSheet extends ConsumerWidget {
     return result;
   }
 
-  Future<void> _trustDiscoveredPeer(
-    BuildContext context,
-    WidgetRef ref,
-    DiscoveredPeer peer,
-  ) async {
-    final lan = readLanSyncTransport(ref);
-    final endpoint = lan?.endpointFor(peer.peerId);
-    final store = await ref.read(deviceStoreProvider.future);
-    await store.trustDevice(
-      peerId: peer.peerId,
-      name: peer.displayName,
-      icon: 'device',
-      lanHost: endpoint?.host,
-      lanHttpPort: endpoint?.httpPort,
-    );
-    ref.read(discoveredPeersProvider.notifier).remove(peer.peerId);
-    ref.invalidate(trustedDevicesProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('«${peer.displayName}» добавлено')),
-      );
-    }
-  }
-
   Future<void> _runSyncWithPeer(
     BuildContext context,
     WidgetRef ref,
@@ -493,7 +469,11 @@ class DevicesSheet extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _showPinPairingDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showPinPairingDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    DiscoveredPeer? targetPeer,
+  }) async {
     final pin = generatePairingPin();
     final identity = await ref.read(localIdentityProvider.future);
     final lan = readLanSyncTransport(ref);
@@ -516,7 +496,7 @@ class DevicesSheet extends ConsumerWidget {
       builder: (dialogContext) => _PinPairingDialog(
         pin: pin,
         lanAvailable: lan != null,
-        discovered: ref.read(discoveredPeersProvider),
+        initialPeer: targetPeer,
         onConfirm: (remotePin, targetPeer) async {
           final store = await ref.read(deviceStoreProvider.future);
           final identity = await ref.read(localIdentityProvider.future);
@@ -581,35 +561,41 @@ class DevicesSheet extends ConsumerWidget {
   }
 }
 
-class _PinPairingDialog extends StatefulWidget {
+class _PinPairingDialog extends ConsumerStatefulWidget {
   const _PinPairingDialog({
     required this.pin,
     required this.lanAvailable,
-    required this.discovered,
+    this.initialPeer,
     required this.onConfirm,
     required this.onClose,
   });
 
   final String pin;
   final bool lanAvailable;
-  final List<DiscoveredPeer> discovered;
+  final DiscoveredPeer? initialPeer;
   final Future<bool> Function(String remotePin, DiscoveredPeer? targetPeer)
       onConfirm;
   final Future<void> Function() onClose;
 
   @override
-  State<_PinPairingDialog> createState() => _PinPairingDialogState();
+  ConsumerState<_PinPairingDialog> createState() => _PinPairingDialogState();
 }
 
-class _PinPairingDialogState extends State<_PinPairingDialog> {
+class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
   final _remotePinController = TextEditingController();
   DiscoveredPeer? _selectedPeer;
 
   @override
   void initState() {
     super.initState();
-    if (widget.discovered.isNotEmpty) {
-      _selectedPeer = widget.discovered.first;
+    _selectedPeer = widget.initialPeer;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PinPairingDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_selectedPeer == null && widget.initialPeer != null) {
+      _selectedPeer = widget.initialPeer;
     }
   }
 
@@ -622,6 +608,14 @@ class _PinPairingDialogState extends State<_PinPairingDialog> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 720;
+    final discovered = ref.watch(discoveredPeersProvider);
+    final selectedPeer = _selectedPeer ??
+        (discovered.isEmpty
+            ? null
+            : (widget.initialPeer != null &&
+                    discovered.any((p) => p.peerId == widget.initialPeer!.peerId)
+                ? widget.initialPeer
+                : discovered.first));
 
     return AlertDialog(
       title: const Text('PIN-pairing'),
@@ -650,23 +644,23 @@ class _PinPairingDialogState extends State<_PinPairingDialog> {
                     ),
                 textAlign: TextAlign.center,
               ),
-              if (widget.lanAvailable && widget.discovered.isNotEmpty) ...[
+              if (widget.lanAvailable && discovered.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
                   'Устройство в сети',
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 8),
-                if (widget.discovered.length == 1)
+                if (discovered.length == 1)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.devices_outlined),
-                    title: Text(widget.discovered.first.displayName),
+                    title: Text(discovered.first.displayName),
                   )
                 else
-                  ...widget.discovered.map(
+                  ...discovered.map(
                     (peer) {
-                      final selected = _selectedPeer?.peerId == peer.peerId;
+                      final selected = selectedPeer?.peerId == peer.peerId;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Material(
@@ -728,8 +722,8 @@ class _PinPairingDialogState extends State<_PinPairingDialog> {
               return;
             }
 
-            if (widget.lanAvailable && widget.discovered.isNotEmpty) {
-              final target = _selectedPeer ?? widget.discovered.first;
+            if (widget.lanAvailable && discovered.isNotEmpty) {
+              final target = selectedPeer ?? discovered.first;
               final ok = await widget.onConfirm(remotePin, target);
               if (!context.mounted) return;
               if (ok) {

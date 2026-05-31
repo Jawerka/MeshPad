@@ -85,18 +85,24 @@ class FeedSortNotifier extends Notifier<NoteSort> {
   }
 
   Future<void> _loadFromSettings() async {
-    final settings = await ref.read(appSettingsStoreProvider).loadSettings();
-    if (state != settings.feedSort) {
-      state = settings.feedSort;
+    final sort = ref.read(isWebClientProvider)
+        ? await ref.read(webApiSettingsStoreProvider).loadFeedSort()
+        : (await ref.read(appSettingsStoreProvider).loadSettings()).feedSort;
+    if (state != sort) {
+      state = sort;
     }
   }
 
   Future<void> setSort(NoteSort sort) async {
     if (state == sort) return;
     state = sort;
-    final store = ref.read(appSettingsStoreProvider);
-    final current = await store.loadSettings();
-    await store.saveSettings(current.copyWith(feedSort: sort));
+    if (ref.read(isWebClientProvider)) {
+      await ref.read(webApiSettingsStoreProvider).saveFeedSort(sort);
+    } else {
+      final store = ref.read(appSettingsStoreProvider);
+      final current = await store.loadSettings();
+      await store.saveSettings(current.copyWith(feedSort: sort));
+    }
     ref.invalidate(notesListProvider);
   }
 }

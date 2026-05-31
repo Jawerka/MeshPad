@@ -29,6 +29,19 @@ class HeadlessLanSyncService {
     return _transport ??= LanSyncTransport(
       getEngine: () async => engine,
       getIdentity: () async => identity,
+      onRemoteTrusted: (confirm) async {
+        final initiatorId = confirm.initiatorPeerId;
+        final host = confirm.initiatorLanHost;
+        final port = confirm.initiatorHttpPort;
+        if (initiatorId == null || host == null || port == null) return;
+
+        await deviceStore.trustDevice(
+          peerId: initiatorId,
+          name: confirm.initiatorDisplayName ?? 'Устройство',
+          lanHost: host,
+          lanHttpPort: port,
+        );
+      },
     );
   }
 
@@ -63,6 +76,7 @@ class HeadlessLanSyncService {
 
     _syncInProgress = true;
     try {
+      await repository.purgeExpiredTrash();
       return await coordinator.syncTrustedPeers(
         transport: transport,
         repository: repository,

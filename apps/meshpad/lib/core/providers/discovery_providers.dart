@@ -37,7 +37,6 @@ class DiscoveryService {
 
   final Ref _ref;
   StreamSubscription<SyncTransportEvent>? _eventsSub;
-  LanDiscoverySimulator? _simulator;
 
   Future<void> start() async {
     if (kIsWeb || !(Platform.isWindows || Platform.isLinux || Platform.isAndroid)) {
@@ -60,16 +59,10 @@ class DiscoveryService {
         peerId: event.peerId,
       );
     });
-
-    if (transport is FakeSyncTransport) {
-      _simulator ??= LanDiscoverySimulator(transport);
-      _simulator!.start();
-    }
   }
 
   void dispose() {
     unawaited(_eventsSub?.cancel());
-    _simulator?.dispose();
   }
 }
 

@@ -1,5 +1,7 @@
 # Разработка MeshPad
 
+MVP **0.1.0**. Поведение приложения — [PLAN.md §5](../PLAN.md#5-реализованное-mvp-010). Архитектура — [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Требования
 
 | Инструмент | Версия / примечание |
@@ -7,184 +9,95 @@
 | Git | 2.x |
 | Flutter | stable (см. `.fvmrc`) |
 | Dart | идёт с Flutter |
-| Android Studio / SDK | только для сборки Android |
-| Visual Studio 2022 | «Desktop development with C++» — для `windows` |
-| clang/cmake | для `linux` desktop (WSL или нативный Linux) |
+| Android Studio / SDK | для Android |
+| Visual Studio 2022 | C++ workload — для `windows` |
+| clang/cmake | для `linux` desktop |
 
-## Устранение неполадок
-
-### `Unable to update Dart SDK` / `storage.googleapis.com`
-
-Первый запуск Flutter скачивает Dart SDK с Google CDN. Нужен доступ в интернет (или VPN/прокси). После успешного `flutter doctor` SDK кэшируется локально.
-
-```powershell
-$env:Path = "$env:LOCALAPPDATA\flutter\bin;" + $env:Path
-flutter doctor -v
-```
-
-### Melos не в PATH
-
-```powershell
-$env:Path = "$env:LOCALAPPDATA\Pub\Cache\bin;" + $env:Path
-dart pub global activate melos
-```
-
-## Быстрый старт (Windows)
+## Быстрый старт
 
 ```powershell
 cd D:\Documents\Projects\MeshPad
 .\scripts\setup.ps1
 .\scripts\bootstrap.ps1
-```
-
-`setup.ps1`:
-
-- при отсутствии Flutter клонирует stable в `%LOCALAPPDATA%\flutter`;
-- добавляет Flutter в PATH **текущей сессии**;
-- запускает `flutter doctor`;
-- выполняет `melos bootstrap` (если monorepo уже создан).
-
-## Git
-
-```powershell
-git clone <url> MeshPad
-cd MeshPad
-.\scripts\setup.ps1
-```
-
-`local.properties` (пути SDK) в `.gitignore` — не коммитится.
-
-## Android-эмулятор
-
-AVD **MeshPad_API36** (Pixel 7, API 36, Google Play, x86_64).
-
-```powershell
-.\scripts\launch-emulator.ps1
-# или: flutter emulators --launch MeshPad_API36
-
-cd apps\meshpad
-flutter run
-```
-
-Другой AVD: Android Studio → Device Manager → Create Virtual Device.
-
-## Запуск приложения
-
-Приложение Flutter — в **`apps/meshpad`**, не в корне репозитория.
-
-```powershell
-cd D:\Documents\Projects\MeshPad
 .\scripts\run.ps1
 ```
 
-Или вручную:
+## Запуск
+
+| Цель | Команда |
+|------|---------|
+| Windows | `.\scripts\run.ps1 -Device windows` |
+| Android | `.\scripts\launch-emulator.ps1` → `.\scripts\run.ps1 -Device android` |
+| Dual (Win+Android) | `.\scripts\run.ps1 -Device dual` |
+| Web | `.\scripts\run-web.ps1` |
+| Headless server | `.\scripts\run-server.ps1` или `-P2p` для LAN sync |
+
+После изменений native-плагинов (video_player_win, audioplayers):
 
 ```powershell
-cd D:\Documents\Projects\MeshPad\apps\meshpad
+cd apps\meshpad
+flutter clean
 flutter run -d windows
 ```
 
-Другие платформы: `.\scripts\run.ps1 -Device chrome` или `-Device android` (эмулятор: `.\scripts\launch-emulator.ps1`).
-
-### Headless HTTP-сервер (Linux / Web backend)
-
-Минимальный REST API для Web-клиента (Sprint 5):
-
-```powershell
-.\scripts\run-server.ps1
-# или: .\scripts\run-server.ps1 -DataDir D:\MeshPadData -Port 8787 -P2p
-```
-
-С флагом `-P2p` сервер участвует в LAN-синхронизации с доверенными устройствами (UDP discovery + HTTP), как desktop-клиент.
-
-Эндпоинты:
+## Headless HTTP API
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| GET | `/api/health` | Проверка доступности |
-| GET | `/api/notes` | Список заметок (краткий); `?sort=updated_at` или `created_at` (по умолчанию) |
+| GET | `/api/health` | Проверка |
+| GET | `/api/notes` | Список; `?sort=`, `?offset=`, `?limit=` |
+| GET | `/api/notes/count` | `{ "count": N }` |
 | GET | `/api/notes/<id>` | Полная заметка |
-| POST | `/api/notes` | Создать: `{"markdown":"...", "title":"", "author":""}` |
+| POST | `/api/notes` | Создать |
+| PUT | `/api/notes/<id>` | Обновить |
+| PUT | `/api/notes/<id>/attachments/<name>` | Загрузить вложение |
+| DELETE | `/api/notes/<id>` | В корзину |
+| POST | `/api/notes/<id>/restore` | Восстановить |
+| GET | `/api/trash` | Корзина |
+| GET | `/api/search?q=` | FTS |
+| GET | `/api/notes/<id>/attachments/<name>` | Файл |
 
-Данные — тот же каталог `meshpad_core` (`notes/`, Drift-индекс).
+## Поведение MVP (кратко)
 
-### Web-клиент (Flutter web)
+### UI
 
-Тонкий клиент к API сервера — тот же UI `apps/meshpad`, режим `kIsWeb`:
+- Навигация **только через шапку** (sidebar из `ref/` не используется).
+- Sync и корзина — в шапке; sync-иконка вращается при активной синхронизации.
+- На карточках заметок **нет** иконок sync.
 
-```powershell
-# Терминал 1 — сервер
-.\scripts\run-server.ps1
+### Sync
 
-# Терминал 2 — Web UI
-cd apps\meshpad
-flutter run -d chrome
-```
+- LAN: mDNS + UDP + HTTP; pairing **только PIN**.
+- Auto-sync: debounce после правок + таймер 15–60 мин (настройки).
+- Android WorkManager: reconcile + purge (мин. интервал 15 мин).
 
-Или одной командой (сервер в фоне): `.\scripts\run-web.ps1`
+### Данные
 
-В настройках Web укажите URL сервера (по умолчанию `http://127.0.0.1:8787`). Поддерживаются лента, создание/редактирование, корзина, поиск, просмотр и **загрузка** вложений на сервер.
+- FS — источник истины; «Проверить данные» → reconcile + rebuild `.thumbs/`.
+- Корзина: 7 дней, purge при sync tick и maintenance.
 
-Позиция и размер окна (Windows) сохраняются в `%LOCALAPPDATA%\MeshPad\window_state.ini` как физические пиксели `WINDOWPLACEMENT` (v3).
+### Платформы
 
-На Windows/Linux при закрытии окна приложение сворачивается в **системный трей** (иконка в области уведомлений). Меню: «Открыть», «Синхронизировать», «Выход». Пока приложение запущено, **автосинхронизация** с доверенными устройствами выполняется по таймеру (настройки → интервал 5–60 мин.).
+- **Windows:** tray, `nuget.config`, видео-постер (`video_player_win`).
+- **Web:** thin client; sort в SharedPreferences; вложения через URL.
 
-На **Android** MeshPad появляется в меню «Поделиться» для текста и файлов — создаётся новая заметка в ленте. **WorkManager** периодически пересобирает индекс и очищает корзину (при включённой автосинхронизации, минимум 15 мин.).
-
-Лента подгружает заметки порциями при прокрутке вверх (последние 40 видны сразу). Ошибки sync и сети показываются по-русски через `MeshPadException`.
-
-**UI:** навигация через **шапку** (поиск, sync, устройства, настройки). Боковая панель из HTML-референса не используется. Статус синхронизации — в шапке (очередь, спиннер), не на карточках заметок. На desktop корзина — FAB справа; на телефоне — иконка в шапке. В «Устройства» — выбор иконки, LAN-порт для отладки sync.
-
-### Windows: «symlink support» / Developer Mode
-
-Flutter с плагинами (`path_provider`, `sqlite3`) на Windows нужны **симлинки**. Включите **режим разработчика**:
-
-1. `Win + I` → **Конфиденциальность и безопасность** → **Для разработчиков** → **Режим разработчика** — **Вкл.**
-2. Или в PowerShell: `start ms-settings:developers`
-3. Перезапустите терминал и снова: `.\scripts\run.ps1`
-
-На LTSC/корпоративных образах пункт может быть заблокирован политикой — тогда запускайте Web: `.\scripts\run.ps1 -Device chrome`.
+Окно Windows: `%LOCALAPPDATA%\MeshPad\window_state.ini`.
 
 ## Тестовый прогон
 
-Локальный аналог CI (codegen → analyze → unit + widget tests):
-
 ```powershell
+dart run melos run check
+# или
 .\scripts\test-run.ps1
 ```
 
-Опции:
+## Monorepo
 
-```powershell
-.\scripts\test-run.ps1 -SkipBootstrap      # быстрее, если deps уже на месте
-.\scripts\test-run.ps1 -WithFormat         # + проверка dart format
-.\scripts\test-run.ps1 -WithBuild          # + сборка Windows debug
-```
-
-Только analyze + тесты без codegen/bootstrap:
-
-```powershell
-dart run melos run check
-```
-
-## Команды (после bootstrap)
-
-```powershell
-melos run analyze
-melos run test
-melos run format
-
-cd apps/meshpad
-flutter run -d windows
-```
-
-## Структура monorepo
-
-- `apps/meshpad` — точка входа Flutter
-- `apps/meshpad_server` — headless REST API (Linux / Web backend)
-- `packages/meshpad_api_client` — HTTP-клиент для Web
-- `packages/meshpad_core` — домен и хранилище (unit-тесты здесь)
-- `packages/meshpad_p2p` — сетевой адаптер
+- `apps/meshpad` — Flutter UI
+- `apps/meshpad_server` — REST + `--p2p`
+- `packages/meshpad_core` — домен, FS, Drift, sync, thumbnails
+- `packages/meshpad_p2p` — LAN transport
+- `packages/meshpad_api_client` — HTTP для Web
 
 ## Codegen (Drift)
 
@@ -193,22 +106,66 @@ cd packages/meshpad_core
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-## Ручной чеклист (UI-спринт)
+## Устранение неполадок
 
-- [ ] Создать заметку с заголовком и MD-текстом
-- [ ] Прикрепить изображение, открыть лайтбокс (клик мимо — закрыть)
-- [ ] Прикрепить большой файл — виден прогресс копирования
-- [ ] Настройки → «Проверить данные» после ручного изменения файлов
-- [ ] Android: «Поделиться» текстом/фото → новая заметка
-- [ ] Удалить в корзину, восстановить
-- [ ] Поиск находит фрагмент текста и имя вложения
-- [ ] Заметка с `# заголовком` получает title в meta.json
-- [ ] Перезапуск приложения — данные на месте
+### Flutter / Melos
+
+```powershell
+$env:Path = "$env:LOCALAPPDATA\flutter\bin;" + $env:Path
+flutter doctor -v
+dart pub global activate melos
+```
+
+### Windows Developer Mode
+
+Нужен для symlink support плагинов: `start ms-settings:developers` → режим разработчика.
+
+### LAN sync не работает
+
+1. Оба устройства в одной Wi‑Fi.
+2. Firewall: `.\scripts\allow-meshpad-firewall.ps1`
+3. PIN-pairing в «Устройства» → «Сопряжение по PIN».
+4. Логи: `<dataDir>/meshpad.log` или `.\scripts\collect-logs.ps1`
+
+## Ручной чеклист MVP
+
+### Лента и заметки
+
+- [ ] Создать заметку с Markdown; `# заголовок` → title в meta.json
+- [ ] Заметка только с файлом — без «_Пустая заметка_»
+- [ ] Сортировка created / updated сохраняется после перезапуска
+- [ ] Прокрутка вверх подгружает старые заметки
+
+### Вложения
+
+- [ ] Изображение → превью в ленте, lightbox
+- [ ] Видео (Win): постер, tap → воспроизведение
+- [ ] Аудио: inline player
+- [ ] Большой файл — progress при копировании
+- [ ] DnD файла в composer (Win/Linux)
+
+### Sync (два устройства в LAN)
+
+- [ ] Обнаружение в «Устройства»
+- [ ] PIN-pairing (без «доверять» без PIN)
+- [ ] Sync: заметка появляется на втором устройстве
+- [ ] Удаление → корзина → sync → восстановление
+
+### Прочее
+
+- [ ] Android Share-to → новая заметка
+- [ ] «Проверить данные» после ручного изменения FS
+- [ ] Поиск по тексту и имени вложения
+- [ ] Web: лента через server, paginated load
 
 ## CI
 
-Pull request → GitHub Actions: `analyze`, `format`, `test` (см. `.github/workflows/ci.yml`).
+Pull request → GitHub Actions: analyze, format, test (`.github/workflows/ci.yml`).
 
 ## VS Code / Cursor
 
-Рекомендуемые расширения — `.vscode/extensions.json`.
+Расширения: `.vscode/extensions.json`.
+
+## Post-MVP
+
+Следующий этап — [PLAN.md §12](../PLAN.md#12-post-mvp--план-развития): auth token на LAN sync → libp2p → Web push.

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
@@ -57,6 +59,25 @@ void main() {
     await repo.restoreNote(note.id);
     expect((await repo.listNotes()).length, 1);
     expect(await repo.listTrash(), isEmpty);
+  });
+
+  test('purgeExpiredTrash removes notes older than ttl', () async {
+    final note = await repo.createNote(title: 'old trash');
+    await repo.deleteNote(note.id);
+
+    final metaPath = p.join(tempDir.path, 'notes', note.id, 'meta.json');
+    final raw = jsonDecode(await File(metaPath).readAsString()) as Map<String, dynamic>;
+    raw['deleted_at'] = DateTime.now()
+        .toUtc()
+        .subtract(const Duration(days: 8))
+        .toIso8601String();
+    await File(metaPath).writeAsString(jsonEncode(raw));
+    await repo.reconcileFromFilesystem();
+
+    final purged = await repo.purgeExpiredTrash();
+    expect(purged, 1);
+    expect(await repo.listTrash(), isEmpty);
+    expect(await repo.getNote(note.id), isNull);
   });
 
   test('reconcile rebuilds index from FS', () async {

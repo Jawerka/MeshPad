@@ -1,5 +1,7 @@
 import 'package:path/path.dart' as p;
 
+import 'attachment_thumbnails.dart';
+
 /// Standard data directory layout (see PLAN.md).
 class MeshPadPaths {
   MeshPadPaths(this.root);
@@ -22,4 +24,7 @@ class MeshPadPaths {
       p.join(attachmentsDir(noteId), fileName);
 
   String thumbsDir(String noteId) => p.join(noteDir(noteId), '.thumbs');
+
+  String thumbFile(String noteId, String attachmentName) =>
+      p.join(thumbsDir(noteId), thumbFileName(attachmentName));
 }

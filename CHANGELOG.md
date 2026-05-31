@@ -2,41 +2,71 @@
 
 ## [Unreleased]
 
-### Fixed
+### Post-MVP (planned)
 
-- Windows: сборка падала на `audioplayers_windows` (NuGet `primarySources` пустой) — добавлен `windows/nuget.config`.
+- LAN sync auth token (PLAN §12 Phase A)
+- Native libp2p transport (Phase B)
+
+---
+
+## [0.1.0] — MVP (2026-05)
+
+Первый рабочий релиз. См. [PLAN.md §5](PLAN.md#5-реализованное-mvp-010) — источник истины по поведению.
+
+### Суть MVP
+
+Local-first Markdown-лента, вложения с превью (images/video/audio), корзина 7 дней, FTS, LAN sync (mDNS/HTTP) с PIN-pairing, Android share-to, desktop tray, Web через headless API.
 
 ### Added
 
-- Feed sort toggle: по дате создания / по дате изменения (сохраняется в `app_settings.json`); доступен и в Web-клиенте.
-- Trash cards show auto-purge date (7 дней).
-- LAN sync: clear stale trusted endpoint on unreachable peer; firewall script for dynamic TCP ports.
-- Выбор иконки устройства (локальное и доверенные) — предустановленный набор, цвет по `peer_id`.
-- Поиск по заголовку заметки (FTS и fallback LIKE).
-- Поиск по именам вложений (FTS + LIKE).
-- Авто-заголовок из Markdown (`# heading` или первая строка) при создании/редактировании.
-- Превью видео и аудио во вложениях (inline-плеер в ленте; изображения — как раньше).
-- В листе «Устройства» показывается LAN-эндпоинт (локальный порт и адрес доверенных).
-- HTTP API: `GET /api/notes?sort=updated_at`.
-- Отзыв доверия сбрасывает кэш peer в LAN transport; очистка исчерпанных записей outbox в настройках.
+- Monorepo: `meshpad_core`, `meshpad_p2p`, `meshpad_api_client`, `meshpad`, `meshpad_server`
+- FS + Drift, LWW sync, outbox, device identity, LAN transport
+- UI: header-only navigation, lazy feed, inline edit, devices sheet, settings
+- Media: `.thumbs/` cache, video poster (Win/Linux), inline audio/video (mobile)
+- Web: paginated API, RemoteNotesService, attachment upload
+- Auto-sync: debounced on edit + periodic timer; purge trash on sync tick
+- `video_player_win`, Windows `nuget.config`
 
-### Removed
+### Changed (UX / design decisions)
 
-- Desktop sidebar (`ConvSidebar`) — навигация только через шапку (см. PLAN §4.1).
-- Иконки sync на карточках заметок — статус sync только в шапке (см. PLAN §4.3).
+- **No sidebar** — header navigation only (ref sidebar not implemented)
+- **No sync icons on note cards** — sync status in header only
+- **Trash in header** — not FAB
+- **No «MeshPad» title** in feed header
+- **Sync icon** rotates counter-clockwise (not spinner)
+- **PIN-only trust** — removed «Доверять» without PIN
+- **Empty note placeholder** hidden when attachments present
+- Settings text: LAN sync active (not «libp2p next sprint»)
 
-### Changed
+### Fixed
 
-- Expanded `PLAN.md` with architecture, testing, sprints, risks.
-- Monorepo: `packages/meshpad_core`, `packages/meshpad_p2p`, `apps/meshpad`.
-- Dev tooling: Melos, CI, setup scripts, EditorConfig, VS Code settings.
-- Core: `NoteMeta`, file repository, LWW merge, unit tests.
-- Git repository, Android AVD `MeshPad_API36`, `scripts/launch-emulator.ps1`.
-- **Sprint 1:** Drift DB, `NoteRepository` (FS + index), models Device/SyncEvent.
-- **Sprint 2:** Chat UI — sidebar, feed, composer, inline edit, trash, Markdown preview.
-- **Sprint 3:** Attachments, image preview/lightbox, FTS search, sync outbox indicator, trash TTL purge.
-- **Sprint 4 (partial):** Device identity, SyncEngine, FakeSyncHub, LAN HTTP/UDP sync transport with PIN pairing over LAN.
-- **Sprint 5 (partial):** Windows/Linux system tray, settings sheet, customizable data directory, auto-sync loop, rebuild index, Android Share-to, WorkManager background maintenance, headless HTTP server (`apps/meshpad_server`), Web client via `meshpad_api_client`.
-- **Sprint 6 (partial):** Manual update check in settings, LAN discovery stub UI, lazy paginated feed, MeshPadException and sync error messages, PIN pairing protocol models, update download link, attachment copy progress UI.
-- **Sprint 4 (continued):** mDNS discovery (`_meshpad._tcp`) + UDP fallback; LAN sync with attachments; headless server LAN P2P (`--p2p`).
-- **Sprint 5 (continued):** Web-клиент — загрузка вложений через `PUT /api/notes/<id>/attachments/<name>`.
+- Windows NuGet build for audioplayers
+- Mobile devices sheet overflow; compact device cards
+
+### Documentation
+
+- PLAN, ARCHITECTURE, DEVELOPMENT aligned with implemented MVP
+- Post-MVP roadmap (Phases A–E) in PLAN §12
+
+---
+
+<details>
+<summary>Detailed development history</summary>
+
+### Sprint highlights
+
+- **S0–S3:** infra, data layer, feed, attachments, FTS, trash TTL
+- **S4:** SyncEngine, LAN HTTP/UDP, mDNS, PIN pairing, header sync indicator
+- **S5:** tray, share-to, WorkManager, headless server, Web client
+- **S6:** pagination, errors, update check, media preview, MVP completion
+
+### Incremental features (pre-0.1.0 commits)
+
+- Device icon picker, LAN endpoint in devices sheet
+- FTS title + attachment names, auto-title from Markdown
+- Feed sort toggle (native + Web persistence)
+- Auto-sync on local mutations (400 ms debounce)
+- Revoke trust + forgetPeer, purge exhausted outbox
+- Firewall script for dynamic TCP ports
+
+</details>

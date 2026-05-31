@@ -37,6 +37,32 @@ class MeshPadApiClient {
     return notesFromApiList(response.body);
   }
 
+  Future<int> countActiveNotes() async {
+    final response = await _get('/api/notes/count');
+    _ensureOk(response);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['count'] as int? ?? 0;
+  }
+
+  Future<List<Note>> listNotesSlice({
+    required int offset,
+    int limit = 40,
+    NoteSort sort = NoteSort.createdAt,
+  }) async {
+    final sortParam =
+        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
+    final response = await _get(
+      '/api/notes',
+      query: {
+        'sort': sortParam,
+        'offset': '$offset',
+        'limit': '$limit',
+      },
+    );
+    _ensureOk(response);
+    return notesFromApiList(response.body);
+  }
+
   Future<List<Note>> listTrash() async {
     final response = await _get('/api/trash');
     _ensureOk(response);

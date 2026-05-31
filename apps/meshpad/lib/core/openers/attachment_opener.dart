@@ -114,6 +114,10 @@ Future<void> openNoteAttachment({
   if (remoteUri == null) return;
 
   if (remoteUri.scheme == 'http' || remoteUri.scheme == 'https') {
+    if (kIsWeb) {
+      await openExternalUrl(remoteUri.toString());
+      return;
+    }
     final cached = await _downloadToCache(remoteUri, attachment.name);
     if (cached != null) {
       await _openLocalPath(cached);

@@ -12,6 +12,7 @@ export 'src/models/sync_event.dart';
 export 'src/note_text.dart';
 export 'src/repositories/note_repository.dart';
 export 'src/storage/attachment_storage.dart';
+export 'src/storage/attachment_thumbnails.dart';
 export 'src/storage/device_identity_store.dart';
 export 'src/storage/meshpad_paths.dart';
 export 'src/storage/note_folder_repository.dart';

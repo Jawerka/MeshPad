@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../models/attachment_copy_progress.dart';
 import '../models/note_meta.dart';
 import '../errors/meshpad_exception.dart';
+import 'attachment_thumbnails.dart';
 
 /// MIME guess from file extension (MVP — no magic bytes).
 String? mimeFromFileName(String name) {
@@ -112,6 +113,12 @@ Future<AttachmentMeta> copyAttachmentIntoNote({
   await output.close();
   final hash = await sha256OfFile(dest.path);
 
+  await ensureImageThumbnail(
+    attachmentPath: dest.path,
+    thumbsDir: thumbsDirForAttachmentsDir(attachmentsDir),
+    attachmentName: safeName,
+  );
+
   return AttachmentMeta(
     name: safeName,
     size: copiedBytes,
@@ -182,6 +189,12 @@ Future<AttachmentMeta> createAttachmentFromBytes({
     ),
   );
 
+  await ensureImageThumbnail(
+    attachmentPath: dest.path,
+    thumbsDir: thumbsDirForAttachmentsDir(attachmentsDir),
+    attachmentName: safeName,
+  );
+
   final hash = await sha256OfFile(dest.path);
   return AttachmentMeta(
     name: safeName,
@@ -213,6 +226,12 @@ Future<AttachmentMeta> writeAttachmentBytes({
       throw StateError('Attachment sha256 mismatch for ${meta.name}');
     }
   }
+
+  await ensureImageThumbnail(
+    attachmentPath: dest.path,
+    thumbsDir: thumbsDirForAttachmentsDir(attachmentsDir),
+    attachmentName: meta.name,
+  );
 
   return meta;
 }

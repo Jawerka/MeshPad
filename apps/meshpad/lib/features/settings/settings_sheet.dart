@@ -495,7 +495,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                       child: Wrap(
                         spacing: 8,
                         children: [
-                          for (final minutes in const [5, 15, 30, 60])
+                          for (final minutes in const [15, 30, 60])
                             ChoiceChip(
                               label: Text('$minutes мин'),
                               selected:
@@ -518,7 +518,9 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.build_circle_outlined),
               title: const Text('Проверить данные'),
-              subtitle: const Text('Пересобрать индекс из файлов на диске'),
+              subtitle: const Text(
+                'Пересобрать индекс из файлов и создать отсутствующие превью',
+              ),
               onTap: _busy ? null : _rebuildIndex,
             ),
           ],
@@ -544,7 +546,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           Text(
             isWeb
                 ? 'Web-клиент подключается к headless-серверу (meshpad_server).'
-                : 'libp2p-синхронизация — в следующем спринте.',
+                : 'LAN-синхронизация (mDNS/HTTP) с доверенными устройствами. Native libp2p — после MVP.',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: MeshPadColors.textMuted,
                 ),

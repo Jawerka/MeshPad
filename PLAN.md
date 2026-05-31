@@ -1,35 +1,31 @@
-# MeshPad — план разработки (MVP)
+# MeshPad — план разработки
 
-Документ объединяет продуктовые требования, архитектуру, этапы, тестирование и настройку окружения. Референс UI: `ref/chat.html`, `ref/chat-layout.css`, `ref/chat-messages.js`.
+> **Приоритет документов:** фактическая реализация MVP (код + раздел §5) **доминирует** над ранними черновиками и HTML-референсом `ref/`. Если текст расходится с приложением — верьте коду и §5.
+
+Референс UI (не целевой): `ref/chat.html`, `ref/chat-layout.css`.
 
 ---
 
 ## 1. Продуктовая идея
 
-Локальный Markdown-блокнот в формате **одной общей ленты**: каждая заметка — отдельное «сообщение» в чате. У заметки есть имя, даты, автор, метаданные и папка вложений. Хранение — **local-first** на каждом устройстве; синхронизация — **P2P** между доверенными устройствами. UI — чатовый shell: боковая панель, тёмная тема, карточки, инлайн-редактирование, превью изображений, лайтбокс.
+Local-first Markdown-блокнот в формате **одной ленты**: каждая заметка — «сообщение» в чате. Хранение — файлы на диске + Drift-индекс; синхронизация — между **доверенными** устройствами.
 
-**Главный архитектурный принцип:** `Local-first + file-based storage + sync engine (tombstones + LWW) + P2P transport + thin UI shell`.
+**Принцип:** `Local-first + FS + sync engine (LWW + tombstones) + P2P transport + thin UI shell`.
 
 ---
 
 ## 2. Зафиксированные требования
 
-| Область | Решение |
-|--------|---------|
-| Платформы | Android, Linux, Windows, Web |
-| UI-стек | Flutter (единый код) |
-| Сеть | libp2p, LAN discovery — mDNS/Bonjour |
-| Шифрование | **Транспорт** (TLS/noise поверх libp2p) — да; **контентное E2E** заметок — нет |
-| Офлайн | Всё пишется локально, sync при появлении пиров |
-| Конфликты | Last-write-wins по `updated_at` (UTC, монотонные часы — см. риски) |
-| Удаление | Корзина **7 дней**, затем физическое удаление + tombstone propagation |
-| Вложения | Любые файлы, без лимитов на размер/количество |
-| UI | Только тёмная тема, только русский |
-| Android | Share-to (текст, ссылки, изображения, файлы), фоновая синхронизация |
-| Desktop | Системный трей, сворачивание в трей, фоновый sync loop |
-| Web | Тонкий клиент к **серверной Linux-версии** (не автономный offline-P2P) |
-| Масштаб | Сотни заметок с вложениями |
-| Вне MVP | Теги, история версий, экспорт/импорт, светлая тема, i18n |
+| Область | MVP (реализовано) | Post-MVP |
+|--------|-------------------|----------|
+| Платформы | Android, Linux, Windows, Web | macOS |
+| UI | Flutter, тёмная тема, русский | i18n, светлая тема |
+| Сеть | **LAN:** mDNS + UDP + HTTP sync | libp2p, relay, TLS/Noise |
+| Pairing | PIN over LAN | + auth token на sync |
+| Конфликты | LWW по `updated_at` | vector clock (опционально) |
+| Корзина | 7 дней → purge + tombstone | — |
+| Web | Thin client → `meshpad_server` | WebSocket push |
+| Вне scope | — | теги, версии, экспорт |
 
 ---
 
@@ -39,320 +35,221 @@
 
 ```text
 <dataDir>/
-  notes/
-    <uuid>/
-      note.md
-      meta.json
-      attachments/
-        <filename>
-      .thumbs/          # опционально, генерируется локально
+  notes/<uuid>/
+    note.md
+    meta.json
+    attachments/
+    .thumbs/              # JPEG превью изображений (локально)
   devices/
     local_identity.json
     trusted/<peer_id>.json
-  sync/
-    outbox/             # очередь исходящих дельт (опционально на FS)
 ```
 
-### 3.2. `meta.json` (схема v1)
+### 3.2. Drift-индекс
 
-```json
-{
-  "schema_version": 1,
-  "id": "uuid-v4",
-  "title": "string",
-  "created_at": "2026-05-29T12:00:00.000Z",
-  "updated_at": "2026-05-29T12:00:00.000Z",
-  "author": "device-display-name",
-  "deleted": false,
-  "deleted_at": null,
-  "attachments": [
-    { "name": "photo.jpg", "size": 12345, "mime": "image/jpeg", "sha256": "..." }
-  ],
-  "sync": {
-    "vector_clock": null,
-    "last_pushed_at": null
-  }
-}
-```
-
-- `note.md` — только Markdown; ссылки на вложения — относительные (`attachments/...`).
-- Идентификатор заметки — **UUID при создании**, не меняется.
-- Tombstone: `deleted: true`, `deleted_at` установлен; папка может оставаться до TTL.
-
-### 3.3. SQLite-индекс (производное, пересобираемое)
-
-Таблицы (Drift):
-
-- `notes` — id, title, created_at, updated_at, author, deleted, deleted_at, preview_snippet
-- `note_fts` — FTS5 по телу Markdown (и позже — по title)
-- `attachments` — note_id, name, mime, size, sha256
-- `sync_outbox` — entity_type, entity_id, op, payload, created_at, retry_count
-- `devices` — peer_id, name, icon, trusted, last_seen_at
-
-**Правило:** при расхождении FS и БД — FS побеждает; индекс пересобирается командой «Проверить данные» (dev/MVP) или при старте по mtime.
+- `notes`, `note_fts` (тело + **title** + имена вложений), `attachments`, `sync_outbox`, `devices`
+- FS побеждает; rebuild: старт, «Проверить данные», WorkManager
 
 ---
 
-## 4. UI и дизайн-система
+## 4. UI (целевой дизайн vs ref)
 
-### 4.1. Экраны MVP
+HTML-референс содержит **боковую панель** — в приложении **не реализована** и не планируется в текущем UX.
 
-| Экран | Содержание |
-|-------|------------|
-| Лента | Сортировка по `created_at` (основной режим) / переключатель на `updated_at`; пузыри заметок |
-| Редактирование | Inline в ленте; сохранение → обновление `updated_at` + outbox |
-| Шапка | Поиск, синхронизация, устройства, настройки; на desktop — FAB «Корзина» |
-| Корзина | Список удалённых, восстановление, дата автоудаления |
-| Устройства | Это устройство, доверенные, обнаруженные, PIN-pairing |
-| Настройки | Путь данных, проверка обновлений, о приложении |
-
-**Навигация:** единая **шапка** на всех платформах (без боковой панели). HTML-референс `ref/chat.html` содержит sidebar — в MVP не реализуем.
-
-### 4.2. Перенос токенов из `ref/`
-
-Зафиксировать в `lib/core/theme/meshpad_theme.dart`:
-
-- Фон: `#0f1419` (`theme-color` из ref)
-- `--sidebar-width: 280`, `--header-h: 52`, `--chat-max: 820`
-- Радиусы, тени composer, focus-ring — из `chat-layout.css`
-- Компоненты: `NoteBubble`, `AttachmentGrid`, `Lightbox`, `ComposerBar` (+ шапка `_FeedHeader`)
-
-### 4.3. Поведение
-
-- Удалённая заметка сразу скрывается из ленты на всех устройствах (после sync).
-- **Статус синхронизации — только в шапке** (очередь outbox, спиннер sync, кнопка «Синхронизировать» на desktop). **Не** показываем иконки sync на карточках заметок — решение зафиксировано, не возвращать без явного запроса.
-- Иконки устройств — предустановленный набор (laptop, phone, tablet, desktop, server, device) + цвет по hash(peer_id); выбор в «Устройства».
+Токены темы: `#0f1419`, header 52px, chat-max 820px — `meshpad_theme.dart`.
 
 ---
 
-## 5. Синхронизация и сеть
+## 5. Реализованное MVP (0.1.0)
 
-### 5.1. Протокол MVP (упрощённо)
+**Этот раздел — источник истины по поведению приложения.**
 
-1. **Discovery:** mDNS в LAN; вне LAN — relay + bootstrap (libp2p).
-2. **Pairing:** оба устройства показывают PIN → взаимное подтверждение → запись в `trusted/`.
-3. **Sync:** после trust — обмен каталогом заметок (id + updated_at + deleted).
-4. **Дельта:** для изменённых id — передача `meta.json`, `note.md`, изменённых вложений (по sha256/size).
-5. **Merge:** если remote `updated_at` > local → заменить; иначе пропустить.
-6. **Delete:** tombstone с `deleted_at`; через 7 дней — удаление файлов и запись в outbox «purge».
+### 5.1. Навигация и шапка
 
-### 5.2. P2P-слой (реализация)
+- Единая **шапка** на Windows, Android, Web (без sidebar).
+- В режиме ленты **нет** заголовка «MeshPad» (только иконки действий).
+- В режиме корзины: «←» + «Корзина».
+- Элементы шапки: сортировка (desktop), **sync**, поиск, устройства, настройки, **корзина**.
+- **Sync:** кнопка на всех native; при активном sync иконка `sync` **вращается против часовой**, цвет primary; badge = число outbox. **Не** `CircularProgressIndicator`.
+- **Sync на карточках заметок — нет** (только шапка). Не возвращать без явного запроса.
+- **Корзина — в шапке**, не FAB.
 
-| Слой | Технология | Примечание |
-|------|------------|------------|
-| Транспорт | libp2p (Rust: `rust-libp2p` или Go) | Отдельный процесс/библиотека, не во Flutter UI isolate |
-| Мост | `flutter_rust_bridge` / gRPC localhost / FFI | Стабильный API: `start`, `discover`, `pair`, `push`, `pull` |
-| Flutter | `meshpad_p2p` package | Только адаптер + модели событий |
+### 5.2. Лента и заметки
 
-На **этапе 1–3** sync — заглушка (`FakeSyncTransport`) с тем же интерфейсом, чтобы UI и outbox тестировались без сети.
+- Сортировка: `created_at` (по умолчанию) / `updated_at`; сохраняется (native: `app_settings.json`, Web: `SharedPreferences`).
+- Ленивая подгрузка: последние ~40 заметок, scroll up → `listNotesSlice`.
+- Inline edit в `NoteBubble`; auto-title из Markdown (`# heading` или первая строка).
+- **«_Пустая заметка_»** — только если нет текста **и** нет вложений.
+- Auto-sync после локальных изменений (debounce ~400 ms).
 
-### 5.3. Безопасность
+### 5.3. Вложения и медиа
 
-- Парный обмен только после PIN.
-- Транспорт: шифрование канала libp2p (Noise/TLS).
-- Отзыв доверия: удаление из `trusted/`, разрыв соединений, игнор новых push.
+| Тип | Поведение |
+|-----|-----------|
+| Изображения | `.thumbs/` JPEG до 240px; lightbox по tap |
+| Видео mobile | Inline player в ленте |
+| Видео Win/Linux | Постер (кадр на 1/3 длительности), tap → fullscreen dialog; `video_player_win` |
+| Аудио | Inline player (audioplayers) |
+| Прочие файлы | Chip + open externally |
+| Composer DnD | Windows + Linux (`desktop_drop`) |
+| Большие файлы | Progress UI при копировании |
+
+### 5.4. Sync и устройства
+
+- Transport: **`LanSyncTransport`** (mDNS `_meshpad._tcp`, UDP fallback, HTTP `/meshpad/p2p/*`).
+- Pairing: **только PIN** — кнопки «Доверять» без PIN **нет**; у обнаруженных peer — «PIN».
+- PIN-диалог: live-список из `discoveredPeersProvider`.
+- Sync: LWW, outbox, retry; stale LAN endpoint сбрасывается при недоступности peer.
+- Корзина purge: старт, reconcile, **auto-sync tick**, WorkManager, headless `--p2p`.
+- Headless server: `onRemoteTrusted` для обратного доверия при PIN.
+- Revoke trust + `forgetPeer`; purge exhausted outbox в настройках.
+- Иконки устройств: preset + цвет по `peer_id`.
+
+### 5.5. Платформы
+
+| Платформа | Особенности |
+|-----------|-------------|
+| Windows | Tray; `nuget.config` для audioplayers; window state ini |
+| Linux | Tray; DnD в composer |
+| Android | Share-to; WorkManager (мин. 15 мин); compact devices UI |
+| Web | API client; paginated notes; sync/devices скрыты |
+
+### 5.6. Поиск
+
+FTS: тело `note.md`, `title`, имена вложений.
+
+### 5.7. Windows-сборка
+
+`apps/meshpad/windows/nuget.config` — fix для `audioplayers_windows` (NuGet primarySources).
 
 ---
 
-## 6. Технологический стек (зафиксировано)
+## 6. MVP — краткий итог
 
-| Назначение | Выбор |
-|------------|--------|
-| UI | Flutter 3.x stable |
-| Состояние | **Riverpod** + `riverpod_annotation` где уместно |
-| Навигация | `go_router` |
-| Локальный индекс | **Drift** + `sqlite3` |
-| Markdown | `markdown_widget` или `flutter_markdown` + кастом builders для вложений |
-| Логи | `logging` + уровни по flavor |
-| DI | Riverpod providers |
-| Версии SDK | `.fvmrc` → Flutter stable (см. `docs/DEVELOPMENT.md`) |
+Monorepo Flutter + pure Dart core. Local-first заметки, chat-лента, вложения с превью, корзина 7 дней, FTS, LAN sync с PIN, Android share-to, desktop tray, Web через headless API. Спринты 0–6 **закрыты**. Interim LAN transport вместо libp2p — **осознанное решение MVP**.
 
 ---
 
-## 7. Структура репозитория (простая поддержка)
+## 7. Технологический стек
+
+Flutter 3.x, Riverpod, Drift, `flutter_markdown`, `meshpad_core` / `meshpad_p2p` / `meshpad_api_client`, Melos, CI.
+
+Подробности установки: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+---
+
+## 8. Структура репозитория
 
 ```text
 MeshPad/
-  apps/meshpad/              # Flutter-приложение (UI + platform channels)
-  apps/meshpad_server/       # Headless HTTP API (Linux / Web backend)
-  packages/
-    meshpad_api_client/      # HTTP-клиент для Web / thin clients
-    meshpad_core/            # домен, FS, индекс, sync engine (чистый Dart)
-    meshpad_p2p/             # интерфейс + fake + будущий FFI
-  ref/                       # HTML/CSS референс (не в сборке)
-  docs/
-    DEVELOPMENT.md
-    ARCHITECTURE.md
-  scripts/
-    setup.ps1
-    bootstrap.ps1
-  .github/workflows/ci.yml
-  PLAN.md
+  apps/meshpad/           # Flutter UI
+  apps/meshpad_server/    # Headless REST + optional --p2p
+  packages/meshpad_core/
+  packages/meshpad_p2p/
+  packages/meshpad_api_client/
+  docs/  scripts/  ref/
 ```
 
-**Правила:**
+---
 
-- Бизнес-логика — только в `meshpad_core` (тестируется без Flutter).
-- Виджеты — тонкие, читают state из providers.
-- Один формат ошибок: `MeshPadException` + код для UI.
+## 9. Тестирование
+
+- CI: `melos run check` (analyze + unit + widget).
+- Core: LWW, tombstone, outbox, thumbnails, pagination, LAN sync tests.
+- Widget: header, note bubble (attachment-only).
+- Ручной чеклист: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 
-## 8. Тестирование
-
-### 8.1. Пирамида
-
-| Уровень | Что | Инструменты |
-|---------|-----|-------------|
-| Unit | LWW merge, tombstone TTL, meta.json (de)serialize, outbox | `test`, `meshpad_core` |
-| Widget | NoteBubble, корзина, пустые состояния | `flutter_test` |
-| Integration | CRUD заметки → FS + Drift согласованы | `integration_test` |
-| Golden | Тема, карточка заметки | `golden_toolkit` / встроенные goldens |
-| E2E (позже) | Два fake-пира | `FakeSyncTransport` + integration |
-
-### 8.2. Политика
-
-- Каждый PR: `dart analyze`, `dart format`, unit + widget tests.
-- Покрытие: не гнаться за %; обязательны тесты на **sync merge**, **корзину**, **запись meta**.
-- Фикстуры: `packages/meshpad_core/test/fixtures/notes/<uuid>/`.
-- CI без секретов; P2P в CI — только fake.
-
-### 8.3. Definition of Done (этап)
-
-- [ ] Код + тесты на новую логику в `meshpad_core`
-- [ ] `melos`/`dart analyze` без ошибок
-- [ ] Ручной чеклист из `docs/DEVELOPMENT.md` (если UI)
-- [ ] Обновлён `CHANGELOG.md` для релизных веток
-
----
-
-## 9. Инструменты и окружение
-
-Подробная установка: **`docs/DEVELOPMENT.md`**.
-
-Кратко:
-
-1. Git, Flutter (stable), Android SDK (для Android), Visual Studio Build Tools (Windows desktop).
-2. `.\scripts\setup.ps1` — проверка зависимостей, `flutter doctor`, `pub get`.
-3. `.\scripts\bootstrap.ps1` — `melos bootstrap`, codegen (Drift).
-4. IDE: VS Code / Cursor + расширения из `.vscode/extensions.json`.
-5. CI: GitHub Actions — analyze, test, format check.
-
----
-
-## 10. MVP — объём
-
-### Включено
-
-1. Локальные заметки (MD + папка)
-2. Лента в чат-стиле, inline edit
-3. Вложения + превью изображений
-4. Корзина 7 дней
-5. Поиск по Markdown (FTS)
-6. P2P sync LAN + PIN trust (после готовности native слоя; до этого — fake)
-7. Android share-to
-8. Desktop tray
-9. Web → API Linux-сервера (минимальный REST/WebSocket позже)
-
-### Не включено
-
-Теги, версионирование, экспорт, светлая тема, мультиязычность.
-
----
-
-## 11. Этапы и спринты
-
-Зависимости: `1 → 2 → 3 → 4 → 5`; Web-сервер может идти параллельно с `5` после стабильного `meshpad_core`.
-
-### Спринт 0 — Инфраструктура
-
-- [x] PLAN.md, docs, scripts, CI skeleton
-- [x] Monorepo: `apps/meshpad`, `packages/meshpad_core`
-- [x] FVM / версия Flutter, analyze_options, melos
-- [x] Первый `flutter test` (smoke)
-
-### Спринт 1 — Данные
-
-- [x] Модели Note, Attachment, Device, SyncEvent
-- [x] FS repository: read/write note folder
-- [x] Drift schema + миграция v1
-- [x] Unit-тесты round-trip FS ↔ DB
-
-### Спринт 2 — UI каркас
-
-- [x] Theme из ref
-- [x] Лента + карточка + composer
-- [x] Создание и редактирование
-- [x] Корзина UI
-
-### Спринт 3 — Локальная логика
-
-- [x] Вложения (FS + индекс)
-- [x] Превью изображений и лайтбокс
-- [x] Поиск FTS по телу note.md (+ title, имена вложений)
-- [x] Outbox (локальный) + индикатор в UI
-- [x] Автоочистка корзины (7 дней)
-
-### Спринт 4 — Sync (в работе)
-
-- [x] Device identity (`local_identity.json`, trusted/)
-- [x] SyncEngine + LWW/tombstone + outbox ack
-- [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
-- [x] LAN discovery mDNS (`_meshpad._tcp`) + UDP fallback
-- [x] PIN-pairing протокол (модели сообщений)
-- [x] LAN sync HTTP/UDP + PIN over LAN (interim transport до native libp2p)
-- [ ] Native libp2p MVP (LAN + PIN)
-- [x] UI: устройства, PIN-заглушка, «Синхронизировать»
-- [x] Outbox retry; индикатор очереди sync **в шапке** (не на карточках)
-- [x] Переключатель сортировки ленты (created_at / updated_at)
-
-### Спринт 5 — Платформы (в работе)
-
-- [x] Android Share-to + WorkManager (фоновое обслуживание)
-- [x] Windows/Linux tray (свернуть в трей, меню)
-- [x] Linux headless HTTP API (`apps/meshpad_server`)
-- [x] Web client (Flutter web → API)
-- [x] Настройки: путь данных, автосинхронизация, проверка данных
-
-### Спринт 6 — Полировка (в работе)
-
-- [x] Ленивая лента (пагинация при прокрутке вверх)
-- [x] Обработка ошибок сети (`MeshPadException`, сообщения sync)
-- [x] Прогресс копирования больших вложений
-- [x] Проверка обновлений (ручная загрузка + ссылка)
-
----
-
-## 12. Обновления приложения
-
-- Android / Windows / Linux: экран «О приложении» → проверка URL манифеста версий → ссылка на скачивание.
-- Web: деплой серверной сборки.
-- Без in-app auto-update в MVP.
-
----
-
-## 13. Риски и митигация
+## 10. Риски
 
 | Риск | Митигация |
 |------|-----------|
-| libp2p сложно встроить во Flutter | Отдельный native crate + узкий API; fake transport до готовности |
-| LWW при расхождении часов | Хранить `updated_at` от автора + опционально `device_id`; логировать аномалии |
-| Большие вложения | Потоковая передача, progress UI, resume по sha256 |
-| Web без P2P | Явно: только клиент к Linux API |
-| Потеря данных | FS — источник истины; периодический «Rebuild index» |
+| libp2p сложность | Узкий `SyncTransport` API; LAN MVP уже работает |
+| LWW + часы | Логирование аномалий `updated_at` |
+| LAN без auth | Post-MVP: token в trusted/ |
+| Web масштаб | API pagination (реализовано) |
 
 ---
 
-## 14. Поиск (зафиксировано)
+## 11. Ссылки
 
-- MVP: FTS по телу `note.md`, полю `title` и именам вложений в индексе Drift.
-- Позже: расширенный индекс вложений (mime, sha256) без смены схемы FS.
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## 15. Ссылки
+## 12. Post-MVP — план развития
 
-- UI-референс: `ref/chat.html`
-- Окружение: `docs/DEVELOPMENT.md`
-- Архитектура слоёв: `docs/ARCHITECTURE.md`
-- История изменений плана: git log `PLAN.md`
+### Фаза A — Безопасность LAN sync (приоритет)
+
+**Цель:** закрыть дыры interim HTTP transport до/параллельно libp2p.
+
+| Задача | Описание | Файлы |
+|--------|----------|-------|
+| A.1 Auth token | Shared secret в `trusted/<peer_id>.json`; заголовок на все `/meshpad/p2p/*` кроме pairing | `lan_peer_server.dart`, `http_remote_sync_gateway.dart`, `device_identity_store.dart` |
+| A.2 Reject revoked | 403 для отозванных peer; server-side ignore | `lan_sync_transport.dart` |
+| A.3 Pairing hardening | TTL PIN offer; rate limit confirm | `lan_peer_server.dart`, `pairing_protocol.dart` |
+
+**DoD:** два desktop в LAN; без token sync = 401; после revoke — отказ.
+
+### Фаза B — Native libp2p
+
+**Цель:** заменить LAN HTTP/UDP на libp2p, сохранив `SyncTransport`.
+
+| Задача | Описание |
+|--------|----------|
+| B.1 Native crate | Rust `rust-libp2p` или Go; API: `start`, `discover`, `pair`, `push`, `pull` |
+| B.2 FFI bridge | `flutter_rust_bridge` / gRPC localhost |
+| B.3 Feature flag | `LanSyncTransport` ↔ `Libp2pSyncTransport` через provider |
+| B.4 Noise/TLS | Транспортное шифрование (PLAN §2) |
+
+**DoD:** LAN sync через libp2p; те же UI flows; CI — fake transport.
+
+### Фаза C — Sync reliability
+
+| Задача | Описание |
+|--------|----------|
+| C.1 Per-entry outbox retry | Не bump all on batch fail |
+| C.2 Partial sync ack | Ack после успешной передачи вложений |
+| C.3 Resume upload | Chunked + sha256 verify |
+| C.4 Android background sync | WorkManager + LAN sync (ограничения OS) |
+
+### Фаза D — Web и server
+
+| Задача | Описание |
+|--------|----------|
+| D.1 WebSocket/SSE | Push обновлений ленты |
+| D.2 Server-side thumbs | Превью для Web без local `.thumbs/` |
+| D.3 Auth для API | API key / session (опционально) |
+| D.4 macOS client | Discovery + tray |
+
+### Фаза E — Продукт (вне текущего scope)
+
+Теги, история версий, экспорт/импорт, светлая тема, i18n, in-app updates.
+
+### Рекомендуемый порядок
+
+```
+A (security) → C.1–C.2 (reliability) → B (libp2p) → D (web scale) → E
+```
+
+**Следующий спринт:** начать с **A.1** (auth token на LAN sync HTTP).
+
+---
+
+## 13. История спринтов (архив)
+
+<details>
+<summary>Спринты 0–6 (выполнены)</summary>
+
+- **0:** monorepo, CI, melos
+- **1:** FS + Drift + models
+- **2:** theme, feed, composer, trash
+- **3:** attachments, lightbox, FTS, outbox, trash TTL
+- **4:** identity, SyncEngine, LAN transport, PIN, mDNS, header sync
+- **5:** Android share, tray, headless server, Web client, settings
+- **6:** lazy feed, errors, attachment progress, update check, `.thumbs`, media preview, API pagination, MVP polish
+
+</details>

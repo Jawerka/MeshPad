@@ -5,6 +5,7 @@ import 'attachment_thumbnail_stub.dart'
 
 Widget buildAttachmentThumbnail({
   String? path,
+  String? thumbPath,
   String? url,
   required Widget errorBox,
 }) {
@@ -17,8 +18,9 @@ Widget buildAttachmentThumbnail({
       errorBuilder: (_, __, ___) => errorBox,
     );
   }
-  if (path != null) {
-    return buildLocalAttachmentThumbnail(path: path, errorBox: errorBox);
+  final localPath = thumbPath ?? path;
+  if (localPath != null) {
+    return buildLocalAttachmentThumbnail(path: localPath, errorBox: errorBox);
   }
   return errorBox;
 }

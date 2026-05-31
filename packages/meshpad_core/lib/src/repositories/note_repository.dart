@@ -13,6 +13,7 @@ import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
 import '../note_text.dart';
 import '../storage/attachment_storage.dart';
+import '../storage/attachment_thumbnails.dart';
 import '../errors/meshpad_exception.dart';
 import '../storage/meshpad_paths.dart';
 import '../storage/note_folder_repository.dart';
@@ -466,7 +467,32 @@ class NoteRepository {
       await _indexNote(note);
       count++;
     }
+    await rebuildMissingImageThumbnails(_paths);
     return count;
+  }
+
+  /// Generates missing `.thumbs/` previews for indexed image attachments.
+  Future<int> rebuildMissingImageThumbnails(MeshPadPaths paths) async {
+    var rebuilt = 0;
+    final ids = await _fs.listNoteIds(includeDeleted: false);
+    for (final id in ids) {
+      final note = await getNote(id);
+      if (note == null) continue;
+      for (final attachment in note.attachments) {
+        if (!isImageAttachment(attachment)) continue;
+        final attachmentPath = paths.attachmentFile(id, attachment.name);
+        final thumbPath = paths.thumbFile(id, attachment.name);
+        if (!await File(attachmentPath).exists()) continue;
+        if (await File(thumbPath).exists()) continue;
+        await ensureImageThumbnail(
+          attachmentPath: attachmentPath,
+          thumbsDir: paths.thumbsDir(id),
+          attachmentName: attachment.name,
+        );
+        rebuilt++;
+      }
+    }
+    return rebuilt;
   }
 
   Future<void> _purgeNote(String id) async {

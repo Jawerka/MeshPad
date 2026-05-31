@@ -98,7 +98,7 @@ flutter run -d windows
 - Переключатель в настройках **скрыт** (`MeshPadFeatureFlags.libp2pTransportSettingVisible = false`).
 - Сохранённый `"sync_transport": "libp2p"` в `app_settings.json` → runtime **LAN**.
 - Dev-only: `--dart-define=MESHPAD_SYNC_TRANSPORT=libp2p`.
-- Wire format: [SYNC_WIRE.md](SYNC_WIRE.md). Планы: [LIBP2P.md](LIBP2P.md), [PLAN.md §13](../PLAN.md#13-бэклог-вне-текущего-релиза).
+- Wire format: [SYNC_WIRE.md](SYNC_WIRE.md). Планы: [LIBP2P.md](LIBP2P.md), [PLAN.md §11](../PLAN.md#11-дорожная-карта--задачи) (волна 8).
 
 ### Данные
 
@@ -272,4 +272,4 @@ flutter build windows --release
 
 ## Бэклог
 
-Дорожная карта §12 **закрыта**. Следующие задачи — [PLAN.md §13](../PLAN.md#13-бэклог-вне-текущего-релиза): libp2p push/pull (B.2), история версий (E.5), in-app updates (E.6).
+Дорожная карта §12 **закрыта**. Следующие задачи — [PLAN.md §11](PLAN.md#11-дорожная-карта--задачи) (волны 0–9).

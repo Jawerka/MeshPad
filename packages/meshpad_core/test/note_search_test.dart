@@ -35,6 +35,33 @@ void main() {
     expect(hits.first.snippet, isNotEmpty);
   });
 
+  test('search finds note by title', () async {
+    await repo.createNote(title: 'Список покупок', markdown: 'молоко');
+    await repo.createNote(title: 'Другое', markdown: 'текст');
+
+    final hits = await repo.searchNotes('покупок');
+    expect(hits.length, 1);
+    expect(hits.first.note.title, 'Список покупок');
+  });
+
+  test('search finds note by attachment name', () async {
+    final note = await repo.createNote(markdown: 'фото');
+    await repo.addAttachmentFromBytes(
+      note.id,
+      fileName: 'vacation-beach.jpg',
+      bytes: [1, 2, 3],
+    );
+
+    final hits = await repo.searchNotes('vacation-beach');
+    expect(hits.length, 1);
+    expect(hits.first.note.id, note.id);
+  });
+
+  test('createNote derives title from markdown heading', () async {
+    final note = await repo.createNote(markdown: '# Встреча\n\nПовестка');
+    expect(note.title, 'Встреча');
+  });
+
   test('search ignores deleted notes', () async {
     final note = await repo.createNote(markdown: 'секретное слово alpha');
     await repo.deleteNote(note.id);

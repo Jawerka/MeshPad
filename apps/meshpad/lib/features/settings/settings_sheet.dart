@@ -179,6 +179,52 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     super.dispose();
   }
 
+  Future<void> _purgeFailedOutbox() async {
+    if (_busy) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Очистить ошибки sync?'),
+        content: const Text(
+          'Записи outbox с исчерпанными повторами будут удалены. '
+          'Сами заметки на диске не затрагиваются.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Очистить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final removed =
+          await ref.read(settingsControllerProvider).purgeExhaustedOutbox();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              removed == 0
+                  ? 'Нет записей с ошибками sync'
+                  : 'Удалено записей outbox: $removed',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _rebuildIndex() async {
     if (_busy) return;
 
@@ -399,6 +445,26 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                 Navigator.pop(context);
                 DevicesSheet.show(context);
               },
+            ),
+            failedAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (count) => count > 0
+                  ? ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.error_outline),
+                      title: const Text('Ошибки sync в очереди'),
+                      subtitle: Text('$count записей с исчерпанными повторами'),
+                      trailing: _busy
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.delete_outline),
+                      onTap: _busy ? null : _purgeFailedOutbox,
+                    )
+                  : const SizedBox.shrink(),
             ),
             settingsAsync.when(
               loading: () => const SizedBox.shrink(),

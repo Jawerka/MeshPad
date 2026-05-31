@@ -11,6 +11,7 @@ import '../../core/providers/settings_providers.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/widgets/text_input_dialog.dart';
 import '../../core/theme/device_icons.dart';
+import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 
 class DevicesSheet extends ConsumerWidget {
@@ -33,10 +34,13 @@ class DevicesSheet extends ConsumerWidget {
     final identityAsync = ref.watch(localIdentityProvider);
     final trustedAsync = ref.watch(trustedDevicesProvider);
     final discovered = ref.watch(discoveredPeersProvider);
+    final lan = readLanSyncTransport(ref);
+    final localLanSubtitle = _localLanSubtitle(lan);
     final trustedIds = trustedAsync.valueOrNull?.map((d) => d.peerId).toSet() ?? {};
     final visibleDiscovered = discovered
         .where((peer) => !trustedIds.contains(peer.peerId))
         .toList();
+    final compact = isCompactFeedLayout(context);
 
     return DraggableScrollableSheet(
       expand: false,
@@ -71,28 +75,31 @@ class DevicesSheet extends ConsumerWidget {
                       error: (e, _) => Text('Ошибка: $e'),
                       data: (identity) => _DeviceCard(
                         name: identity.displayName,
-                        subtitle: 'Это устройство',
+                        subtitle: localLanSubtitle,
                         peerId: identity.peerId,
                         icon: peerIconFor(identity.icon),
                         accent: peerAccentColor(identity.peerId),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Переименовать',
-                              onPressed: () => _renameLocalDevice(
-                                context,
-                                ref,
-                                identity.displayName,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.sync),
-                              tooltip: 'Синхронизировать',
-                              onPressed: () => _runSync(context, ref),
-                            ),
-                          ],
+                        compact: compact,
+                        onAvatarTap: () => _pickLocalIcon(
+                          context,
+                          ref,
+                          identity.icon,
+                          identity.peerId,
+                        ),
+                        trailing: _LocalDeviceActions(
+                          compact: compact,
+                          onPickIcon: () => _pickLocalIcon(
+                            context,
+                            ref,
+                            identity.icon,
+                            identity.peerId,
+                          ),
+                          onRename: () => _renameLocalDevice(
+                            context,
+                            ref,
+                            identity.displayName,
+                          ),
+                          onSync: () => _runSync(context, ref),
                         ),
                       ),
                     ),
@@ -120,42 +127,44 @@ class DevicesSheet extends ConsumerWidget {
                             for (final device in devices)
                               _DeviceCard(
                                 name: device.name,
-                                subtitle: 'Доверенное',
+                                subtitle: _trustedLanSubtitle(device),
                                 peerId: device.peerId,
                                 icon: peerIconFor(device.icon),
                                 accent: peerAccentColor(device.peerId),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      tooltip: 'Переименовать',
-                                      onPressed: () => _renameTrustedDevice(
-                                        context,
-                                        ref,
-                                        device,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.sync),
-                                      tooltip: 'Синхронизировать',
-                                      onPressed: () => _runSyncWithPeer(
-                                        context,
-                                        ref,
-                                        device,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.link_off_outlined),
-                                      tooltip: 'Отозвать доверие',
-                                      onPressed: () async {
-                                        final store = await ref
-                                            .read(deviceStoreProvider.future);
-                                        await store.revokeTrust(device.peerId);
-                                        ref.invalidate(trustedDevicesProvider);
-                                      },
-                                    ),
-                                  ],
+                                compact: compact,
+                                onAvatarTap: () => _pickTrustedIcon(
+                                  context,
+                                  ref,
+                                  device,
+                                ),
+                                trailing: _TrustedDeviceActions(
+                                  compact: compact,
+                                  onPickIcon: () => _pickTrustedIcon(
+                                    context,
+                                    ref,
+                                    device,
+                                  ),
+                                  onRename: () => _renameTrustedDevice(
+                                    context,
+                                    ref,
+                                    device,
+                                  ),
+                                  onSync: () => _runSyncWithPeer(
+                                    context,
+                                    ref,
+                                    device,
+                                  ),
+                                  onRevoke: () async {
+                                    final store = await ref
+                                        .read(deviceStoreProvider.future);
+                                    await store.revokeTrust(device.peerId);
+                                    readLanSyncTransport(ref)
+                                        ?.forgetPeer(device.peerId);
+                                    ref
+                                        .read(discoveredPeersProvider.notifier)
+                                        .remove(device.peerId);
+                                    ref.invalidate(trustedDevicesProvider);
+                                  },
                                 ),
                               ),
                           ],
@@ -192,14 +201,30 @@ class DevicesSheet extends ConsumerWidget {
                               peerId: peer.peerId,
                               icon: Icons.wifi_tethering,
                               accent: peerAccentColor(peer.peerId),
-                              trailing: FilledButton.tonal(
-                                onPressed: () => _trustDiscoveredPeer(
-                                  context,
-                                  ref,
-                                  peer,
-                                ),
-                                child: const Text('Доверять'),
-                              ),
+                              compact: compact,
+                              trailing: compact
+                                  ? null
+                                  : FilledButton.tonal(
+                                      onPressed: () => _trustDiscoveredPeer(
+                                        context,
+                                        ref,
+                                        peer,
+                                      ),
+                                      child: const Text('Доверять'),
+                                    ),
+                              footer: compact
+                                  ? Align(
+                                      alignment: Alignment.centerRight,
+                                      child: FilledButton.tonal(
+                                        onPressed: () => _trustDiscoveredPeer(
+                                          context,
+                                          ref,
+                                          peer,
+                                        ),
+                                        child: const Text('Доверять'),
+                                      ),
+                                    )
+                                  : null,
                             ),
                         ],
                       ),
@@ -217,6 +242,67 @@ class DevicesSheet extends ConsumerWidget {
         );
       },
     );
+  }
+
+  static String _localLanSubtitle(LanSyncTransport? lan) {
+    final port = lan?.localHttpPort;
+    if (port == null) return 'Это устройство';
+    final host = lan?.localLanHost;
+    if (host != null && host.isNotEmpty) {
+      return 'Это устройство · LAN $host:$port';
+    }
+    return 'Это устройство · порт $port';
+  }
+
+  static String _trustedLanSubtitle(Device device) {
+    if (device.hasLanEndpoint) {
+      return 'Доверенное · ${device.lanHost}:${device.lanHttpPort}';
+    }
+    return 'Доверенное · LAN неизвестен';
+  }
+
+  Future<void> _pickLocalIcon(
+    BuildContext context,
+    WidgetRef ref,
+    String currentIcon,
+    String peerId,
+  ) async {
+    final picked = await showDeviceIconPicker(
+      context,
+      currentIcon: currentIcon,
+      accent: peerAccentColor(peerId),
+    );
+    if (picked == null || picked == currentIcon) return;
+
+    await ref.read(settingsControllerProvider).setLocalDeviceIcon(picked);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Иконка обновлена')),
+      );
+    }
+  }
+
+  Future<void> _pickTrustedIcon(
+    BuildContext context,
+    WidgetRef ref,
+    Device device,
+  ) async {
+    final picked = await showDeviceIconPicker(
+      context,
+      currentIcon: device.icon,
+      accent: peerAccentColor(device.peerId),
+    );
+    if (picked == null || picked == device.icon) return;
+
+    await ref.read(settingsControllerProvider).setTrustedDeviceIcon(
+          peerId: device.peerId,
+          icon: picked,
+        );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Иконка «${device.name}» обновлена')),
+      );
+    }
   }
 
   Future<void> _renameLocalDevice(
@@ -535,56 +621,94 @@ class _PinPairingDialogState extends State<_PinPairingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 720;
+
     return AlertDialog(
       title: const Text('PIN-pairing'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            widget.lanAvailable
-                ? 'Покажите этот PIN на другом устройстве. '
-                    'Выберите устройство в списке «Обнаруженные» для подтверждения.'
-                : 'Покажите этот PIN на другом устройстве.',
-            style: Theme.of(context).textTheme.bodyMedium,
+      content: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: compact ? double.infinity : 420,
           ),
-          const SizedBox(height: 16),
-          SelectableText(
-            widget.pin,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          if (widget.lanAvailable && widget.discovered.length > 1) ...[
-            const SizedBox(height: 16),
-            DropdownButtonFormField<DiscoveredPeer>(
-              initialValue: _selectedPeer,
-              decoration: const InputDecoration(
-                labelText: 'Устройство в сети',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.lanAvailable
+                    ? 'Покажите этот PIN на другом устройстве. '
+                        'Выберите устройство ниже для подтверждения.'
+                    : 'Покажите этот PIN на другом устройстве.',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              items: [
-                for (final peer in widget.discovered)
-                  DropdownMenuItem(
-                    value: peer,
-                    child: Text(peer.displayName),
+              const SizedBox(height: 16),
+              SelectableText(
+                widget.pin,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      letterSpacing: 4,
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              if (widget.lanAvailable && widget.discovered.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Устройство в сети',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                if (widget.discovered.length == 1)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.devices_outlined),
+                    title: Text(widget.discovered.first.displayName),
+                  )
+                else
+                  ...widget.discovered.map(
+                    (peer) {
+                      final selected = _selectedPeer?.peerId == peer.peerId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Material(
+                          color: selected
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.35)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          child: ListTile(
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                            leading: Icon(
+                              selected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                            ),
+                            title: Text(
+                              peer.displayName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => setState(() => _selectedPeer = peer),
+                          ),
+                        ),
+                      );
+                    },
                   ),
               ],
-              onChanged: (peer) => setState(() => _selectedPeer = peer),
-            ),
-          ],
-          const SizedBox(height: 16),
-          TextField(
-            controller: _remotePinController,
-            decoration: const InputDecoration(
-              labelText: 'PIN другого устройства',
-              hintText: '000000',
-            ),
-            keyboardType: TextInputType.number,
-            maxLength: 6,
+              const SizedBox(height: 16),
+              TextField(
+                controller: _remotePinController,
+                decoration: const InputDecoration(
+                  labelText: 'PIN другого устройства',
+                  hintText: '000000',
+                ),
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       actions: [
         TextButton(
@@ -638,6 +762,166 @@ class _PinPairingDialogState extends State<_PinPairingDialog> {
   }
 }
 
+class _LocalDeviceActions extends StatelessWidget {
+  const _LocalDeviceActions({
+    required this.compact,
+    required this.onPickIcon,
+    required this.onRename,
+    required this.onSync,
+  });
+
+  final bool compact;
+  final VoidCallback onPickIcon;
+  final VoidCallback onRename;
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return _DeviceActionsMenu(
+        items: const [
+          (value: 'icon', label: 'Иконка', icon: Icons.palette_outlined),
+          (value: 'rename', label: 'Переименовать', icon: Icons.edit_outlined),
+          (value: 'sync', label: 'Синхронизировать', icon: Icons.sync),
+        ],
+        onSelected: (value) {
+          switch (value) {
+            case 'icon':
+              onPickIcon();
+            case 'rename':
+              onRename();
+            case 'sync':
+              onSync();
+          }
+        },
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.palette_outlined),
+          tooltip: 'Иконка',
+          onPressed: onPickIcon,
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: 'Переименовать',
+          onPressed: onRename,
+        ),
+        IconButton(
+          icon: const Icon(Icons.sync),
+          tooltip: 'Синхронизировать',
+          onPressed: onSync,
+        ),
+      ],
+    );
+  }
+}
+
+class _TrustedDeviceActions extends StatelessWidget {
+  const _TrustedDeviceActions({
+    required this.compact,
+    required this.onPickIcon,
+    required this.onRename,
+    required this.onSync,
+    required this.onRevoke,
+  });
+
+  final bool compact;
+  final VoidCallback onPickIcon;
+  final VoidCallback onRename;
+  final VoidCallback onSync;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return _DeviceActionsMenu(
+        items: const [
+          (value: 'icon', label: 'Иконка', icon: Icons.palette_outlined),
+          (value: 'rename', label: 'Переименовать', icon: Icons.edit_outlined),
+          (value: 'sync', label: 'Синхронизировать', icon: Icons.sync),
+          (
+            value: 'revoke',
+            label: 'Отозвать доверие',
+            icon: Icons.link_off_outlined,
+          ),
+        ],
+        onSelected: (value) {
+          switch (value) {
+            case 'icon':
+              onPickIcon();
+            case 'rename':
+              onRename();
+            case 'sync':
+              onSync();
+            case 'revoke':
+              onRevoke();
+          }
+        },
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.palette_outlined),
+          tooltip: 'Иконка',
+          onPressed: onPickIcon,
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: 'Переименовать',
+          onPressed: onRename,
+        ),
+        IconButton(
+          icon: const Icon(Icons.sync),
+          tooltip: 'Синхронизировать',
+          onPressed: onSync,
+        ),
+        IconButton(
+          icon: const Icon(Icons.link_off_outlined),
+          tooltip: 'Отозвать доверие',
+          onPressed: onRevoke,
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceActionsMenu extends StatelessWidget {
+  const _DeviceActionsMenu({
+    required this.items,
+    required this.onSelected,
+  });
+
+  final List<({String value, String label, IconData icon})> items;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Действия',
+      icon: const Icon(Icons.more_vert),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final item in items)
+          PopupMenuItem<String>(
+            value: item.value,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(item.icon, size: 22),
+              title: Text(item.label),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
     required this.name,
@@ -646,6 +930,9 @@ class _DeviceCard extends StatelessWidget {
     required this.icon,
     required this.accent,
     this.trailing,
+    this.footer,
+    this.onAvatarTap,
+    this.compact = false,
   });
 
   final String name;
@@ -654,15 +941,76 @@ class _DeviceCard extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final Widget? trailing;
+  final Widget? footer;
+  final VoidCallback? onAvatarTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final avatar = CircleAvatar(
+      backgroundColor: accent.withValues(alpha: 0.22),
+      child: Icon(icon, color: accent),
+    );
+
+    if (compact) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  onAvatarTap == null
+                      ? avatar
+                      : InkWell(
+                          onTap: onAvatarTap,
+                          customBorder: const CircleBorder(),
+                          child: avatar,
+                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: MeshPadColors.textMuted,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) trailing!,
+                ],
+              ),
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                footer!,
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: accent.withValues(alpha: 0.22),
-          child: Icon(icon, color: accent),
-        ),
+        leading: onAvatarTap == null
+            ? avatar
+            : InkWell(
+                onTap: onAvatarTap,
+                customBorder: const CircleBorder(),
+                child: avatar,
+              ),
         title: Text(name),
         subtitle: Text(subtitle),
         trailing: trailing,

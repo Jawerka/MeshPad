@@ -103,6 +103,38 @@ final syncControllerProvider = Provider<SyncController>((ref) {
   return SyncController(ref);
 });
 
+/// Debounced sync after local note/outbox changes (not on Web).
+final syncSchedulerProvider = Provider<SyncScheduler>((ref) {
+  final scheduler = SyncScheduler(ref);
+  ref.onDispose(scheduler.dispose);
+  return scheduler;
+});
+
+/// Side-effect: keep alive so note mutations trigger LAN sync.
+final autoSyncOnNotesChangeProvider = Provider<void>((ref) {
+  ref.listen<int>(pendingLocalSyncProvider, (previous, next) {
+    if (previous == next) return;
+    ref.read(syncSchedulerProvider).scheduleAfterLocalChange();
+  });
+});
+
+class SyncScheduler {
+  SyncScheduler(this._ref);
+
+  final Ref _ref;
+  Timer? _timer;
+
+  void dispose() => _timer?.cancel();
+
+  void scheduleAfterLocalChange() {
+    if (_ref.read(isWebClientProvider)) return;
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_ref.read(syncControllerProvider).runSync());
+    });
+  }
+}
+
 class SyncController {
   SyncController(this._ref);
 

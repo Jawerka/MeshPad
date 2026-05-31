@@ -111,6 +111,20 @@ class LanSyncTransport implements SyncTransport {
 
 
 
+  /// Drops cached peer state after trust is revoked (PLAN §5.3).
+
+  void forgetPeer(String peerId) {
+
+    if (_peers.remove(peerId) != null) {
+
+      MeshPadLog.lan('forget peer $peerId');
+
+    }
+
+  }
+
+
+
   Map<String, LanPeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
 
   String? get localLanHost => _announceHost;

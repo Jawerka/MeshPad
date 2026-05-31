@@ -50,4 +50,19 @@ void main() {
     expect(page.length, pageSize);
     expect(offset, 5);
   });
+
+  test('listNotesSlice orders by updatedAt when requested', () async {
+    final first = await repo.createNote(title: 'a', markdown: 'a');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    final second = await repo.createNote(title: 'b', markdown: 'b');
+    await repo.updateNote(second.id, markdown: 'b edited');
+
+    final slice = await repo.listNotesSlice(
+      offset: 0,
+      limit: 10,
+      sort: NoteSort.updatedAt,
+    );
+    expect(slice.last.id, second.id);
+    expect(slice.first.id, first.id);
+  });
 }

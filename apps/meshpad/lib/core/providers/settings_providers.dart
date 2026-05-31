@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
 import '../../platform/background_sync.dart';
+import '../theme/device_icons.dart';
 import 'notes_providers.dart';
 import 'sync_loop_provider.dart';
 import 'sync_providers.dart';
@@ -100,6 +102,35 @@ class SettingsController {
     final store = await _ref.read(deviceStoreProvider.future);
     await store.updateTrustedDeviceName(peerId: peerId, name: trimmed);
     _ref.invalidate(trustedDevicesProvider);
+  }
+
+  Future<void> setLocalDeviceIcon(String icon) async {
+    final store = await _ref.read(deviceStoreProvider.future);
+    await store.updateIcon(normalizeDeviceIcon(icon));
+    _ref.invalidate(localIdentityProvider);
+  }
+
+  Future<void> setTrustedDeviceIcon({
+    required String peerId,
+    required String icon,
+  }) async {
+    final store = await _ref.read(deviceStoreProvider.future);
+    await store.updateTrustedDeviceIcon(
+      peerId: peerId,
+      icon: normalizeDeviceIcon(icon),
+    );
+    _ref.invalidate(trustedDevicesProvider);
+  }
+
+  Future<int> purgeExhaustedOutbox() async {
+    final repo = await _ref.read(noteRepositoryProvider.future);
+    final removed = await repo.purgeExhaustedOutboxEntries(
+      maxRetries: OutboxProcessor().maxRetries,
+    );
+    _ref.invalidate(outboxCountProvider);
+    _ref.invalidate(outboxFailedCountProvider);
+    _ref.invalidate(pendingSyncNoteIdsProvider);
+    return removed;
   }
 
   void _reloadWebProviders() {

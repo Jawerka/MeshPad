@@ -73,6 +73,34 @@ final feedModeProvider = StateProvider<FeedMode>((ref) => FeedMode.feed);
 
 final feedSearchQueryProvider = StateProvider<String>((ref) => '');
 
+final feedSortProvider = NotifierProvider<FeedSortNotifier, NoteSort>(
+  FeedSortNotifier.new,
+);
+
+class FeedSortNotifier extends Notifier<NoteSort> {
+  @override
+  NoteSort build() {
+    Future.microtask(_loadFromSettings);
+    return NoteSort.createdAt;
+  }
+
+  Future<void> _loadFromSettings() async {
+    final settings = await ref.read(appSettingsStoreProvider).loadSettings();
+    if (state != settings.feedSort) {
+      state = settings.feedSort;
+    }
+  }
+
+  Future<void> setSort(NoteSort sort) async {
+    if (state == sort) return;
+    state = sort;
+    final store = ref.read(appSettingsStoreProvider);
+    final current = await store.loadSettings();
+    await store.saveSettings(current.copyWith(feedSort: sort));
+    ref.invalidate(notesListProvider);
+  }
+}
+
 final outboxCountProvider = FutureProvider<int>((ref) async {
   if (ref.watch(isWebClientProvider)) return 0;
   final service = await ref.watch(notesServiceProvider.future);
@@ -90,6 +118,9 @@ final notesListProvider =
   NotesListNotifier.new,
 );
 
+/// Incremented after local note mutations; watched by [autoSyncOnNotesChangeProvider].
+final pendingLocalSyncProvider = StateProvider<int>((ref) => 0);
+
 final searchResultsProvider =
     AsyncNotifierProvider<SearchResultsNotifier, List<NoteSearchHit>>(
   SearchResultsNotifier.new,
@@ -99,6 +130,10 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
   @override
   Future<NotesFeedState> build() async {
     final service = await ref.watch(notesServiceProvider.future);
+    ref.watch(feedSortProvider);
+    ref.listen(feedSortProvider, (previous, next) {
+      if (previous != next) ref.invalidateSelf();
+    });
     ref.listen(feedModeProvider, (previous, next) {
       if (previous != next) ref.invalidateSelf();
     });
@@ -111,6 +146,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
       return NotesFeedState(notes: notes, hasMoreOlder: false);
     }
 
+    final sort = ref.read(feedSortProvider);
     final total = await service.countActiveNotes();
     final offset = total > NotesFeedState.pageSize
         ? total - NotesFeedState.pageSize
@@ -118,6 +154,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     final notes = await service.listNotesSlice(
       offset: offset,
       limit: NotesFeedState.pageSize,
+      sort: sort,
     );
     return NotesFeedState(
       notes: notes,
@@ -146,12 +183,16 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     state = AsyncData(current.copyWith(isLoadingMore: true));
     try {
       final service = await ref.read(notesServiceProvider.future);
+      final sort = ref.read(feedSortProvider);
       final nextOffset = current.offset > NotesFeedState.pageSize
           ? current.offset - NotesFeedState.pageSize
           : 0;
       final take = current.offset - nextOffset;
-      final older =
-          await service.listNotesSlice(offset: nextOffset, limit: take);
+      final older = await service.listNotesSlice(
+        offset: nextOffset,
+        limit: take,
+        sort: sort,
+      );
       state = AsyncData(
         NotesFeedState(
           notes: [...older, ...current.notes],
@@ -179,31 +220,36 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
       attachmentBytes: attachmentBytes,
       onAttachmentProgress: onAttachmentProgress,
     );
-    await reload();
+    await _afterLocalMutation();
   }
 
   Future<void> addAttachment(String noteId, String sourcePath) async {
     final service = await ref.read(notesServiceProvider.future);
     await service.addAttachment(noteId, sourcePath);
-    await reload();
+    await _afterLocalMutation();
   }
 
   Future<void> updateNote(String id, {String? title, String? markdown}) async {
     final service = await ref.read(notesServiceProvider.future);
     await service.updateNote(id, title: title, markdown: markdown);
-    await reload();
+    await _afterLocalMutation();
   }
 
   Future<void> deleteNote(String id) async {
     final service = await ref.read(notesServiceProvider.future);
     await service.deleteNote(id);
-    await reload();
+    await _afterLocalMutation();
   }
 
   Future<void> restoreNote(String id) async {
     final service = await ref.read(notesServiceProvider.future);
     await service.restoreNote(id);
+    await _afterLocalMutation();
+  }
+
+  Future<void> _afterLocalMutation() async {
     await reload();
+    ref.read(pendingLocalSyncProvider.notifier).state++;
   }
 }
 

@@ -84,6 +84,9 @@ class LanSyncCoordinator {
           stored: stored,
         );
         if (endpoint == null) {
+          if (stored != null) {
+            await deviceStore.clearLanEndpoint(peer.peerId);
+          }
           throw SyncTransportException(
             'Устройство «${peer.name}» недоступно в сети. '
             'Проверьте Wi‑Fi и откройте MeshPad на обоих устройствах.',

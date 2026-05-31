@@ -48,9 +48,10 @@ class LanPeerServer {
       MeshPadLog.lan('HTTP server on preferred port $preferredPort');
     } on SocketException {
       _server = await HttpServer.bind(bindAddress, 0, shared: true);
-      MeshPadLog.lan(
+      MeshPadLog.warn(
+        'lan',
         'HTTP server on dynamic port ${_server!.port} '
-        '(preferred $preferredPort busy)',
+        '(preferred $preferredPort busy — add firewall rule or free the port)',
       );
     }
     _server!.listen(_handleRequest);

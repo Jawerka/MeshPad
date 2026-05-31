@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../core/theme/meshpad_colors.dart';
+import 'attachment_media_source.dart';
 import 'attachment_thumbnail.dart';
 import 'lightbox.dart';
+import 'media_attachment_preview.dart';
 
 class AttachmentGrid extends StatelessWidget {
   const AttachmentGrid({
@@ -26,7 +28,21 @@ class AttachmentGrid extends StatelessWidget {
     if (note.attachments.isEmpty) return const SizedBox.shrink();
 
     final images = note.attachments.where(isImageAttachment).toList();
-    final files = note.attachments.where((a) => !isImageAttachment(a)).toList();
+    final videos = note.attachments.where(isVideoAttachment).toList();
+    final audios = note.attachments.where(isAudioAttachment).toList();
+    final files = note.attachments
+        .where(
+          (attachment) =>
+              !isImageAttachment(attachment) &&
+              !isVideoAttachment(attachment) &&
+              !isAudioAttachment(attachment),
+        )
+        .toList();
+
+    Future<void> openAttachment(AttachmentMeta attachment) async {
+      if (onOpenAttachment == null) return;
+      await onOpenAttachment!(attachment);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +55,7 @@ class AttachmentGrid extends StatelessWidget {
             children: [
               for (var i = 0; i < images.length; i++)
                 _ImageTile(
-                  image: _imageSource(note, images[i]),
+                  source: _mediaSource(note, images[i]),
                   onTap: () {
                     if (onTapImage != null) {
                       onTapImage!(i, images);
@@ -48,7 +64,7 @@ class AttachmentGrid extends StatelessWidget {
                         context,
                         [
                           for (final image in images)
-                            _imageSource(note, image).lightboxSource,
+                            _mediaSource(note, image).primary,
                         ],
                         initialIndex: i,
                       );
@@ -56,6 +72,36 @@ class AttachmentGrid extends StatelessWidget {
                   },
                 ),
             ],
+          ),
+        ],
+        if (videos.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ...videos.map(
+            (attachment) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: VideoAttachmentPreview(
+                attachment: attachment,
+                source: _mediaSource(note, attachment),
+                onOpenExternally: onOpenAttachment == null
+                    ? null
+                    : () => openAttachment(attachment),
+              ),
+            ),
+          ),
+        ],
+        if (audios.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ...audios.map(
+            (attachment) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AudioAttachmentPreview(
+                attachment: attachment,
+                source: _mediaSource(note, attachment),
+                onOpenExternally: onOpenAttachment == null
+                    ? null
+                    : () => openAttachment(attachment),
+              ),
+            ),
           ),
         ],
         if (files.isNotEmpty) ...[
@@ -66,7 +112,7 @@ class AttachmentGrid extends StatelessWidget {
               size: file.size,
               onTap: onOpenAttachment == null
                   ? null
-                  : () => onOpenAttachment!(file),
+                  : () => openAttachment(file),
             ),
           ),
         ],
@@ -74,37 +120,20 @@ class AttachmentGrid extends StatelessWidget {
     );
   }
 
-  _ImageSource _imageSource(Note note, AttachmentMeta attachment) {
-    final remote = attachmentUriBuilder?.call(attachment);
-    if (remote != null) {
-      return _ImageSource.network(remote.toString());
-    }
-    final dir = dataDir;
-    if (dir != null) {
-      return _ImageSource.file(noteAttachmentPath(note, attachment, dir));
-    }
-    return const _ImageSource.missing();
+  AttachmentMediaSource _mediaSource(Note note, AttachmentMeta attachment) {
+    return resolveAttachmentMediaSource(
+      note: note,
+      attachment: attachment,
+      dataDir: dataDir,
+      attachmentUriBuilder: attachmentUriBuilder,
+    );
   }
 }
 
-class _ImageSource {
-  const _ImageSource.file(this.path) : url = null, missing = false;
-
-  const _ImageSource.network(this.url) : path = null, missing = false;
-
-  const _ImageSource.missing() : path = null, url = null, missing = true;
-
-  final String? path;
-  final String? url;
-  final bool missing;
-
-  String get lightboxSource => url ?? path ?? '';
-}
-
 class _ImageTile extends StatelessWidget {
-  const _ImageTile({required this.image, required this.onTap});
+  const _ImageTile({required this.source, required this.onTap});
 
-  final _ImageSource image;
+  final AttachmentMediaSource source;
   final VoidCallback onTap;
 
   @override
@@ -120,12 +149,12 @@ class _ImageTile extends StatelessWidget {
   }
 
   Widget _buildImage() {
-    if (image.missing) {
+    if (source.missing) {
       return _errorBox();
     }
     return buildAttachmentThumbnail(
-      path: image.path,
-      url: image.url,
+      path: source.path,
+      url: source.url,
       errorBox: _errorBox(),
     );
   }
@@ -157,8 +186,7 @@ class _FileChip extends StatelessWidget {
     final label = '$name · ${_formatSize(size)}';
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: onTap == null ? null : MeshPadColors.primary,
-          decoration:
-              onTap == null ? null : TextDecoration.underline,
+          decoration: onTap == null ? null : TextDecoration.underline,
         );
 
     return Padding(

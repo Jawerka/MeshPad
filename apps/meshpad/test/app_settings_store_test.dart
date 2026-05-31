@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meshpad/core/storage/app_settings.dart';
 import 'package:meshpad/core/storage/app_settings_store.dart';
+import 'package:meshpad_core/meshpad_core.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -28,6 +29,7 @@ void main() {
     expect(settings.dataDir, p.join(tempDir.path, 'default_meshpad'));
     expect(settings.autoSyncEnabled, isTrue);
     expect(settings.autoSyncIntervalMinutes, 15);
+    expect(settings.feedSort, NoteSort.createdAt);
   });
 
   test('saveDataDir persists custom path', () async {

@@ -55,6 +55,11 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# audioplayers_windows runs `nuget install` during CMake configure; without an
+# explicit feed, some machines fail with "primarySources" null/empty.
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/nuget.config"
+     DESTINATION "${CMAKE_BINARY_DIR}")
+
 include(flutter/generated_plugins.cmake)
 
 

@@ -3,11 +3,13 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
   desktop_drop
   screen_retriever_windows
   sqlite3_flutter_libs
   tray_manager
   url_launcher_windows
+  video_player_win
   window_manager
 )
 

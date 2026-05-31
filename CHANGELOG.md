@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows: сборка падала на `audioplayers_windows` (NuGet `primarySources` пустой) — добавлен `windows/nuget.config`.
+
 ### Added
+
+- Feed sort toggle: по дате создания / по дате изменения (сохраняется в `app_settings.json`); доступен и в Web-клиенте.
+- Trash cards show auto-purge date (7 дней).
+- LAN sync: clear stale trusted endpoint on unreachable peer; firewall script for dynamic TCP ports.
+- Выбор иконки устройства (локальное и доверенные) — предустановленный набор, цвет по `peer_id`.
+- Поиск по заголовку заметки (FTS и fallback LIKE).
+- Поиск по именам вложений (FTS + LIKE).
+- Авто-заголовок из Markdown (`# heading` или первая строка) при создании/редактировании.
+- Превью видео и аудио во вложениях (inline-плеер в ленте; изображения — как раньше).
+- В листе «Устройства» показывается LAN-эндпоинт (локальный порт и адрес доверенных).
+- HTTP API: `GET /api/notes?sort=updated_at`.
+- Отзыв доверия сбрасывает кэш peer в LAN transport; очистка исчерпанных записей outbox в настройках.
+
+### Removed
+
+- Desktop sidebar (`ConvSidebar`) — навигация только через шапку (см. PLAN §4.1).
+- Иконки sync на карточках заметок — статус sync только в шапке (см. PLAN §4.3).
+
+### Changed
 
 - Expanded `PLAN.md` with architecture, testing, sprints, risks.
 - Monorepo: `packages/meshpad_core`, `packages/meshpad_p2p`, `apps/meshpad`.

@@ -29,6 +29,7 @@ function Add-MeshPadRule {
 
 Add-MeshPadRule -DisplayName 'MeshPad LAN Discovery (UDP)' -Protocol UDP -LocalPort 45837
 Add-MeshPadRule -DisplayName 'MeshPad LAN Sync (TCP)' -Protocol TCP -LocalPort 45838
+Add-MeshPadRule -DisplayName 'MeshPad LAN Sync dynamic (TCP)' -Protocol TCP -LocalPort 44800-46000
 Add-MeshPadRule -DisplayName 'MeshPad mDNS (UDP)' -Protocol UDP -LocalPort 5353
 
 Write-Host 'Done. Restart MeshPad on Windows if it was already running.'

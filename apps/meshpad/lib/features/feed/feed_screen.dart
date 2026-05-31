@@ -380,23 +380,20 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                 )
               else
                 const SizedBox(width: 8),
-              Text(
-                isTrash ? 'Корзина' : 'MeshPad',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              if (isTrash)
+                Text(
+                  'Корзина',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               const Spacer(),
               if (!isTrash) ...[
-                if (!isWeb && DesktopShell.isSupported)
+                if (!compact) const _FeedSortButton(),
+                if (!isWeb)
                   _HeaderSyncButton(
                     activity: syncActivity,
                     outboxCount: outboxCount,
                     onPressed: () =>
                         ref.read(syncControllerProvider).runSync(),
-                  )
-                else if (!isWeb && (syncActivity.active || outboxCount > 0))
-                  _SyncQueueIndicator(
-                    activity: syncActivity,
-                    outboxCount: outboxCount,
                   ),
                 IconButton(
                   icon: const Icon(Icons.search),
@@ -415,7 +412,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   tooltip: 'Настройки',
                   onPressed: () => SettingsSheet.show(context),
                 ),
-                if (compact)
+                if (compact || DesktopShell.isSupported)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Корзина',
@@ -712,16 +709,22 @@ class _PendingAttachmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImage = isImageAttachment(
-      AttachmentMeta(name: name, size: 0, mime: mimeFromFileName(name)),
+    final attachment = AttachmentMeta(
+      name: name,
+      size: 0,
+      mime: mimeFromFileName(name),
     );
+    final kind = attachmentPreviewKind(attachment);
+    final icon = switch (kind) {
+      AttachmentPreviewKind.image => Icons.image_outlined,
+      AttachmentPreviewKind.video => Icons.videocam_outlined,
+      AttachmentPreviewKind.audio => Icons.audiotrack_outlined,
+      AttachmentPreviewKind.file => Icons.insert_drive_file,
+    };
 
     return InputChip(
       label: Text(name, overflow: TextOverflow.ellipsis),
-      avatar: Icon(
-        isImage ? Icons.image_outlined : Icons.insert_drive_file,
-        size: 18,
-      ),
+      avatar: Icon(icon, size: 18),
       onDeleted: onRemove,
       visualDensity: VisualDensity.compact,
     );
@@ -732,7 +735,31 @@ String formatNoteDate(DateTime dt) {
   return DateFormat('HH:mm dd.MM.yy', 'ru').format(dt.toLocal());
 }
 
-class _HeaderSyncButton extends StatelessWidget {
+class _FeedSortButton extends ConsumerWidget {
+  const _FeedSortButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sort = ref.watch(feedSortProvider);
+    final isUpdated = sort == NoteSort.updatedAt;
+    return IconButton(
+      tooltip: isUpdated
+          ? 'Сортировка: по изменению'
+          : 'Сортировка: по созданию',
+      icon: Icon(
+        isUpdated ? Icons.edit_calendar_outlined : Icons.schedule_outlined,
+        color: isUpdated ? MeshPadColors.primary : null,
+      ),
+      onPressed: () {
+        ref.read(feedSortProvider.notifier).setSort(
+              isUpdated ? NoteSort.createdAt : NoteSort.updatedAt,
+            );
+      },
+    );
+  }
+}
+
+class _HeaderSyncButton extends StatefulWidget {
   const _HeaderSyncButton({
     required this.activity,
     required this.outboxCount,
@@ -744,49 +771,13 @@ class _HeaderSyncButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    final active = activity.active;
-    final color = active
-        ? Theme.of(context).colorScheme.primary
-        : null;
-
-    return IconButton(
-      tooltip: active ? 'Синхронизация…' : 'Синхронизировать',
-      onPressed: active ? null : onPressed,
-      icon: Badge(
-        isLabelVisible: outboxCount > 0,
-        label: Text('$outboxCount'),
-        child: active
-            ? SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: color,
-                ),
-              )
-            : Icon(Icons.sync, color: color),
-      ),
-    );
-  }
+  State<_HeaderSyncButton> createState() => _HeaderSyncButtonState();
 }
 
-class _SyncQueueIndicator extends StatefulWidget {
-  const _SyncQueueIndicator({
-    required this.activity,
-    required this.outboxCount,
-  });
-
-  final SyncActivity activity;
-  final int outboxCount;
-
-  @override
-  State<_SyncQueueIndicator> createState() => _SyncQueueIndicatorState();
-}
-
-class _SyncQueueIndicatorState extends State<_SyncQueueIndicator>
+class _HeaderSyncButtonState extends State<_HeaderSyncButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _spin;
+  late final Animation<double> _turns;
 
   @override
   void initState() {
@@ -795,14 +786,20 @@ class _SyncQueueIndicatorState extends State<_SyncQueueIndicator>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+    _turns = Tween<double>(begin: 0, end: -1).animate(_spin);
+    _syncSpin(widget.activity.active);
   }
 
   @override
-  void didUpdateWidget(covariant _SyncQueueIndicator oldWidget) {
+  void didUpdateWidget(covariant _HeaderSyncButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.activity.active && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!widget.activity.active) {
+    _syncSpin(widget.activity.active);
+  }
+
+  void _syncSpin(bool active) {
+    if (active) {
+      if (!_spin.isAnimating) _spin.repeat();
+    } else {
       _spin.stop();
       _spin.reset();
     }
@@ -817,38 +814,18 @@ class _SyncQueueIndicatorState extends State<_SyncQueueIndicator>
   @override
   Widget build(BuildContext context) {
     final active = widget.activity.active;
-    final color = active
-        ? Theme.of(context).colorScheme.primary
-        : MeshPadColors.textMuted;
-    if (active && !_spin.isAnimating) {
-      _spin.repeat();
-    }
+    final color = active ? MeshPadColors.primary : null;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RotationTransition(
-            turns: active ? _spin : const AlwaysStoppedAnimation(0),
-            child: Icon(Icons.sync, size: 16, color: color),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${widget.outboxCount}',
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-          if (active && widget.activity.progress != null) ...[
-            const SizedBox(width: 6),
-            SizedBox(
-              width: 48,
-              child: LinearProgressIndicator(
-                value: widget.activity.progress,
-                minHeight: 3,
-              ),
-            ),
-          ],
-        ],
+    return IconButton(
+      tooltip: active ? 'Синхронизация…' : 'Синхронизировать',
+      onPressed: active ? null : widget.onPressed,
+      icon: Badge(
+        isLabelVisible: widget.outboxCount > 0,
+        label: Text('${widget.outboxCount}'),
+        child: RotationTransition(
+          turns: active ? _turns : const AlwaysStoppedAnimation(0),
+          child: Icon(Icons.sync, color: color),
+        ),
       ),
     );
   }

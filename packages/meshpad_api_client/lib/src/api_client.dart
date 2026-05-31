@@ -26,8 +26,13 @@ class MeshPadApiClient {
     }
   }
 
-  Future<List<Note>> listNotes() async {
-    final response = await _get('/api/notes');
+  Future<List<Note>> listNotes({NoteSort sort = NoteSort.createdAt}) async {
+    final sortParam =
+        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
+    final response = await _get(
+      '/api/notes',
+      query: {'sort': sortParam},
+    );
     _ensureOk(response);
     return notesFromApiList(response.body);
   }

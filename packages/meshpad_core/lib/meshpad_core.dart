@@ -9,6 +9,7 @@ export 'src/models/note_head.dart';
 export 'src/models/note_meta.dart';
 export 'src/models/note_search_hit.dart';
 export 'src/models/sync_event.dart';
+export 'src/note_text.dart';
 export 'src/repositories/note_repository.dart';
 export 'src/storage/attachment_storage.dart';
 export 'src/storage/device_identity_store.dart';

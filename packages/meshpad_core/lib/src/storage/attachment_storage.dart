@@ -24,14 +24,41 @@ String? mimeFromFileName(String name) {
     '.mov' => 'video/quicktime',
     '.mkv' => 'video/x-matroska',
     '.avi' => 'video/x-msvideo',
+    '.m4v' => 'video/x-m4v',
+    '.mp3' => 'audio/mpeg',
+    '.m4a' => 'audio/mp4',
+    '.wav' => 'audio/wav',
+    '.ogg' || '.oga' => 'audio/ogg',
+    '.opus' => 'audio/opus',
+    '.flac' => 'audio/flac',
+    '.aac' => 'audio/aac',
+    '.weba' => 'audio/webm',
     _ => null,
   };
 }
 
-bool isImageAttachment(AttachmentMeta attachment) {
-  final mime = attachment.mime ?? mimeFromFileName(attachment.name);
-  return mime?.startsWith('image/') ?? false;
+String? attachmentMime(AttachmentMeta attachment) =>
+    attachment.mime ?? mimeFromFileName(attachment.name);
+
+enum AttachmentPreviewKind { image, video, audio, file }
+
+AttachmentPreviewKind attachmentPreviewKind(AttachmentMeta attachment) {
+  final mime = attachmentMime(attachment);
+  if (mime == null) return AttachmentPreviewKind.file;
+  if (mime.startsWith('image/')) return AttachmentPreviewKind.image;
+  if (mime.startsWith('video/')) return AttachmentPreviewKind.video;
+  if (mime.startsWith('audio/')) return AttachmentPreviewKind.audio;
+  return AttachmentPreviewKind.file;
 }
+
+bool isImageAttachment(AttachmentMeta attachment) =>
+    attachmentPreviewKind(attachment) == AttachmentPreviewKind.image;
+
+bool isVideoAttachment(AttachmentMeta attachment) =>
+    attachmentPreviewKind(attachment) == AttachmentPreviewKind.video;
+
+bool isAudioAttachment(AttachmentMeta attachment) =>
+    attachmentPreviewKind(attachment) == AttachmentPreviewKind.audio;
 
 Future<AttachmentMeta> copyAttachmentIntoNote({
   required String attachmentsDir,

@@ -41,9 +41,14 @@ class MeshPadHttpServer {
   }
 
   Future<Response> _listNotes(Request request) async {
-    final notes = await repository.listNotes(sort: NoteSort.createdAt);
+    final sort = _parseNoteSort(request.url.queryParameters['sort']);
+    final notes = await repository.listNotes(sort: sort);
     final body = notes.map(_noteJson).toList();
     return Response.ok(jsonEncode(body), headers: _jsonHeaders);
+  }
+
+  NoteSort _parseNoteSort(String? raw) {
+    return raw == 'updated_at' ? NoteSort.updatedAt : NoteSort.createdAt;
   }
 
   Future<Response> _listTrash(Request request) async {

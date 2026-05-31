@@ -1,9 +1,12 @@
+import 'package:meshpad_core/meshpad_core.dart';
+
 /// User preferences stored outside the data directory.
 class AppSettings {
   const AppSettings({
     this.dataDir,
     this.autoSyncEnabled = true,
     this.autoSyncIntervalMinutes = 15,
+    this.feedSort = NoteSort.createdAt,
   });
 
   static const minAutoSyncIntervalMinutes = 5;
@@ -12,18 +15,21 @@ class AppSettings {
   final String? dataDir;
   final bool autoSyncEnabled;
   final int autoSyncIntervalMinutes;
+  final NoteSort feedSort;
 
   AppSettings copyWith({
     String? dataDir,
     bool clearDataDir = false,
     bool? autoSyncEnabled,
     int? autoSyncIntervalMinutes,
+    NoteSort? feedSort,
   }) {
     return AppSettings(
       dataDir: clearDataDir ? null : (dataDir ?? this.dataDir),
       autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
       autoSyncIntervalMinutes:
           autoSyncIntervalMinutes ?? this.autoSyncIntervalMinutes,
+      feedSort: feedSort ?? this.feedSort,
     );
   }
 
@@ -41,6 +47,7 @@ class AppSettings {
       autoSyncIntervalMinutes: _clampInterval(
         interval is int ? interval : int.tryParse('$interval') ?? 15,
       ),
+      feedSort: _parseFeedSort(json['feed_sort'] as String?),
     );
   }
 
@@ -48,6 +55,7 @@ class AppSettings {
     final map = <String, dynamic>{
       'auto_sync_enabled': autoSyncEnabled,
       'auto_sync_interval_minutes': autoSyncIntervalMinutes,
+      'feed_sort': feedSort == NoteSort.updatedAt ? 'updated_at' : 'created_at',
     };
     if (dataDir != null && dataDir!.trim().isNotEmpty) {
       final normalizedDefault = defaultDataDir.replaceAll('\\', '/');
@@ -70,4 +78,8 @@ class AppSettings {
   }
 
   static int _clampInterval(int minutes) => clampInterval(minutes);
+
+  static NoteSort _parseFeedSort(String? raw) {
+    return raw == 'updated_at' ? NoteSort.updatedAt : NoteSort.createdAt;
+  }
 }

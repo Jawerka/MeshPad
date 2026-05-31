@@ -73,23 +73,40 @@ class MeshPadDatabase extends _$MeshPadDatabase {
         markdown: Value(markdown),
       ),
     );
-    if (!deleted && ftsAvailable) {
-      await indexNoteFts(id, markdown);
-    } else if (deleted && ftsAvailable) {
-      await removeNoteFts(id);
-    }
   }
 
-  Future<void> indexNoteFts(String noteId, String markdown) async {
+  Future<void> indexNoteFts(
+    String noteId,
+    String title,
+    String markdown, {
+    Iterable<String> attachmentNames = const [],
+  }) async {
     if (!ftsAvailable) return;
     await customStatement(
       'DELETE FROM note_fts WHERE note_id = ?',
       [noteId],
     );
+    final indexed = _ftsIndexedText(title, markdown, attachmentNames);
     await customStatement(
       'INSERT INTO note_fts (note_id, body) VALUES (?, ?)',
-      [noteId, markdown],
+      [noteId, indexed],
     );
+  }
+
+  static String _ftsIndexedText(
+    String title,
+    String markdown,
+    Iterable<String> attachmentNames,
+  ) {
+    final parts = <String>[];
+    final trimmedTitle = title.trim();
+    if (trimmedTitle.isNotEmpty) parts.add(trimmedTitle);
+    if (markdown.isNotEmpty) parts.add(markdown);
+    for (final name in attachmentNames) {
+      final trimmed = name.trim();
+      if (trimmed.isNotEmpty) parts.add(trimmed);
+    }
+    return parts.join('\n');
   }
 
   Future<void> removeNoteFts(String noteId) async {
@@ -102,9 +119,16 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     await customStatement('DELETE FROM note_fts');
     final rows = await select(notes).get();
     for (final row in rows) {
-      if (!row.deleted) {
-        await indexNoteFts(row.id, row.markdown);
-      }
+      if (row.deleted) continue;
+      final attachments = await (select(noteAttachments)
+            ..where((t) => t.noteId.equals(row.id)))
+          .get();
+      await indexNoteFts(
+        row.id,
+        row.title,
+        row.markdown,
+        attachmentNames: attachments.map((a) => a.name),
+      );
     }
   }
 
@@ -157,20 +181,70 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     required int limit,
   }) async {
     final pattern = '%${query.replaceAll('%', '')}%';
-    final rows = await (select(notes)
-          ..where((t) => t.deleted.equals(false) & t.markdown.like(pattern))
+    final noteRows = await (select(notes)
+          ..where(
+            (t) =>
+                t.deleted.equals(false) &
+                (t.markdown.like(pattern) | t.title.like(pattern)),
+          )
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
           ..limit(limit))
         .get();
 
-    return rows
-        .map(
-          (row) => (
-            noteId: row.id,
-            snippet: previewSnippetFromMarkdown(row.markdown, maxLen: 48),
-          ),
-        )
-        .toList();
+    final attachmentRows = await (select(noteAttachments)
+          ..where((t) => t.name.like(pattern)))
+        .get();
+    final attachmentNoteIds = attachmentRows.map((row) => row.noteId).toSet();
+
+    final extraRows = attachmentNoteIds.isEmpty
+        ? <NoteRow>[]
+        : await (select(notes)
+              ..where(
+                (t) => t.deleted.equals(false) & t.id.isIn(attachmentNoteIds),
+              ))
+            .get();
+
+    final merged = <String, NoteRow>{
+      for (final row in noteRows) row.id: row,
+      for (final row in extraRows) row.id: row,
+    };
+
+    final attachmentNamesByNote = <String, Set<String>>{};
+    for (final row in attachmentRows) {
+      attachmentNamesByNote
+          .putIfAbsent(row.noteId, () => {})
+          .add(row.name);
+    }
+
+    final sorted = merged.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return sorted.take(limit).map(
+      (row) => (
+        noteId: row.id,
+        snippet: _searchLikeSnippet(
+          row: row,
+          query: query,
+          attachmentNames: attachmentNamesByNote[row.id] ?? const {},
+        ),
+      ),
+    ).toList();
+  }
+
+  static String _searchLikeSnippet({
+    required NoteRow row,
+    required String query,
+    required Set<String> attachmentNames,
+  }) {
+    final lowered = query.toLowerCase();
+    for (final name in attachmentNames) {
+      if (name.toLowerCase().contains(lowered)) return name;
+    }
+    if (row.title.trim().isNotEmpty &&
+        row.title.toLowerCase().contains(lowered)) {
+      return row.title.trim();
+    }
+    return previewSnippetFromMarkdown(row.markdown, maxLen: 48);
   }
 
   Future<void> replaceAttachments(String noteId, List<NoteAttachmentsCompanion> rows) async {

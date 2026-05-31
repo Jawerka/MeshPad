@@ -34,6 +34,9 @@ dependencies:
   sqlite3_flutter_libs: 0.5.42
   open_file: ^3.5.11
   desktop_drop: ^0.7.1
+  video_player: ^2.9.3
+  video_player_win: ^3.2.2
+  audioplayers: ^6.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

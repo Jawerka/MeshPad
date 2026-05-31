@@ -136,29 +136,7 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                           ),
                           textInputAction: TextInputAction.newline,
                         )
-                      : MarkdownBody(
-                          data: linkifyBareUrls(
-                            note.markdown.isEmpty
-                                ? '_Пустая заметка_'
-                                : note.markdown,
-                          ),
-                          onTapLink: (text, href, title) {
-                            if (href == null) return;
-                            openLink(href);
-                          },
-                          styleSheet: MarkdownStyleSheet(
-                            p: Theme.of(context).textTheme.bodyMedium,
-                            h1: Theme.of(context).textTheme.titleMedium,
-                            a: const TextStyle(
-                              color: MeshPadColors.primary,
-                              decoration: TextDecoration.underline,
-                            ),
-                            code: const TextStyle(
-                              fontFamily: 'Consolas',
-                              backgroundColor: MeshPadColors.backgroundElevated,
-                            ),
-                          ),
-                        ),
+                      : _buildMarkdownBody(context, note, openLink),
                 ),
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
@@ -206,9 +184,20 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
               onOpenAttachment: openAttachment,
             ),
             const SizedBox(height: 8),
-            Text(
-              formatNoteDate(note.updatedAt),
-              style: metaStyle,
+            Row(
+              children: [
+                Text(
+                  formatNoteDate(note.updatedAt),
+                  style: metaStyle,
+                ),
+                if (widget.isTrash && note.deletedAt != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '· удалится ${formatNoteDate(note.deletedAt!.add(const Duration(days: 7)))}',
+                    style: metaStyle,
+                  ),
+                ],
+              ],
             ),
             if (_editing) ...[
               const SizedBox(height: 10),
@@ -240,6 +229,43 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMarkdownBody(
+    BuildContext context,
+    Note note,
+    Future<void> Function(String href) openLink,
+  ) {
+    final markdown = note.markdown.trim();
+    if (markdown.isEmpty && note.attachments.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return MarkdownBody(
+      data: linkifyBareUrls(
+        markdown.isEmpty ? '_Пустая заметка_' : note.markdown,
+      ),
+      onTapLink: (text, href, title) {
+        if (href == null) return;
+        openLink(href);
+      },
+      styleSheet: _markdownStyleSheet(context),
+    );
+  }
+
+  MarkdownStyleSheet _markdownStyleSheet(BuildContext context) {
+    return MarkdownStyleSheet(
+      p: Theme.of(context).textTheme.bodyMedium,
+      h1: Theme.of(context).textTheme.titleMedium,
+      a: const TextStyle(
+        color: MeshPadColors.primary,
+        decoration: TextDecoration.underline,
+      ),
+      code: const TextStyle(
+        fontFamily: 'Consolas',
+        backgroundColor: MeshPadColors.backgroundElevated,
       ),
     );
   }

@@ -32,6 +32,21 @@ void main() {
     expect(devices.first.name, 'Phone');
   });
 
+  test('updates local and trusted device icons', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.loadOrCreateIdentity(defaultDisplayName: 'PC');
+    await store.updateIcon('phone');
+
+    final identity = await store.loadOrCreateIdentity();
+    expect(identity.icon, 'phone');
+
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone', icon: 'device');
+    await store.updateTrustedDeviceIcon(peerId: 'peer-1', icon: 'tablet');
+
+    final devices = await store.listTrustedDevices();
+    expect(devices.single.icon, 'tablet');
+  });
+
   test('persists LAN endpoint for trusted peer', () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     await store.trustDevice(

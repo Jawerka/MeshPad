@@ -11,6 +11,7 @@ import '../models/note_meta.dart';
 import '../models/note_head.dart';
 import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
+import '../note_text.dart';
 import '../storage/attachment_storage.dart';
 import '../errors/meshpad_exception.dart';
 import '../storage/meshpad_paths.dart';
@@ -48,10 +49,15 @@ class NoteRepository {
   }) async {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
+    final resolvedTitle = resolveNoteTitle(
+      currentTitle: '',
+      markdown: markdown,
+      explicitTitle: title.isEmpty ? null : title,
+    );
     final meta = NoteMeta(
       schemaVersion: NoteMeta.currentSchemaVersion,
       id: id,
-      title: title,
+      title: resolvedTitle,
       createdAt: now,
       updatedAt: now,
       author: author ?? defaultAuthor,
@@ -143,15 +149,20 @@ class NoteRepository {
     return row.read(countExp) ?? 0;
   }
 
-  /// Slice of active notes in ascending [createdAt] order.
+  /// Slice of active notes in ascending order for [sort].
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
+    NoteSort sort = NoteSort.createdAt,
   }) async {
-    final query = _db.select(_db.notes)
-      ..where((t) => t.deleted.equals(false))
-      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
-      ..limit(limit, offset: offset);
+    final query = _db.select(_db.notes)..where((t) => t.deleted.equals(false));
+    switch (sort) {
+      case NoteSort.createdAt:
+        query.orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+      case NoteSort.updatedAt:
+        query.orderBy([(t) => OrderingTerm.asc(t.updatedAt)]);
+    }
+    query.limit(limit, offset: offset);
     return _notesFromRows(await query.get());
   }
 
@@ -374,7 +385,11 @@ class NoteRepository {
     }
 
     final updated = existing.copyWith(
-      title: title ?? existing.title,
+      title: resolveNoteTitle(
+        currentTitle: existing.title,
+        markdown: markdown ?? existing.markdown,
+        explicitTitle: title,
+      ),
       markdown: markdown ?? existing.markdown,
       updatedAt: DateTime.now().toUtc(),
     );
@@ -429,7 +444,25 @@ class NoteRepository {
     for (final id in ids) {
       final folder = await _fs.read(id);
       if (folder == null) continue;
-      final note = Note.fromMeta(meta: folder.meta, markdown: folder.markdown);
+      var meta = folder.meta;
+      final derivedTitle = titleFromMarkdown(folder.markdown);
+      if (meta.title.trim().isEmpty && derivedTitle.isNotEmpty) {
+        meta = NoteMeta(
+          schemaVersion: meta.schemaVersion,
+          id: meta.id,
+          title: derivedTitle,
+          createdAt: meta.createdAt,
+          updatedAt: meta.updatedAt,
+          author: meta.author,
+          deleted: meta.deleted,
+          deletedAt: meta.deletedAt,
+          attachments: meta.attachments,
+        );
+        await _fs.write(
+          NoteFolder(path: folder.path, meta: meta, markdown: folder.markdown),
+        );
+      }
+      final note = Note.fromMeta(meta: meta, markdown: folder.markdown);
       await _indexNote(note);
       count++;
     }
@@ -481,6 +514,16 @@ class NoteRepository {
           )
           .toList(),
     );
+    if (note.deleted) {
+      await _db.removeNoteFts(note.id);
+    } else {
+      await _db.indexNoteFts(
+        note.id,
+        note.title,
+        note.markdown,
+        attachmentNames: note.attachments.map((attachment) => attachment.name),
+      );
+    }
   }
 
   Future<void> _enqueue(String operation, String noteId) async {

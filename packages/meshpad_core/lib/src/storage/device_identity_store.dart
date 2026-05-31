@@ -50,6 +50,18 @@ class DeviceIdentityStore {
     );
   }
 
+  Future<void> updateIcon(String icon) async {
+    final current = await loadOrCreateIdentity();
+    await _saveIdentity(
+      LocalDeviceIdentity(
+        peerId: current.peerId,
+        displayName: current.displayName,
+        icon: icon,
+        createdAt: current.createdAt,
+      ),
+    );
+  }
+
   Future<void> updateTrustedDeviceName({
     required String peerId,
     required String name,
@@ -62,6 +74,26 @@ class DeviceIdentityStore {
         peerId: record.peerId,
         name: name,
         icon: record.icon,
+        trustedAt: record.trustedAt,
+        lastSeenAt: record.lastSeenAt,
+        lanHost: record.lanHost,
+        lanHttpPort: record.lanHttpPort,
+      ),
+    );
+  }
+
+  Future<void> updateTrustedDeviceIcon({
+    required String peerId,
+    required String icon,
+  }) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(
+      TrustedDeviceRecord(
+        peerId: record.peerId,
+        name: record.name,
+        icon: icon,
         trustedAt: record.trustedAt,
         lastSeenAt: record.lastSeenAt,
         lanHost: record.lanHost,
@@ -130,9 +162,24 @@ class DeviceIdentityStore {
         name: record.name,
         icon: record.icon,
         trustedAt: record.trustedAt,
-        lastSeenAt: record.lastSeenAt,
+        lastSeenAt: DateTime.now().toUtc(),
         lanHost: lanHost,
         lanHttpPort: lanHttpPort,
+      ),
+    );
+  }
+
+  Future<void> clearLanEndpoint(String peerId) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(
+      TrustedDeviceRecord(
+        peerId: record.peerId,
+        name: record.name,
+        icon: record.icon,
+        trustedAt: record.trustedAt,
+        lastSeenAt: record.lastSeenAt,
       ),
     );
   }

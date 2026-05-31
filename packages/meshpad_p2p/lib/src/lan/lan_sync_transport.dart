@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 
 
@@ -20,6 +21,8 @@ import 'lan_discovery.dart';
 import 'lan_peer_server.dart';
 
 import 'lan_sync_codec.dart';
+
+import 'lan_tls_identity.dart';
 
 import '../meshpad_log.dart';
 
@@ -49,6 +52,8 @@ class LanSyncTransport implements SyncTransport {
 
     this.onCascadeSync,
 
+    this.enableTls = true,
+
   })  : _getEngine = getEngine,
 
         _getIdentity = getIdentity;
@@ -67,6 +72,8 @@ class LanSyncTransport implements SyncTransport {
 
   final CascadeSyncHandler? onCascadeSync;
 
+  final bool enableTls;
+
 
 
   final _controller = StreamController<SyncTransportEvent>.broadcast();
@@ -84,6 +91,10 @@ class LanSyncTransport implements SyncTransport {
   LocalDeviceIdentity? _identity;
 
   int? _httpPort;
+
+  int? _tlsPort;
+
+  LanTlsIdentity? _tlsIdentity;
 
 
 
@@ -134,6 +145,10 @@ class LanSyncTransport implements SyncTransport {
   String? get localLanHost => _announceHost;
 
   int? get localHttpPort => _httpPort;
+
+  int? get localTlsPort => _tlsPort;
+
+  String? get localTlsCertSha256 => _tlsIdentity?.certSha256Hex;
 
 
 
@@ -187,6 +202,13 @@ class LanSyncTransport implements SyncTransport {
 
     _announceHost = announceHost ?? await detectLanHost();
 
+    if (enableTls && getDeviceStore != null) {
+      final store = await getDeviceStore!();
+      _tlsIdentity = await LanTlsIdentity.loadOrCreate(
+        Directory(store.paths.tlsRoot),
+      );
+    }
+
     _server = LanPeerServer(
 
       getEngine: _getEngine,
@@ -202,9 +224,13 @@ class LanSyncTransport implements SyncTransport {
 
       onCascadeSyncRequested: onCascadeSync,
 
+      tlsIdentity: _tlsIdentity,
+
     );
 
     _httpPort = await _server!.start();
+
+    _tlsPort = _server!.tlsPort;
 
 
 
@@ -270,6 +296,8 @@ class LanSyncTransport implements SyncTransport {
 
       httpPort: _httpPort!,
 
+      tlsPort: _tlsPort,
+
     );
 
   }
@@ -294,6 +322,7 @@ class LanSyncTransport implements SyncTransport {
             displayName: endpoint.displayName,
             host: preferredLanHost(existing.host, endpoint.host),
             httpPort: endpoint.httpPort,
+            tlsPort: endpoint.tlsPort ?? existing.tlsPort,
           );
 
     _peers[announcement.peerId] = merged;
@@ -370,26 +399,30 @@ class LanSyncTransport implements SyncTransport {
 
     Future<LanPeerEndpoint?> probe(LanPeerEndpoint endpoint) async {
 
-      final ok = await HttpRemoteSyncGateway(endpoint: endpoint).checkHealth();
+      final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
 
-      if (ok) {
+      if (!await gateway.checkHealth(secure: false)) {
 
-        MeshPadLog.sync(
-
-          'health ok ${endpoint.peerId} ${endpoint.host}:${endpoint.httpPort}',
-
+        MeshPadLog.warn(
+          'sync',
+          'health failed ${endpoint.peerId} ${endpoint.host}:${endpoint.httpPort}',
         );
 
-        return endpoint;
+        return null;
 
       }
 
-      MeshPadLog.warn(
-        'sync',
-        'health failed ${endpoint.peerId} ${endpoint.host}:${endpoint.httpPort}',
+      final enriched = await gateway.enrichEndpointFromHealth(endpoint);
+
+      MeshPadLog.sync(
+
+        'health ok ${enriched.peerId} ${enriched.host}:${enriched.httpPort}'
+
+        '${enriched.tlsPort != null ? ' tls=${enriched.tlsPort}' : ''}',
+
       );
 
-      return null;
+      return enriched;
 
     }
 
@@ -535,27 +568,24 @@ class LanSyncTransport implements SyncTransport {
 
       final engine = await _getEngine();
 
-      final identity = await _getIdentity();
-
-      final authToken = await _authTokenFor(peerId);
-
-      final gateway = HttpRemoteSyncGateway(
-
-        endpoint: resolved,
-
-        callerPeerId: identity.peerId,
-
-        authToken: authToken,
-
-      );
+      final gateway = await gatewayForPeer(peerId);
 
       final result = await engine.syncWithRemote(gateway);
+
+      if (result.failedPushNoteIds.isNotEmpty) {
+        await OutboxProcessor().recordOutboxRetriesForNoteIds(
+          engine.notes,
+          result.failedPushNoteIds,
+        );
+      }
 
       MeshPadLog.sync(
 
         'sync done $peerId pulled=${result.pulled} '
 
-        'pushed=${result.receivedByPeer} ack=${result.acknowledged}',
+        'pushed=${result.receivedByPeer} ack=${result.acknowledged}'
+
+        '${result.failedPushNoteIds.isNotEmpty ? ' partialFail=${result.failedPushNoteIds.length}' : ''}',
 
       );
 
@@ -621,6 +651,8 @@ class LanSyncTransport implements SyncTransport {
 
     final authToken = await _authTokenFor(peerId);
 
+    final tlsCertSha256 = await _tlsCertFor(peerId);
+
     return HttpRemoteSyncGateway(
 
       endpoint: endpoint,
@@ -629,8 +661,18 @@ class LanSyncTransport implements SyncTransport {
 
       authToken: authToken,
 
+      tlsCertSha256: tlsCertSha256,
+
     );
 
+  }
+
+
+
+  Future<String?> fetchPeerTlsCertSha256(LanPeerEndpoint endpoint) async {
+    final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
+    final enriched = await gateway.enrichEndpointFromHealth(endpoint);
+    return HttpRemoteSyncGateway(endpoint: enriched).fetchTlsCertSha256();
   }
 
 
@@ -694,6 +736,14 @@ class LanSyncTransport implements SyncTransport {
     return store.authTokenForPeer(peerId);
   }
 
+  Future<String?> _tlsCertFor(String peerId) async {
+    final loader = getDeviceStore;
+    if (loader == null) return null;
+    final store = await loader();
+    final record = await store.trustedRecordFor(peerId);
+    return record?.tlsCertSha256;
+  }
+
   String _httpSyncErrorMessage(HttpRemoteSyncException e) {
     return switch (e.statusCode) {
       401 => 'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.',
@@ -704,12 +754,15 @@ class LanSyncTransport implements SyncTransport {
 
 
 
+  /// Triggers an immediate mDNS/UDP browse (e.g. when opening «Устройства»).
+  Future<void> refreshDiscovery() async {
+    if (!_running) return;
+    await _discovery?.refresh();
+  }
+
   void dispose() {
-
     unawaited(stop());
-
     _controller.close();
-
   }
 
 }

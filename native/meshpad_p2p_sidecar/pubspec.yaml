@@ -1,0 +1,21 @@
+name: meshpad_p2p_sidecar
+description: Localhost HTTP sidecar stub for libp2p native bridge (Phase B.2).
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  meshpad_p2p:
+    path: ../../packages/meshpad_p2p
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0
+
+executables:
+  meshpad_p2p_sidecar:

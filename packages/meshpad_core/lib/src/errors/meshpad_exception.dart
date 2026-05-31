@@ -29,6 +29,16 @@ class AttachmentNotFoundException extends MeshPadException {
       : super('attachment_missing', 'Файл не найден: $path');
 }
 
+class AttachmentUploadOffsetException extends MeshPadException {
+  AttachmentUploadOffsetException(this.expectedOffset)
+      : super(
+          'upload_offset_mismatch',
+          'Upload offset mismatch; expected $expectedOffset',
+        );
+
+  final int expectedOffset;
+}
+
 String meshPadExceptionUserMessage(Object error) {
   if (error is MeshPadException) return error.message;
   final text = error.toString();

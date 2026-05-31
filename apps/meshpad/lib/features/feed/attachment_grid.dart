@@ -13,6 +13,7 @@ class AttachmentGrid extends StatelessWidget {
     required this.note,
     this.dataDir,
     this.attachmentUriBuilder,
+    this.attachmentThumbUriBuilder,
     this.onTapImage,
     this.onOpenAttachment,
   });
@@ -20,6 +21,7 @@ class AttachmentGrid extends StatelessWidget {
   final Note note;
   final String? dataDir;
   final Uri? Function(AttachmentMeta attachment)? attachmentUriBuilder;
+  final Uri? Function(AttachmentMeta attachment)? attachmentThumbUriBuilder;
   final void Function(int index, List<AttachmentMeta> images)? onTapImage;
   final Future<void> Function(AttachmentMeta attachment)? onOpenAttachment;
 
@@ -126,6 +128,7 @@ class AttachmentGrid extends StatelessWidget {
       attachment: attachment,
       dataDir: dataDir,
       attachmentUriBuilder: attachmentUriBuilder,
+      attachmentThumbUriBuilder: attachmentThumbUriBuilder,
     );
   }
 }
@@ -156,6 +159,7 @@ class _ImageTile extends StatelessWidget {
       path: source.path,
       thumbPath: source.thumbPath,
       url: source.url,
+      thumbUrl: source.thumbUrl,
       errorBox: _errorBox(),
     );
   }

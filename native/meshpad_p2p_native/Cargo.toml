@@ -1,0 +1,28 @@
+[package]
+name = "meshpad_p2p_native"
+version = "0.1.0"
+edition = "2021"
+description = "MeshPad libp2p native sidecar (Phase B.2)"
+publish = false
+
+[[bin]]
+name = "meshpad_p2p_sidecar"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.8"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tower-http = { version = "0.6", features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# libp2p stack — wired in follow-up commits (mDNS / Noise / sync streams).
+# libp2p = { version = "0.55", features = ["mdns", "noise", "tcp", "tokio"] }
+
+[profile.release]
+lto = true
+codegen-units = 1

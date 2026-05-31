@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:meshpad_core/meshpad_core.dart';
 
+import 'api_auth.dart';
+import 'api_events.dart';
 import 'api_exception.dart';
 import 'note_json.dart';
 
@@ -10,12 +12,17 @@ import 'note_json.dart';
 class MeshPadApiClient {
   MeshPadApiClient({
     required String baseUrl,
+    String? apiKey,
     http.Client? httpClient,
   })  : _base = _normalizeBase(baseUrl),
+        _apiKey = _normalizeApiKey(apiKey),
         _http = httpClient ?? http.Client();
 
   final Uri _base;
+  final String? _apiKey;
   final http.Client _http;
+
+  Map<String, String> get _authHeaders => meshPadApiKeyHeaders(_apiKey);
 
   Uri get baseUri => _base;
 
@@ -149,13 +156,28 @@ class MeshPadApiClient {
     );
   }
 
+  Uri attachmentThumbUri(String noteId, String fileName) {
+    return _uri(
+      '/api/notes/$noteId/attachments/${Uri.encodeComponent(fileName)}/thumb',
+    );
+  }
+
+  /// SSE stream of feed changes (`GET /api/events`).
+  Stream<MeshPadApiEvent> watchNoteEvents() async* {
+    final request = http.Request('GET', _uri('/api/events'));
+    request.headers.addAll(_authHeaders);
+    request.headers['Accept'] = 'text/event-stream';
+    final response = await _http.send(request);
+    yield* meshPadEventsFromResponse(response);
+  }
+
   void close() => _http.close();
 
   Future<http.Response> _get(
     String path, {
     Map<String, String>? query,
   }) {
-    return _http.get(_uri(path, query: query));
+    return _http.get(_uri(path, query: query), headers: _authHeaders);
   }
 
   Future<http.Response> _post(
@@ -164,7 +186,7 @@ class MeshPadApiClient {
   }) {
     return _http.post(
       _uri(path),
-      headers: _jsonHeaders,
+      headers: {..._authHeaders, ..._jsonHeaders},
       body: body == null ? null : jsonEncode(body),
     );
   }
@@ -175,7 +197,7 @@ class MeshPadApiClient {
   }) {
     return _http.put(
       _uri(path),
-      headers: _jsonHeaders,
+      headers: {..._authHeaders, ..._jsonHeaders},
       body: jsonEncode(body),
     );
   }
@@ -183,13 +205,16 @@ class MeshPadApiClient {
   Future<http.Response> _putBytes(String path, List<int> bytes) {
     return _http.put(
       _uri(path),
-      headers: {'Content-Type': 'application/octet-stream'},
+      headers: {
+        ..._authHeaders,
+        'Content-Type': 'application/octet-stream',
+      },
       body: bytes,
     );
   }
 
   Future<http.Response> _delete(String path) {
-    return _http.delete(_uri(path));
+    return _http.delete(_uri(path), headers: _authHeaders);
   }
 
   Uri _uri(String path, {Map<String, String>? query}) {
@@ -202,6 +227,12 @@ class MeshPadApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw MeshPadApiException.fromResponse(response.statusCode, response.body);
     }
+  }
+
+  static String? _normalizeApiKey(String? apiKey) {
+    final trimmed = apiKey?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
   }
 
   static Uri _normalizeBase(String baseUrl) {

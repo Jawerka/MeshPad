@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../core/errors/user_messages.dart';
 import '../../core/openers/attachment_opener.dart';
 import '../../core/providers/notes_providers.dart';
@@ -10,6 +11,7 @@ import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import 'attachment_grid.dart';
 import 'feed_screen.dart';
+import 'note_tags_editor.dart';
 
 class NoteBubble extends ConsumerStatefulWidget {
   const NoteBubble({
@@ -69,6 +71,7 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     final notesService = ref.watch(notesServiceProvider).valueOrNull;
     final dataDir = ref.watch(dataDirProvider).valueOrNull;
     final compact = isCompactFeedLayout(context);
+    final isWeb = ref.watch(isWebClientProvider);
     final metaStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: MeshPadColors.textMuted,
           fontFeatures: const [FontFeature.tabularFigures()],
@@ -77,6 +80,12 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
         ? null
         : (AttachmentMeta attachment) =>
             notesService.attachmentUri(note.id, attachment.name);
+    final attachmentThumbUriBuilder = notesService == null
+        ? null
+        : (AttachmentMeta attachment) {
+            if (!isImageAttachment(attachment)) return null;
+            return notesService.attachmentThumbUri(note.id, attachment.name);
+          };
 
     Future<void> openLink(String href) async {
       try {
@@ -144,6 +153,15 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                     switch (action) {
                       case 'edit':
                         setState(() => _editing = true);
+                      case 'tags':
+                        final next = await showNoteTagsEditorDialog(
+                          context,
+                          initialTags: note.tags,
+                        );
+                        if (next == null || !context.mounted) return;
+                        await ref
+                            .read(notesListProvider.notifier)
+                            .setNoteTags(note.id, next);
                       case 'delete':
                         await ref
                             .read(notesListProvider.notifier)
@@ -155,22 +173,28 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                     }
                   },
                   itemBuilder: (context) {
+                    final l10n = AppLocalizations.of(context);
                     if (widget.isTrash) {
                       return [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'restore',
-                          child: Text('Восстановить'),
+                          child: Text(l10n.noteMenuRestore),
                         ),
                       ];
                     }
                     return [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'edit',
-                        child: Text('Редактировать'),
+                        child: Text(l10n.noteMenuEdit),
                       ),
-                      const PopupMenuItem(
+                      if (!isWeb)
+                        PopupMenuItem(
+                          value: 'tags',
+                          child: Text(l10n.noteMenuTags),
+                        ),
+                      PopupMenuItem(
                         value: 'delete',
-                        child: Text('В корзину'),
+                        child: Text(l10n.noteMenuTrash),
                       ),
                     ];
                   },
@@ -181,8 +205,31 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
               note: note,
               dataDir: dataDir,
               attachmentUriBuilder: attachmentUriBuilder,
+              attachmentThumbUriBuilder: attachmentThumbUriBuilder,
               onOpenAttachment: openAttachment,
             ),
+            if (note.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final tag in note.tags)
+                    ActionChip(
+                      label: Text('#$tag'),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onPressed: isWeb
+                          ? null
+                          : () {
+                              ref.read(feedTagFilterProvider.notifier).state =
+                                  tag;
+                              ref.invalidate(notesListProvider);
+                            },
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -201,30 +248,36 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
             ),
             if (_editing) ...[
               const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => setState(() {
-                              _editing = false;
-                              _bodyController.text = note.markdown;
-                            }),
-                    child: const Text('Отмена'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Сохранить'),
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () => setState(() {
+                                  _editing = false;
+                                  _bodyController.text = note.markdown;
+                                }),
+                        child: Text(l10n.cancel),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _saving ? null : _save,
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(l10n.save),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ],
@@ -243,9 +296,10 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
       return const SizedBox.shrink();
     }
 
+    final l10n = AppLocalizations.of(context);
     return MarkdownBody(
       data: linkifyBareUrls(
-        markdown.isEmpty ? '_Пустая заметка_' : note.markdown,
+        markdown.isEmpty ? l10n.emptyNotePlaceholder : note.markdown,
       ),
       onTapLink: (text, href, title) {
         if (href == null) return;
@@ -259,11 +313,11 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     return MarkdownStyleSheet(
       p: Theme.of(context).textTheme.bodyMedium,
       h1: Theme.of(context).textTheme.titleMedium,
-      a: const TextStyle(
+      a: TextStyle(
         color: MeshPadColors.primary,
         decoration: TextDecoration.underline,
       ),
-      code: const TextStyle(
+      code: TextStyle(
         fontFamily: 'Consolas',
         backgroundColor: MeshPadColors.backgroundElevated,
       ),

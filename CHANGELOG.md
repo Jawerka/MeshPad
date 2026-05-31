@@ -2,17 +2,48 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Hide libp2p transport toggle in settings until Rust push/pull (B.2); saved `sync_transport: libp2p` runs as LAN; dev override `--dart-define=MESHPAD_SYNC_TRANSPORT=libp2p` unchanged
+
+_Нет других изменений._
+
+---
+
+## [0.2.0] — Post-MVP (2026-05)
+
+Расширение после MVP 0.1.0. См. [PLAN.md §12](PLAN.md#12-post-mvp--план-развития) и §6 «Итог разработки».
+
 ### Added
 
 - **LAN sync auth token (Phase A.1):** shared secret in `devices/trusted/<peer_id>.json`; headers `X-MeshPad-Peer-Id` + `X-MeshPad-Auth-Token` on all `/meshpad/p2p/*` except pairing and health; 401 without/wrong token, 403 for untrusted peer
 - Auth token generated at PIN pairing and exchanged via `PinPairingConfirm`
 - **Pairing hardening (Phase A.3):** centralized PIN offer TTL (`pairingOfferTtl`); rate limit on `/pairing/confirm` (429 after repeated failures)
 - **Sync reliability (Phase C.1):** outbox retry count no longer bumped on transport-level sync failures
+- **Partial sync ack (Phase C.2):** outbox clears only after remote has note meta and all attachment bytes verified
+- **Resumable attachment upload (Phase C.3):** chunked LAN PUT with offset headers, GET upload status, sha256 finalize
+- **Android background LAN sync (Phase C.4):** WorkManager pass runs purge, reconcile, and LAN sync with trusted peers
+- **libp2p transport scaffold (Phase B.1/B.3):** `Libp2pSyncTransport` with LAN fallback, `createSyncTransport` factory, `SyncTransportKind` in settings; native API contract in [docs/LIBP2P.md](docs/LIBP2P.md)
+- **Web feed push (Phase D.1):** SSE `GET /api/events` on `meshpad_server`; Web client auto-reloads feed via `WebFeedEventsListener`
+- **Server-side image thumbs (Phase D.2):** on-demand JPEG previews at `GET /api/notes/<id>/attachments/<name>/thumb`; Web grid uses thumb URL in feed
+- **API key auth (Phase D.3):** optional `X-MeshPad-Api-Key` on `/api/*` (except health); server `--api-key` / `MESHPAD_API_KEY`; Web client stores key in settings
+- **libp2p sidecar bridge (Phase B.2):** HTTP sidecar on `:45839`, `HttpLibp2pNativeApi`, `Libp2pSyncTransport` auto-connect
+- **macOS client (Phase D.4):** `macos/` Flutter target, tray + LAN discovery, Bonjour entitlements
+- **LAN TLS sync (Phase B.4):** HTTPS on port 45840, self-signed cert in `devices/tls/`, SHA-256 pinning at PIN pairing
+- **Partial push outbox retry (C.1 follow-up):** per-note retry bump when attachment/meta push fails mid-batch; transport failures still skip global bump
+- **Rust libp2p sidecar stub (B.2):** `native/meshpad_p2p_native/` axum HTTP sidecar matching `:45839` API
+- **Sidecar mDNS discovery (B.2):** Dart sidecar browse-only mDNS → SSE `peer_discovered` with LAN endpoint; `Libp2pSyncTransport` caches endpoints
+- **Notes export/import (Phase E.1):** `NotesArchive` zip of `notes/`; settings UI; LWW merge on import; `devices/` excluded
+- **Sync transport setting:** LAN vs libp2p in app settings (restarts transport provider)
+- **Light theme (Phase E.2):** dark / light / system; `MeshPadPalette`, `theme_mode` in settings
+- **Note tags (Phase E.3):** tags in `meta.json`, Drift index, feed filter chips, tag editor on notes
+- **libp2p B.2 prep:** merged LAN+sidecar events, native `requestSync` ping + LAN fallback; [docs/SYNC_WIRE.md](docs/SYNC_WIRE.md); Rust sidecar `cargo check` in CI
+- **i18n (Phase E.4):** ru/en + system locale; `AppLocalizations` via `flutter gen-l10n`; language setting in app settings; localized settings sheet, tags UI, note menu
 
-### Post-MVP (planned)
+### Notes
 
-- Native libp2p transport (Phase B)
-- Per-note outbox bump on partial push failure (C.1 follow-up)
+- App version **0.2.0**; planned roadmap phases A–E delivered except full libp2p push/pull (see PLAN §13 backlog)
+- CI: `melos run check` (analyze + unit + flutter tests)
 
 ---
 

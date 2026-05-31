@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import 'note_change_hub.dart';
+
 /// Background LAN P2P sync for headless server (ARCHITECTURE.md).
 class HeadlessLanSyncService {
   HeadlessLanSyncService({
@@ -11,6 +13,7 @@ class HeadlessLanSyncService {
     required this.engine,
     required this.identity,
     this.syncInterval = const Duration(minutes: 15),
+    this.changeHub,
   });
 
   final NoteRepository repository;
@@ -18,6 +21,7 @@ class HeadlessLanSyncService {
   final SyncEngine engine;
   final LocalDeviceIdentity identity;
   final Duration syncInterval;
+  final NoteChangeHub? changeHub;
 
   LanSyncTransport? _transport;
   Timer? _timer;
@@ -42,6 +46,7 @@ class HeadlessLanSyncService {
           lanHost: host,
           lanHttpPort: port,
           authToken: confirm.authToken,
+          tlsCertSha256: confirm.initiatorTlsCertSha256,
         );
       },
     );
@@ -79,10 +84,14 @@ class HeadlessLanSyncService {
     _syncInProgress = true;
     try {
       await repository.purgeExpiredTrash();
-      return await coordinator.syncTrustedPeers(
+      final result = await coordinator.syncTrustedPeers(
         transport: transport,
         repository: repository,
       );
+      if (result.status == LanSyncRunStatus.completed && result.noteCount > 0) {
+        changeHub?.feedChanged();
+      }
+      return result;
     } finally {
       _syncInProgress = false;
     }

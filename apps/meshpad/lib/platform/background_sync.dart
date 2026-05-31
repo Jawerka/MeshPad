@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:meshpad_core/meshpad_core.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../core/storage/app_settings.dart';
@@ -15,20 +17,26 @@ void backgroundSyncDispatcher() {
     if (task != backgroundSyncTaskName) return false;
 
     try {
+      if (Platform.isAndroid) {
+        await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+      }
+
       final store = AppSettingsStore();
       final settings = await store.loadSettings();
       if (!settings.autoSyncEnabled) return true;
 
       final dataDir = await store.loadDataDir();
-      await runHeadlessMaintenance(dataDir: dataDir);
+      MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
+      await runBackgroundSyncPass(dataDir: dataDir);
       return true;
-    } catch (_) {
+    } catch (e, stack) {
+      MeshPadLog.warn('sync', 'background sync failed: $e\n$stack');
       return false;
     }
   });
 }
 
-/// Registers Android WorkManager periodic maintenance/sync (Sprint 5).
+/// Registers Android WorkManager periodic maintenance/sync (Sprint 5, C.4 LAN).
 class BackgroundSyncRegistrar {
   static bool get isSupported => !kIsWeb && Platform.isAndroid;
 

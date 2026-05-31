@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meshpad/core/storage/app_settings.dart';
 import 'package:meshpad/core/storage/app_settings_store.dart';
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -30,6 +31,7 @@ void main() {
     expect(settings.autoSyncEnabled, isTrue);
     expect(settings.autoSyncIntervalMinutes, 15);
     expect(settings.feedSort, NoteSort.createdAt);
+    expect(settings.syncTransportKind, SyncTransportKind.lan);
   });
 
   test('saveDataDir persists custom path', () async {

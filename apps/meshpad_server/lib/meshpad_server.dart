@@ -6,22 +6,33 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'note_change_hub.dart';
+import 'api_key_auth.dart';
+
 /// Headless HTTP API for Web client / LAN (Sprint 5, ARCHITECTURE.md).
 class MeshPadHttpServer {
   MeshPadHttpServer({
     required this.repository,
     required this.defaultAuthor,
-  });
+    NoteChangeHub? changeHub,
+    this.apiKeyAuth,
+  }) : changeHub = changeHub ?? NoteChangeHub();
 
   final NoteRepository repository;
   final String defaultAuthor;
+  final NoteChangeHub changeHub;
+  final ApiKeyAuth? apiKeyAuth;
 
   Router buildRouter() {
     final router = Router();
 
     router.get('/api/health', (Request request) {
       return Response.ok(
-        jsonEncode({'status': 'ok', 'service': 'meshpad_server'}),
+        jsonEncode({
+          'status': 'ok',
+          'service': 'meshpad_server',
+          'auth': apiKeyAuth?.isEnabled == true ? 'api_key' : 'none',
+        }),
         headers: _jsonHeaders,
       );
     });
@@ -33,12 +44,34 @@ class MeshPadHttpServer {
     router.put('/api/notes/<id>', _updateNote);
     router.delete('/api/notes/<id>', _deleteNote);
     router.post('/api/notes/<id>/restore', _restoreNote);
+    router.get('/api/notes/<noteId>/attachments/<fileName>/thumb', _getAttachmentThumb);
     router.get('/api/notes/<noteId>/attachments/<fileName>', _getAttachment);
     router.put('/api/notes/<noteId>/attachments/<fileName>', _putAttachment);
     router.get('/api/trash', _listTrash);
     router.get('/api/search', _searchNotes);
+    router.get('/api/events', _streamEvents);
 
     return router;
+  }
+
+  Response _streamEvents(Request request) {
+    Stream<List<int>> body() async* {
+      yield utf8.encode(': connected\n\n');
+      await for (final event in changeHub.stream) {
+        yield utf8.encode('data: ${jsonEncode(event.toJson())}\n\n');
+      }
+    }
+
+    return Response(
+      200,
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        'connection': 'keep-alive',
+        'x-accel-buffering': 'no',
+      },
+      body: body(),
+    );
   }
 
   Future<Response> _listNotes(Request request) async {
@@ -130,6 +163,8 @@ class MeshPadHttpServer {
         author: payload['author'] as String? ?? defaultAuthor,
       );
 
+      changeHub.noteCreated(note.id);
+
       return Response(
         201,
         body: jsonEncode(_noteJson(note)),
@@ -153,6 +188,7 @@ class MeshPadHttpServer {
         title: payload['title'] as String?,
         markdown: payload['markdown'] as String?,
       );
+      changeHub.noteUpdated(note.id);
       return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
     } on StateError {
       return Response.notFound(
@@ -170,6 +206,7 @@ class MeshPadHttpServer {
 
   Future<Response> _deleteNote(Request request, String id) async {
     await repository.deleteNote(id);
+    changeHub.noteDeleted(id);
     return Response.ok(
       jsonEncode({'status': 'deleted'}),
       headers: _jsonHeaders,
@@ -185,7 +222,50 @@ class MeshPadHttpServer {
         headers: _jsonHeaders,
       );
     }
+    changeHub.noteRestored(note.id);
     return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
+  }
+
+  Future<Response> _getAttachmentThumb(
+    Request request,
+    String noteId,
+    String fileName,
+  ) async {
+    final decodedName = Uri.decodeComponent(fileName);
+    final note = await repository.getNote(noteId);
+    if (note == null || note.deleted) {
+      return Response.notFound('note not found');
+    }
+
+    var found = false;
+    for (final item in note.attachments) {
+      if (item.name == decodedName) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      return Response.notFound('attachment not found');
+    }
+
+    final paths = repository.paths;
+    final thumbFile = await resolveImageThumbnailFile(
+      attachmentPath: repository.attachmentPath(noteId, decodedName),
+      thumbsDir: paths.thumbsDir(noteId),
+      attachmentName: decodedName,
+    );
+    if (thumbFile == null) {
+      return Response.notFound('thumbnail unavailable');
+    }
+
+    final bytes = await thumbFile.readAsBytes();
+    return Response.ok(
+      bytes,
+      headers: {
+        'content-type': 'image/jpeg',
+        'cache-control': 'public, max-age=3600',
+      },
+    );
   }
 
   Future<Response> _getAttachment(
@@ -247,6 +327,7 @@ class MeshPadHttpServer {
         fileName: decodedName,
         bytes: bytes,
       );
+      changeHub.attachmentAdded(note.id);
       return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
     } on NoteNotFoundException {
       return Response.notFound(
@@ -304,7 +385,8 @@ Middleware corsHeaders() {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
+    'Access-Control-Allow-Headers':
+        'Origin, Content-Type, Accept, Authorization, X-MeshPad-Api-Key',
   };
 
   return (Handler inner) {
@@ -322,9 +404,13 @@ Future<HttpServer> serveMeshPadHttp({
   required MeshPadHttpServer server,
   required String host,
   required int port,
+  ApiKeyAuth? apiKeyAuth,
 }) {
-  final handler = const Pipeline()
-      .addMiddleware(corsHeaders())
+  var pipeline = Pipeline().addMiddleware(corsHeaders());
+  if (apiKeyAuth != null && apiKeyAuth.isEnabled) {
+    pipeline = pipeline.addMiddleware(apiKeyAuthMiddleware(apiKeyAuth));
+  }
+  final handler = pipeline
       .addMiddleware(logRequests())
       .addHandler(server.buildRouter().call);
   return shelf_io.serve(handler, host, port);

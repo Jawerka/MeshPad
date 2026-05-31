@@ -143,6 +143,13 @@ Future<String> sha256OfFile(String path) async {
   return sha256.convert(bytes).toString();
 }
 
+/// Returns true when [bytes] match [meta] size (and sha256 if set).
+bool attachmentBytesMatch(List<int> bytes, AttachmentMeta meta) {
+  if (bytes.length != meta.size) return false;
+  if (meta.sha256 == null) return true;
+  return sha256.convert(bytes).toString() == meta.sha256;
+}
+
 /// Returns true when [file] exists and matches [meta] size (and sha256 if set).
 Future<bool> attachmentFileMatches(File file, AttachmentMeta meta) async {
   if (!await file.exists()) return false;

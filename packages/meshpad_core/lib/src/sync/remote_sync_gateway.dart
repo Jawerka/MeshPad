@@ -1,6 +1,7 @@
 import '../models/note_head.dart';
 import '../models/note_meta.dart';
 import 'remote_note_snapshot.dart';
+import 'sync_ack.dart';
 import 'sync_engine.dart';
 
 /// Remote peer that supports pull (catalog + note) and push (apply snapshot).
@@ -16,15 +17,27 @@ abstract class RemoteSyncGateway implements SyncPeer {
   );
 }
 
+/// Result of pushing local notes to a remote peer.
+class PushToRemoteResult {
+  const PushToRemoteResult({
+    required this.pushed,
+    required this.failedNoteIds,
+  });
+
+  final int pushed;
+  final List<String> failedNoteIds;
+}
+
 extension SyncEngineRemote on SyncEngine {
   Future<SyncSessionResult> syncWithRemote(RemoteSyncGateway remote) async {
     final pulled = await pullFromRemote(remote);
-    final pushed = await pushToRemote(remote);
-    final acknowledged = await acknowledgeSyncedWith(remote);
+    final pushResult = await pushToRemote(remote);
+    final acknowledged = await acknowledgeSyncedWithRemote(remote);
     return SyncSessionResult(
       pulled: pulled,
-      receivedByPeer: pushed,
+      receivedByPeer: pushResult.pushed,
       acknowledged: acknowledged,
+      failedPushNoteIds: pushResult.failedNoteIds,
     );
   }
 
@@ -60,10 +73,11 @@ extension SyncEngineRemote on SyncEngine {
     return applied;
   }
 
-  Future<int> pushToRemote(RemoteSyncGateway remote) async {
+  Future<PushToRemoteResult> pushToRemote(RemoteSyncGateway remote) async {
     final remoteHeads = await remote.fetchCatalog();
     final byId = {for (final head in remoteHeads) head.id: head};
     var pushed = 0;
+    final failedNoteIds = <String>[];
 
     for (final head in await localCatalog()) {
       final remoteHead = byId[head.id];
@@ -76,12 +90,17 @@ extension SyncEngineRemote on SyncEngine {
       final snapshot = await exportNote(head.id);
       if (snapshot == null) continue;
 
-      final result = await remote.pushNote(snapshot);
-      if (result == NoteApplyResult.applied) pushed++;
-      await syncAttachmentsTo(remote, snapshot.meta);
+      try {
+        final result = await remote.pushNote(snapshot);
+        if (result == NoteApplyResult.applied) pushed++;
+        await syncAttachmentsTo(remote, snapshot.meta);
+        await tryAckOutboxForRemoteNote(remote, head.id);
+      } catch (_) {
+        failedNoteIds.add(head.id);
+      }
     }
 
-    return pushed;
+    return PushToRemoteResult(pushed: pushed, failedNoteIds: failedNoteIds);
   }
 
   Future<void> syncAttachmentsFrom(

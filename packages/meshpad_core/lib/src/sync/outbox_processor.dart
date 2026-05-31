@@ -36,6 +36,25 @@ class OutboxProcessor {
     return bumped;
   }
 
+  /// Bumps retry only for outbox rows matching [noteIds] (C.1 partial push).
+  Future<int> recordOutboxRetriesForNoteIds(
+    NoteRepository repo,
+    Iterable<String> noteIds,
+  ) async {
+    final ids = noteIds.toSet();
+    if (ids.isEmpty) return 0;
+
+    final entries = await repo.listOutbox();
+    var bumped = 0;
+    for (final entry in entries) {
+      if (entry.entityType != SyncEvent.entityNote) continue;
+      if (!ids.contains(entry.entityId)) continue;
+      await repo.incrementOutboxRetry(entry.id);
+      bumped++;
+    }
+    return bumped;
+  }
+
   Future<int> failedCount(NoteRepository repo) async {
     final entries = await repo.listOutbox();
     return entries.where((e) => e.retryCount >= maxRetries).length;

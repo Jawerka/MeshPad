@@ -9,9 +9,10 @@ class AttachmentMediaSource {
     this.path, {
     this.thumbPath,
   })  : url = null,
+        thumbUrl = null,
         missing = false;
 
-  const AttachmentMediaSource.network(this.url)
+  const AttachmentMediaSource.network(this.url, {this.thumbUrl})
       : path = null,
         thumbPath = null,
         missing = false;
@@ -20,10 +21,12 @@ class AttachmentMediaSource {
       : path = null,
         url = null,
         thumbPath = null,
+        thumbUrl = null,
         missing = true;
 
   final String? path;
   final String? url;
+  final String? thumbUrl;
   final String? thumbPath;
   final bool missing;
 
@@ -31,7 +34,7 @@ class AttachmentMediaSource {
 
   String get primary => url ?? path ?? '';
 
-  String? get previewPath => thumbPath ?? path;
+  String? get previewUrl => thumbUrl ?? thumbPath ?? url ?? path;
 }
 
 AttachmentMediaSource resolveAttachmentMediaSource({
@@ -39,10 +42,17 @@ AttachmentMediaSource resolveAttachmentMediaSource({
   required AttachmentMeta attachment,
   String? dataDir,
   Uri? Function(AttachmentMeta attachment)? attachmentUriBuilder,
+  Uri? Function(AttachmentMeta attachment)? attachmentThumbUriBuilder,
 }) {
   final remote = attachmentUriBuilder?.call(attachment);
   if (remote != null) {
-    return AttachmentMediaSource.network(remote.toString());
+    final thumbRemote = isImageAttachment(attachment)
+        ? attachmentThumbUriBuilder?.call(attachment)
+        : null;
+    return AttachmentMediaSource.network(
+      remote.toString(),
+      thumbUrl: thumbRemote?.toString(),
+    );
   }
   final dir = dataDir;
   if (dir != null) {

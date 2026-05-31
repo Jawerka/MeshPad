@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
@@ -25,7 +26,14 @@ class DevicesSheet extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (context) => const DevicesSheet(),
+      builder: (sheetContext) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!sheetContext.mounted) return;
+          final container = ProviderScope.containerOf(sheetContext);
+          unawaited(container.read(discoveryServiceProvider).refresh());
+        });
+        return const DevicesSheet();
+      },
     );
   }
 
@@ -178,7 +186,7 @@ class DevicesSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'mDNS/UDP discovery в локальной сети (до native libp2p)',
+                      AppLocalizations.of(context).devicesDiscoveryHint,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: MeshPadColors.textMuted,
                           ),
@@ -375,8 +383,9 @@ class DevicesSheet extends ConsumerWidget {
   ) async {
     final transport = ref.read(syncTransportProvider);
     await transport.start();
+    final lan = transport.lanAccess;
 
-    if (transport is LanSyncTransport) {
+    if (lan != null) {
       final stored = peer.hasLanEndpoint
           ? LanPeerEndpoint(
               peerId: peer.peerId,
@@ -385,7 +394,7 @@ class DevicesSheet extends ConsumerWidget {
               httpPort: peer.lanHttpPort!,
             )
           : null;
-      final endpoint = await transport.resolvePeerEndpoint(
+      final endpoint = await lan.resolvePeerEndpoint(
         peerId: peer.peerId,
         stored: stored,
       );
@@ -401,7 +410,7 @@ class DevicesSheet extends ConsumerWidget {
         );
         return;
       }
-      transport.rememberEndpoint(endpoint);
+      lan.rememberEndpoint(endpoint);
     }
 
     final completer = Completer<SyncTransportEvent>();
@@ -435,8 +444,8 @@ class DevicesSheet extends ConsumerWidget {
     if (event is SyncCompleted) {
       final store = await ref.read(deviceStoreProvider.future);
       await store.markPeerSeen(peer.peerId);
-      if (transport is LanSyncTransport) {
-        final endpoint = transport.endpointFor(peer.peerId);
+      if (lan != null) {
+        final endpoint = lan.endpointFor(peer.peerId);
         if (endpoint != null) {
           await store.updateLanEndpoint(
             peerId: peer.peerId,
@@ -511,6 +520,7 @@ class DevicesSheet extends ConsumerWidget {
             if (endpoint != null) {
               final offer = await lan.fetchPairingOffer(endpoint);
               if (offer != null && offer.pin == remotePin) {
+                final remoteTls = await lan.fetchPeerTlsCertSha256(endpoint);
                 final ok = await lan.confirmPairingOnPeer(
                   endpoint: endpoint,
                   confirm: PinPairingConfirm(
@@ -521,6 +531,7 @@ class DevicesSheet extends ConsumerWidget {
                     initiatorLanHost: lan.localLanHost,
                     initiatorHttpPort: lan.localHttpPort,
                     authToken: authToken,
+                    initiatorTlsCertSha256: lan.localTlsCertSha256,
                   ),
                 );
                 if (ok) {
@@ -530,6 +541,7 @@ class DevicesSheet extends ConsumerWidget {
                     lanHost: endpoint.host,
                     lanHttpPort: endpoint.httpPort,
                     authToken: authToken,
+                    tlsCertSha256: remoteTls,
                   );
                   ref.invalidate(trustedDevicesProvider);
                   ref

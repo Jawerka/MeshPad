@@ -7,6 +7,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 import '../pairing_protocol.dart';
 import 'lan_sync_auth.dart';
 import 'lan_sync_codec.dart';
+import 'lan_tls_identity.dart';
 import '../meshpad_log.dart';
 
 /// Default LAN HTTP port (stable across restarts when free).
@@ -26,6 +27,8 @@ class LanPeerServer {
     this.lookupTrustedPeer,
     PairingConfirmRateLimiter? pairingRateLimiter,
     this.preferredPort = meshpadPreferredLanHttpPort,
+    this.tlsIdentity,
+    this.preferredTlsPort = meshpadPreferredLanTlsPort,
   })  : _getEngine = getEngine,
         _pairingRateLimiter = pairingRateLimiter ?? PairingConfirmRateLimiter();
 
@@ -36,11 +39,15 @@ class LanPeerServer {
   final TrustedPeerLookup? lookupTrustedPeer;
   final PairingConfirmRateLimiter _pairingRateLimiter;
   final int preferredPort;
+  final LanTlsIdentity? tlsIdentity;
+  final int preferredTlsPort;
 
   PinPairingOffer? _pairingOffer;
   HttpServer? _server;
+  HttpServer? _tlsServer;
 
   int? get port => _server?.port;
+  int? get tlsPort => _tlsServer?.port;
 
   Future<int> start({InternetAddress? address}) async {
     if (_server != null) return _server!.port;
@@ -50,7 +57,7 @@ class LanPeerServer {
       _server = await HttpServer.bind(
         bindAddress,
         preferredPort,
-        shared: false,
+        shared: true,
       );
       MeshPadLog.lan('HTTP server on preferred port $preferredPort');
     } on SocketException {
@@ -62,10 +69,39 @@ class LanPeerServer {
       );
     }
     _server!.listen(_handleRequest);
+
+    final identity = tlsIdentity;
+    if (identity != null) {
+      try {
+        _tlsServer = await HttpServer.bindSecure(
+          bindAddress,
+          preferredTlsPort,
+          identity.securityContext,
+          shared: true,
+        );
+        MeshPadLog.lan('TLS server on preferred port $preferredTlsPort');
+      } on SocketException {
+        _tlsServer = await HttpServer.bindSecure(
+          bindAddress,
+          0,
+          identity.securityContext,
+          shared: true,
+        );
+        MeshPadLog.warn(
+          'lan',
+          'TLS server on dynamic port ${_tlsServer!.port} '
+          '(preferred $preferredTlsPort busy)',
+        );
+      }
+      _tlsServer!.listen(_handleRequest);
+    }
+
     return _server!.port;
   }
 
   Future<void> stop() async {
+    await _tlsServer?.close(force: true);
+    _tlsServer = null;
     await _server?.close(force: true);
     _server = null;
   }
@@ -114,7 +150,14 @@ class LanPeerServer {
     }
 
     if (path == '/meshpad/p2p/health' && method == 'GET') {
-      return _HttpResponse.json({'status': 'ok'});
+      return _HttpResponse.json({
+        'status': 'ok',
+        if (tlsIdentity != null) ...{
+          'tls': true,
+          'tls_cert_sha256': tlsIdentity!.certSha256Hex,
+          if (tlsPort != null) 'tls_port': tlsPort,
+        },
+      });
     }
 
     if (path == '/meshpad/p2p/catalog' && method == 'GET') {
@@ -225,6 +268,13 @@ class LanPeerServer {
   }
 
   Future<_HttpResponse> _getAttachment(String suffix) async {
+    const uploadSuffix = '/upload';
+    if (suffix.endsWith(uploadSuffix)) {
+      return _getAttachmentUploadStatus(
+        suffix.substring(0, suffix.length - uploadSuffix.length),
+      );
+    }
+
     final parts = suffix.split('/attachments/');
     if (parts.length != 2) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
@@ -263,7 +313,28 @@ class LanPeerServer {
     );
   }
 
+  Future<_HttpResponse> _getAttachmentUploadStatus(String suffix) async {
+    final parts = suffix.split('/attachments/');
+    if (parts.length != 2) {
+      return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
+    }
+
+    final noteId = parts[0];
+    final fileName = Uri.decodeComponent(parts[1]);
+    final engine = await _getEngine();
+    final status = await engine.notes.attachmentUploadStatus(noteId, fileName);
+    if (status == null) {
+      return _HttpResponse(statusCode: 404, body: 'attachment not found');
+    }
+
+    return _HttpResponse.json(status.toJson());
+  }
+
   Future<_HttpResponse> _putAttachment(HttpRequest request, String suffix) async {
+    if (request.headers.value(meshpadUploadOffsetHeader) != null) {
+      return _putAttachmentChunk(request, suffix);
+    }
+
     final parts = suffix.split('/attachments/');
     if (parts.length != 2) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
@@ -296,6 +367,54 @@ class LanPeerServer {
 
     await engine.notes.storeRemoteAttachment(noteId, meta, bodyBytes);
     return _HttpResponse.json({'status': 'stored'});
+  }
+
+  Future<_HttpResponse> _putAttachmentChunk(
+    HttpRequest request,
+    String suffix,
+  ) async {
+    final parts = suffix.split('/attachments/');
+    if (parts.length != 2) {
+      return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
+    }
+
+    final noteId = parts[0];
+    final fileName = Uri.decodeComponent(parts[1]);
+    final offset = int.tryParse(
+      request.headers.value(meshpadUploadOffsetHeader) ?? '',
+    );
+    final total = int.tryParse(
+      request.headers.value(meshpadUploadTotalHeader) ?? '',
+    );
+    final sha = request.headers.value(meshpadUploadSha256Header);
+    if (offset == null || total == null || sha == null || sha.isEmpty) {
+      return _HttpResponse(statusCode: 400, body: 'invalid upload headers');
+    }
+
+    final bodyBytes = await request.fold<List<int>>(
+      <int>[],
+      (previous, element) => previous..addAll(element),
+    );
+
+    final engine = await _getEngine();
+    try {
+      final result = await engine.notes.receiveAttachmentUploadChunk(
+        noteId: noteId,
+        fileName: fileName,
+        offset: offset,
+        totalSize: total,
+        sha256: sha,
+        bytes: bodyBytes,
+      );
+      return _HttpResponse.json(result.toJson());
+    } on AttachmentUploadOffsetException catch (e) {
+      return _HttpResponse(
+        statusCode: 409,
+        body: 'offset mismatch; expected ${e.expectedOffset}',
+      );
+    } on StateError catch (e) {
+      return _HttpResponse(statusCode: 400, body: e.message);
+    }
   }
 }
 

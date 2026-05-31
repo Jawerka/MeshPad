@@ -1,4 +1,46 @@
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+
+enum AppThemeMode {
+  dark,
+  light,
+  system,
+}
+
+AppThemeMode appThemeModeFromWire(String? raw) {
+  return switch (raw) {
+    'light' => AppThemeMode.light,
+    'system' => AppThemeMode.system,
+    _ => AppThemeMode.dark,
+  };
+}
+
+String appThemeModeToWire(AppThemeMode mode) => switch (mode) {
+      AppThemeMode.light => 'light',
+      AppThemeMode.system => 'system',
+      AppThemeMode.dark => 'dark',
+    };
+
+enum AppLocaleMode {
+  ru,
+  en,
+  system,
+}
+
+AppLocaleMode appLocaleModeFromWire(String? raw) {
+  return switch (raw) {
+    'en' => AppLocaleMode.en,
+    'ru' => AppLocaleMode.ru,
+    'system' => AppLocaleMode.system,
+    _ => AppLocaleMode.ru,
+  };
+}
+
+String appLocaleModeToWire(AppLocaleMode mode) => switch (mode) {
+      AppLocaleMode.en => 'en',
+      AppLocaleMode.system => 'system',
+      AppLocaleMode.ru => 'ru',
+    };
 
 /// User preferences stored outside the data directory.
 class AppSettings {
@@ -7,6 +49,9 @@ class AppSettings {
     this.autoSyncEnabled = true,
     this.autoSyncIntervalMinutes = 15,
     this.feedSort = NoteSort.createdAt,
+    this.syncTransportKind = SyncTransportKind.lan,
+    this.themeMode = AppThemeMode.dark,
+    this.localeMode = AppLocaleMode.ru,
   });
 
   static const minAutoSyncIntervalMinutes = 5;
@@ -16,6 +61,9 @@ class AppSettings {
   final bool autoSyncEnabled;
   final int autoSyncIntervalMinutes;
   final NoteSort feedSort;
+  final SyncTransportKind syncTransportKind;
+  final AppThemeMode themeMode;
+  final AppLocaleMode localeMode;
 
   AppSettings copyWith({
     String? dataDir,
@@ -23,6 +71,9 @@ class AppSettings {
     bool? autoSyncEnabled,
     int? autoSyncIntervalMinutes,
     NoteSort? feedSort,
+    SyncTransportKind? syncTransportKind,
+    AppThemeMode? themeMode,
+    AppLocaleMode? localeMode,
   }) {
     return AppSettings(
       dataDir: clearDataDir ? null : (dataDir ?? this.dataDir),
@@ -30,6 +81,9 @@ class AppSettings {
       autoSyncIntervalMinutes:
           autoSyncIntervalMinutes ?? this.autoSyncIntervalMinutes,
       feedSort: feedSort ?? this.feedSort,
+      syncTransportKind: syncTransportKind ?? this.syncTransportKind,
+      themeMode: themeMode ?? this.themeMode,
+      localeMode: localeMode ?? this.localeMode,
     );
   }
 
@@ -48,6 +102,11 @@ class AppSettings {
         interval is int ? interval : int.tryParse('$interval') ?? 15,
       ),
       feedSort: _parseFeedSort(json['feed_sort'] as String?),
+      syncTransportKind: syncTransportKindFromWire(
+        json['sync_transport'] as String?,
+      ),
+      themeMode: appThemeModeFromWire(json['theme_mode'] as String?),
+      localeMode: appLocaleModeFromWire(json['locale_mode'] as String?),
     );
   }
 
@@ -56,6 +115,9 @@ class AppSettings {
       'auto_sync_enabled': autoSyncEnabled,
       'auto_sync_interval_minutes': autoSyncIntervalMinutes,
       'feed_sort': feedSort == NoteSort.updatedAt ? 'updated_at' : 'created_at',
+      'sync_transport': syncTransportKindToWire(syncTransportKind),
+      'theme_mode': appThemeModeToWire(themeMode),
+      'locale_mode': appLocaleModeToWire(localeMode),
     };
     if (dataDir != null && dataDir!.trim().isNotEmpty) {
       final normalizedDefault = defaultDataDir.replaceAll('\\', '/');

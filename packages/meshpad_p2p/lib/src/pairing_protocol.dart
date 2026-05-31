@@ -49,6 +49,7 @@ class PinPairingConfirm {
     this.initiatorLanHost,
     this.initiatorHttpPort,
     this.authToken,
+    this.initiatorTlsCertSha256,
   });
 
   final String peerId;
@@ -58,6 +59,7 @@ class PinPairingConfirm {
   final String? initiatorLanHost;
   final int? initiatorHttpPort;
   final String? authToken;
+  final String? initiatorTlsCertSha256;
 
   Map<String, dynamic> toJson() => {
         'peer_id': peerId,
@@ -69,6 +71,8 @@ class PinPairingConfirm {
         if (initiatorHttpPort != null)
           'initiator_http_port': initiatorHttpPort,
         if (authToken != null) 'auth_token': authToken,
+        if (initiatorTlsCertSha256 != null)
+          'initiator_tls_cert_sha256': initiatorTlsCertSha256,
       };
 
   factory PinPairingConfirm.fromJson(Map<String, dynamic> json) {
@@ -80,6 +84,7 @@ class PinPairingConfirm {
       initiatorLanHost: json['initiator_lan_host'] as String?,
       initiatorHttpPort: json['initiator_http_port'] as int?,
       authToken: json['auth_token'] as String?,
+      initiatorTlsCertSha256: json['initiator_tls_cert_sha256'] as String?,
     );
   }
 }

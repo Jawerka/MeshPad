@@ -1,3 +1,5 @@
+import 'note_tags.dart';
+
 /// Metadata for a note directory (`meta.json` schema v1).
 class NoteMeta {
   const NoteMeta({
@@ -10,6 +12,7 @@ class NoteMeta {
     this.deleted = false,
     this.deletedAt,
     this.attachments = const [],
+    this.tags = const [],
   });
 
   static const int currentSchemaVersion = 1;
@@ -23,6 +26,7 @@ class NoteMeta {
   final bool deleted;
   final DateTime? deletedAt;
   final List<AttachmentMeta> attachments;
+  final List<String> tags;
 
   Map<String, dynamic> toJson() => {
         'schema_version': schemaVersion,
@@ -34,6 +38,7 @@ class NoteMeta {
         'deleted': deleted,
         'deleted_at': deletedAt?.toUtc().toIso8601String(),
         'attachments': attachments.map((a) => a.toJson()).toList(),
+        if (tags.isNotEmpty) 'tags': normalizeTags(tags),
       };
 
   factory NoteMeta.fromJson(Map<String, dynamic> json) {
@@ -51,6 +56,9 @@ class NoteMeta {
       attachments: (json['attachments'] as List<dynamic>? ?? [])
           .map((e) => AttachmentMeta.fromJson(e as Map<String, dynamic>))
           .toList(),
+      tags: normalizeTags(
+        (json['tags'] as List<dynamic>? ?? []).map((e) => '$e'),
+      ),
     );
   }
 }

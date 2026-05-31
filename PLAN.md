@@ -16,16 +16,16 @@ Local-first Markdown-блокнот в формате **одной ленты**:
 
 ## 2. Зафиксированные требования
 
-| Область | MVP (реализовано) | Post-MVP |
-|--------|-------------------|----------|
-| Платформы | Android, Linux, Windows, Web | macOS |
-| UI | Flutter, тёмная тема, русский | i18n, светлая тема |
-| Сеть | **LAN:** mDNS + UDP + HTTP sync | libp2p, relay, TLS/Noise |
+| Область | Реализовано (0.1.0 + 0.2.0) | Бэклог |
+|--------|---------------------------|--------|
+| Платформы | Android, Linux, Windows, Web, macOS | — |
+| UI | Flutter; тёмная/светлая/системная тема; ru/en i18n | история версий |
+| Сеть | LAN: mDNS + UDP + HTTP/HTTPS sync; auth token; TLS pinning | libp2p push/pull (Noise) |
 | Pairing | PIN over LAN + auth token | — |
 | Конфликты | LWW по `updated_at` | vector clock (опционально) |
 | Корзина | 7 дней → purge + tombstone | — |
-| Web | Thin client → `meshpad_server` | WebSocket push |
-| Вне scope | — | теги, версии, экспорт |
+| Web | Thin client → `meshpad_server`; SSE push; server thumbs | — |
+| Продукт | Теги, экспорт/импорт zip | in-app updates |
 
 ---
 
@@ -122,11 +122,24 @@ FTS: тело `note.md`, `title`, имена вложений.
 
 `apps/meshpad/windows/nuget.config` — fix для `audioplayers_windows` (NuGet primarySources).
 
+### 5.8. Добавлено в 0.2.0 (post-MVP)
+
+- **Теги:** `meta.json`, фильтр в ленте, FTS; Web — без тегов (API).
+- **Экспорт/импорт:** zip `notes/` без `devices/`; LWW при импорте.
+- **Тема:** тёмная / светлая / системная (`theme_mode`).
+- **Язык:** ru / en / системный (`locale_mode`, `flutter gen-l10n`).
+- **LAN:** auth token, HTTPS `:45840`, PIN hardening; partial sync ack; resumable uploads.
+- **Web:** SSE лента; server-side thumbs; опциональный API key.
+- **macOS:** desktop target, tray, discovery.
+- **libp2p:** sidecar scaffold; переключатель в настройках **скрыт** до B.2 (см. `feature_flags.dart`, §14).
+
 ---
 
-## 6. MVP — краткий итог
+## 6. Итог разработки
 
-Monorepo Flutter + pure Dart core. Local-first заметки, chat-лента, вложения с превью, корзина 7 дней, FTS, LAN sync с PIN, Android share-to, desktop tray, Web через headless API. Спринты 0–6 **закрыты**. Interim LAN transport вместо libp2p — **осознанное решение MVP**.
+Monorepo Flutter + pure Dart core. **MVP 0.1.0** (спринты 0–6) + **релиз 0.2.0** (фазы A–E §12): LAN auth/TLS, надёжный sync, Web SSE, macOS, экспорт/импорт, темы, теги, i18n, scaffold libp2p sidecar с LAN fallback.
+
+**Активная разработка по дорожной карте §12 завершена.** Production sync — **LAN HTTP/HTTPS**; полный libp2p data plane — бэклог (§14).
 
 ---
 
@@ -200,46 +213,55 @@ MeshPad/
 
 | Задача | Описание |
 |--------|----------|
-| B.1 Native crate | Rust `rust-libp2p` или Go; API: `start`, `discover`, `pair`, `push`, `pull` |
-| B.2 FFI bridge | `flutter_rust_bridge` / gRPC localhost |
-| B.3 Feature flag | `LanSyncTransport` ↔ `Libp2pSyncTransport` через provider |
-| B.4 Noise/TLS | Транспортное шифрование (PLAN §2) |
+| B.1 Native crate | Rust `rust-libp2p` или Go; API: `start`, `discover`, `pair`, `push`, `pull` | ✅ контракт: [docs/LIBP2P.md](docs/LIBP2P.md), `native/meshpad_p2p_native/` |
+| B.2 FFI bridge | `flutter_rust_bridge` / gRPC localhost | ✅ HTTP sidecar; Rust stub `meshpad_p2p_native` (libp2p pending) |
+| B.3 Feature flag | `LanSyncTransport` ↔ `Libp2pSyncTransport` через provider | ✅ `createSyncTransport`, `SyncTransportKind`, LAN fallback |
+| B.4 Noise/TLS | Транспортное шифрование (PLAN §2) | ✅ LAN HTTPS `:45840` + cert pinning |
 
-**DoD:** LAN sync через libp2p; те же UI flows; CI — fake transport.
+**DoD (полный):** sync data plane через libp2p — **бэклог**. **Сделано:** HTTP sidecar `:45839`, `Libp2pSyncTransport` + LAN fallback, wire-документация, CI `cargo check`.
 
 ### Фаза C — Sync reliability
 
 | Задача | Описание |
 |--------|----------|
-| C.1 Per-entry outbox retry | Не bump all on batch fail | ✅ transport failures; partial push — follow-up |
-| C.2 Partial sync ack | Ack после успешной передачи вложений |
-| C.3 Resume upload | Chunked + sha256 verify |
-| C.4 Android background sync | WorkManager + LAN sync (ограничения OS) |
+| C.1 Per-entry outbox retry | Не bump all on batch fail | ✅ transport failures; per-note bump on partial push |
+| C.2 Partial sync ack | Ack после успешной передачи вложений | ✅ `sync_ack.dart`, `remote_sync_gateway.dart` |
+| C.3 Resume upload | Chunked + sha256 verify | ✅ `attachment_upload.dart`, LAN HTTP |
+| C.4 Android background sync | WorkManager + LAN sync (ограничения OS) | ✅ `background_lan_sync.dart`, `background_sync.dart` |
 
 ### Фаза D — Web и server
 
 | Задача | Описание |
 |--------|----------|
-| D.1 WebSocket/SSE | Push обновлений ленты |
-| D.2 Server-side thumbs | Превью для Web без local `.thumbs/` |
-| D.3 Auth для API | API key / session (опционально) |
-| D.4 macOS client | Discovery + tray |
+| D.1 WebSocket/SSE | Push обновлений ленты | ✅ SSE `GET /api/events`, `WebFeedEventsListener` |
+| D.2 Server-side thumbs | Превью для Web без local `.thumbs/` | ✅ `GET .../attachments/<name>/thumb` |
+| D.3 Auth для API | API key / session (опционально) | ✅ `--api-key` / `MESHPAD_API_KEY`, Web settings |
+| D.4 macOS client | Discovery + tray | ✅ `macos/` platform, `DesktopShell`, LAN discovery |
 
 ### Фаза E — Продукт (вне текущего scope)
 
-Теги, история версий, экспорт/импорт, светлая тема, i18n, in-app updates.
+~~Теги~~, история версий, ~~экспорт/импорт~~, ~~светлая тема~~, ~~i18n~~, in-app updates.
 
-### Рекомендуемый порядок
-
-```
-A (security) → C.1–C.2 (reliability) → B (libp2p) → D (web scale) → E
-```
-
-**Следующий спринт:** **C.2** (partial sync ack) или **B.1** (libp2p native crate).
+| Задача | Описание |
+|--------|----------|
+| E.1 Export/import | Zip `notes/` без `devices/`; LWW при импорте | ✅ `NotesArchive`, настройки |
+| E.2 Light theme | Тёмная / светлая / системная; `MeshPadPalette` | ✅ настройки, `theme_mode` |
+| E.3 Tags | Теги в `meta.json`, фильтр ленты, FTS | ✅ `NoteMeta.tags`, настройки ленты |
+| E.4 i18n | ru/en + системный язык; `flutter gen-l10n` | ✅ `app_*.arb`, настройки, settings/tags UI |
 
 ---
 
-## 13. История спринтов (архив)
+## 13. Бэклог (вне текущего релиза)
+
+| ID | Задача | Ссылка |
+|----|--------|--------|
+| B.2 | libp2p push/pull в Rust sidecar; вернуть переключатель в настройках | [docs/SYNC_WIRE.md](docs/SYNC_WIRE.md), [docs/LIBP2P.md](docs/LIBP2P.md) |
+| E.5 | История версий заметок | — |
+| E.6 | In-app updates (полноценный installer flow) | частично: проверка версии в настройках |
+
+---
+
+## 14. История спринтов (архив)
 
 <details>
 <summary>Спринты 0–6 (выполнены)</summary>
@@ -251,5 +273,6 @@ A (security) → C.1–C.2 (reliability) → B (libp2p) → D (web scale) → E
 - **4:** identity, SyncEngine, LAN transport, PIN, mDNS, header sync
 - **5:** Android share, tray, headless server, Web client, settings
 - **6:** lazy feed, errors, attachment progress, update check, `.thumbs`, media preview, API pagination, MVP polish
+- **7 (0.2.0):** phases A–E — LAN security/reliability, Web SSE, export/tags/themes/i18n, libp2p scaffold
 
 </details>

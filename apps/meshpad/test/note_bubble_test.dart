@@ -16,15 +16,25 @@ class _FakeNotesService implements NotesService {
   Uri? attachmentUri(String noteId, String fileName) => null;
 
   @override
-  Future<int> countActiveNotes() async => 0;
+  Uri? attachmentThumbUri(String noteId, String fileName) => null;
+
+  @override
+  Future<int> countActiveNotes({String? tag}) async => 0;
+
+  @override
+  Future<List<String>> listDistinctTags() async => const [];
 
   @override
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) async =>
       [];
+
+  @override
+  Future<void> setNoteTags(String id, List<String> tags) async {}
 
   @override
   Future<List<Note>> listTrash() async => [];

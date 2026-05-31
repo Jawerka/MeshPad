@@ -37,3 +37,14 @@ jobs:
 
       - name: Test
         run: melos run test
+
+  rust-sidecar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo check (libp2p sidecar stub)
+        run: cargo check --manifest-path native/meshpad_p2p_native/Cargo.toml

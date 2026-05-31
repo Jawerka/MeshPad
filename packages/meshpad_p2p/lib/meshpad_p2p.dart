@@ -1,4 +1,12 @@
+export 'src/background_lan_sync.dart';
+export 'src/sync_transport_lifecycle.dart';
+export 'src/libp2p/http_libp2p_native_api.dart';
+export 'src/libp2p/libp2p_sidecar_codec.dart';
+export 'src/libp2p/libp2p_native_api.dart';
+export 'src/libp2p/libp2p_sync_transport.dart';
 export 'src/meshpad_log.dart';
+export 'src/sync_transport_factory.dart';
+export 'src/sync_transport_kind.dart';
 export 'src/lan/lan_sync_transfer_progress.dart';
 export 'src/sync_transport.dart';
 export 'src/fake_sync_transport.dart';

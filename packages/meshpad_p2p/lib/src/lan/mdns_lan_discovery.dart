@@ -12,7 +12,7 @@ import 'udp_lan_discovery.dart';
 class MdnsLanDiscovery implements LanDiscovery {
   MdnsLanDiscovery({
     this.browseInterval = const Duration(seconds: 10),
-    this.browseTimeout = const Duration(seconds: 2),
+    this.browseTimeout = const Duration(seconds: 4),
   });
 
   final Duration browseInterval;
@@ -29,26 +29,31 @@ class MdnsLanDiscovery implements LanDiscovery {
   @override
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
+    bool advertise = true,
   }) async {
-    if (_server != null) return;
+    if (_server != null || _browse != null) return;
 
-    final announcement = buildAnnouncement();
-    final ips = await _resolveIps(announcement.host);
-    MeshPadLog.discovery(
-      'mDNS advertise ${announcement.peerId} on $ips:${announcement.httpPort}',
-    );
-    final service = await MDNSService.create(
-      instance: mdnsInstanceName(announcement.peerId),
-      service: meshpadMdnsServiceType,
-      port: announcement.httpPort,
-      ips: ips,
-      txt: txtRecordsFor(announcement),
-    );
+    if (advertise) {
+      final announcement = buildAnnouncement();
+      final ips = await _resolveIps(announcement.host);
+      MeshPadLog.discovery(
+        'mDNS advertise ${announcement.peerId} on $ips:${announcement.httpPort}',
+      );
+      final service = await MDNSService.create(
+        instance: mdnsInstanceName(announcement.peerId),
+        service: meshpadMdnsServiceType,
+        port: announcement.httpPort,
+        ips: ips,
+        txt: txtRecordsFor(announcement),
+      );
 
-    _server = MDNSServer(
-      MDNSServerConfig(zone: service, reuseAddress: true),
-    );
-    await _server!.start();
+      _server = MDNSServer(
+        MDNSServerConfig(zone: service, reuseAddress: true),
+      );
+      await _server!.start();
+    } else {
+      MeshPadLog.discovery('mDNS browse-only (no advertise)');
+    }
 
     Future<void> browse() async {
       if (_browseInFlight != null) {
@@ -144,4 +149,5 @@ List<String> txtRecordsFor(LanPeerAnnouncement announcement) => [
       'peer_id=${announcement.peerId}',
       'display_name=${Uri.encodeComponent(announcement.displayName)}',
       'v=${LanPeerAnnouncement.protocolVersion}',
+      if (announcement.tlsPort != null) 'tls_port=${announcement.tlsPort}',
     ];

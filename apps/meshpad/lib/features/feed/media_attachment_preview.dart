@@ -15,7 +15,8 @@ import 'attachment_media_source.dart';
 const videoPosterTimeFraction = 1 / 3;
 
 bool useVideoPosterInFeed() =>
-    !kIsWeb && (Platform.isWindows || Platform.isLinux);
+    !kIsWeb &&
+    (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
 class VideoAttachmentPreview extends StatelessWidget {
   const VideoAttachmentPreview({

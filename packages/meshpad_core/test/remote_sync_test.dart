@@ -111,6 +111,146 @@ void main() {
       await repoB.attachmentMatches(noteB.id, noteB.attachments.first),
       isTrue,
     );
+    expect(await repoA.pendingOutboxCount(), 0);
+  });
+
+  test('outbox stays when remote has note meta but missing attachments', () async {
+    final dirA = await Directory.systemTemp.createTemp('remote_ack_a_');
+    final dirB = await Directory.systemTemp.createTemp('remote_ack_b_');
+    final dbA = MeshPadDatabase.inMemory();
+    final dbB = MeshPadDatabase.inMemory();
+
+    addTearDown(() async {
+      await dbA.close();
+      await dbB.close();
+      if (await dirA.exists()) await dirA.delete(recursive: true);
+      if (await dirB.exists()) await dirB.delete(recursive: true);
+    });
+
+    final repoA = createNoteRepository(
+      dataDir: dirA.path,
+      defaultAuthor: 'a',
+      database: dbA,
+    );
+    final repoB = createNoteRepository(
+      dataDir: dirB.path,
+      defaultAuthor: 'b',
+      database: dbB,
+    );
+
+    final engineA = SyncEngine(
+      notes: repoA,
+      identity: LocalDeviceIdentity(
+        peerId: 'a',
+        displayName: 'A',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+    final engineB = SyncEngine(
+      notes: repoB,
+      identity: LocalDeviceIdentity(
+        peerId: 'b',
+        displayName: 'B',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    final attachmentSource = File('${dirA.path}/payload.bin');
+    await attachmentSource.writeAsBytes([9, 8, 7]);
+    await repoA.createNote(
+      markdown: 'needs attachment ack',
+      attachmentPaths: [attachmentSource.path],
+    );
+    expect(await repoA.pendingOutboxCount(), greaterThan(0));
+
+    await engineA.syncWithRemote(_MetaOnlyGateway(engineB));
+
+    expect((await repoB.listNotes()).single.attachments.length, 1);
+    expect(await repoA.pendingOutboxCount(), greaterThan(0));
+  });
+
+  test('partial push failure bumps retry only for failed note', () async {
+    final dirA = await Directory.systemTemp.createTemp('remote_partial_a_');
+    final dirB = await Directory.systemTemp.createTemp('remote_partial_b_');
+    final dbA = MeshPadDatabase.inMemory();
+    final dbB = MeshPadDatabase.inMemory();
+
+    addTearDown(() async {
+      await dbA.close();
+      await dbB.close();
+      if (await dirA.exists()) await dirA.delete(recursive: true);
+      if (await dirB.exists()) await dirB.delete(recursive: true);
+    });
+
+    final repoA = createNoteRepository(
+      dataDir: dirA.path,
+      defaultAuthor: 'a',
+      database: dbA,
+    );
+    final repoB = createNoteRepository(
+      dataDir: dirB.path,
+      defaultAuthor: 'b',
+      database: dbB,
+    );
+
+    final engineA = SyncEngine(
+      notes: repoA,
+      identity: LocalDeviceIdentity(
+        peerId: 'a',
+        displayName: 'A',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+    final engineB = SyncEngine(
+      notes: repoB,
+      identity: LocalDeviceIdentity(
+        peerId: 'b',
+        displayName: 'B',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    final okFile = File('${dirA.path}/ok.bin');
+    await okFile.writeAsBytes([1]);
+    final badFile = File('${dirA.path}/bad.bin');
+    await badFile.writeAsBytes([2]);
+
+    await repoA.createNote(
+      markdown: 'note ok',
+      attachmentPaths: [okFile.path],
+    );
+    await repoA.createNote(
+      markdown: 'note bad',
+      attachmentPaths: [badFile.path],
+    );
+
+    final notes = await repoA.listNotes();
+    final badNoteId = notes.firstWhere((n) => n.markdown == 'note bad').id;
+
+    final result = await engineA.syncWithRemote(
+      _FailAttachmentOnNoteGateway(engineB, badNoteId),
+    );
+
+    expect(result.failedPushNoteIds, [badNoteId]);
+    expect((await repoB.listNotes()).length, 2);
+
+    final outbox = await repoA.listOutbox();
+    final badEntry = outbox.firstWhere((e) => e.entityId == badNoteId);
+    expect(badEntry.retryCount, 0);
+
+    await OutboxProcessor().recordOutboxRetriesForNoteIds(
+      repoA,
+      result.failedPushNoteIds,
+    );
+    final bumped = await repoA.listOutbox();
+    expect(
+      bumped.firstWhere((e) => e.entityId == badNoteId).retryCount,
+      1,
+    );
+    expect(
+      bumped.where((e) => e.entityId != badNoteId).every((e) => e.retryCount == 0),
+      isTrue,
+    );
   });
 }
 
@@ -140,4 +280,65 @@ class _MemoryGateway implements RemoteSyncGateway {
     List<int> bytes,
   ) =>
       _engine.notes.storeRemoteAttachment(noteId, meta, bytes);
+}
+
+/// Applies note meta but never stores attachment bytes (partial sync scenario).
+class _MetaOnlyGateway implements RemoteSyncGateway {
+  _MetaOnlyGateway(this._engine);
+
+  final SyncEngine _engine;
+
+  @override
+  Future<List<NoteHead>> fetchCatalog() => _engine.localCatalog();
+
+  @override
+  Future<RemoteNoteSnapshot?> fetchNote(String id) => _engine.exportNote(id);
+
+  @override
+  Future<NoteApplyResult> pushNote(RemoteNoteSnapshot snapshot) =>
+      _engine.applyRemote(snapshot);
+
+  @override
+  Future<List<int>?> fetchAttachment(String noteId, String fileName) async =>
+      null;
+
+  @override
+  Future<void> pushAttachment(
+    String noteId,
+    AttachmentMeta meta,
+    List<int> bytes,
+  ) async {}
+}
+
+class _FailAttachmentOnNoteGateway implements RemoteSyncGateway {
+  _FailAttachmentOnNoteGateway(this._engine, this._failNoteId);
+
+  final SyncEngine _engine;
+  final String _failNoteId;
+
+  @override
+  Future<List<NoteHead>> fetchCatalog() => _engine.localCatalog();
+
+  @override
+  Future<RemoteNoteSnapshot?> fetchNote(String id) => _engine.exportNote(id);
+
+  @override
+  Future<NoteApplyResult> pushNote(RemoteNoteSnapshot snapshot) =>
+      _engine.applyRemote(snapshot);
+
+  @override
+  Future<List<int>?> fetchAttachment(String noteId, String fileName) =>
+      _engine.notes.readAttachmentBytes(noteId, fileName);
+
+  @override
+  Future<void> pushAttachment(
+    String noteId,
+    AttachmentMeta meta,
+    List<int> bytes,
+  ) async {
+    if (noteId == _failNoteId) {
+      throw StateError('attachment push failed');
+    }
+    await _engine.notes.storeRemoteAttachment(noteId, meta, bytes);
+  }
 }

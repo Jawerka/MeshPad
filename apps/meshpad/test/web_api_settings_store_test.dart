@@ -13,4 +13,15 @@ void main() {
     await store.saveBaseUrl('http://localhost:9999');
     expect(await store.loadBaseUrl(), 'http://localhost:9999');
   });
+
+  test('WebApiSettingsStore persists API key', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = WebApiSettingsStore();
+
+    expect(await store.loadApiKey(), isNull);
+    await store.saveApiKey('secret-key');
+    expect(await store.loadApiKey(), 'secret-key');
+    await store.saveApiKey(null);
+    expect(await store.loadApiKey(), isNull);
+  });
 }

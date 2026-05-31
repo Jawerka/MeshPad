@@ -10,6 +10,7 @@ workspace:
   - packages/meshpad_api_client
   - packages/meshpad_core
   - packages/meshpad_p2p
+  - native/meshpad_p2p_sidecar
 
 dev_dependencies:
   melos: ^7.0.0

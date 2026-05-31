@@ -4,14 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
-import '../storage/app_settings.dart';
 import 'notes_providers.dart';
 import 'sync_providers.dart';
-
-final appSettingsProvider = FutureProvider<AppSettings>((ref) async {
-  final store = ref.watch(appSettingsStoreProvider);
-  return store.loadSettings();
-});
 
 final syncLoopProvider = Provider<SyncLoopController>((ref) {
   final controller = SyncLoopController(ref);

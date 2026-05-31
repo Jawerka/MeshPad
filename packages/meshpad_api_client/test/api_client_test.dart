@@ -27,4 +27,19 @@ void main() {
     expect(client.baseUri.toString(), 'http://127.0.0.1:8787/');
     client.close();
   });
+
+  test('attachmentThumbUri builds thumb path', () {
+    final client = MeshPadApiClient(baseUrl: 'http://127.0.0.1:8787');
+    expect(
+      client.attachmentThumbUri('note-1', 'photo.png').path,
+      '/api/notes/note-1/attachments/photo.png/thumb',
+    );
+    client.close();
+  });
+
+  test('MeshPadApiClient accepts optional API key', () {
+    final client = MeshPadApiClient(baseUrl: 'http://127.0.0.1:8787', apiKey: 'secret');
+    expect(meshPadApiKeyHeaders('secret')[meshPadApiKeyHeader], 'secret');
+    client.close();
+  });
 }

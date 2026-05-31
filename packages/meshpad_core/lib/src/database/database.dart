@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/note_meta.dart';
+import '../models/note_tags.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
@@ -19,7 +20,7 @@ class MeshPadDatabase extends _$MeshPadDatabase {
   bool ftsAvailable = false;
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -33,6 +34,9 @@ class MeshPadDatabase extends _$MeshPadDatabase {
             if (ftsAvailable) {
               await rebuildAllFts();
             }
+          }
+          if (from < 3) {
+            await m.addColumn(notes, notes.tags);
           }
         },
       );
@@ -59,6 +63,7 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     DateTime? deletedAt,
     required String previewSnippet,
     required String markdown,
+    List<String> tags = const [],
   }) async {
     await into(notes).insertOnConflictUpdate(
       NotesCompanion.insert(
@@ -71,6 +76,7 @@ class MeshPadDatabase extends _$MeshPadDatabase {
         deletedAt: Value(deletedAt),
         previewSnippet: Value(previewSnippet),
         markdown: Value(markdown),
+        tags: Value(encodeTagsJson(tags)),
       ),
     );
   }
@@ -80,13 +86,14 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     String title,
     String markdown, {
     Iterable<String> attachmentNames = const [],
+    Iterable<String> tags = const [],
   }) async {
     if (!ftsAvailable) return;
     await customStatement(
       'DELETE FROM note_fts WHERE note_id = ?',
       [noteId],
     );
-    final indexed = _ftsIndexedText(title, markdown, attachmentNames);
+    final indexed = _ftsIndexedText(title, markdown, attachmentNames, tags);
     await customStatement(
       'INSERT INTO note_fts (note_id, body) VALUES (?, ?)',
       [noteId, indexed],
@@ -97,11 +104,16 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     String title,
     String markdown,
     Iterable<String> attachmentNames,
+    Iterable<String> tags,
   ) {
     final parts = <String>[];
     final trimmedTitle = title.trim();
     if (trimmedTitle.isNotEmpty) parts.add(trimmedTitle);
     if (markdown.isNotEmpty) parts.add(markdown);
+    for (final tag in tags) {
+      final trimmed = tag.trim();
+      if (trimmed.isNotEmpty) parts.add(trimmed);
+    }
     for (final name in attachmentNames) {
       final trimmed = name.trim();
       if (trimmed.isNotEmpty) parts.add(trimmed);
@@ -128,7 +140,33 @@ class MeshPadDatabase extends _$MeshPadDatabase {
         row.title,
         row.markdown,
         attachmentNames: attachments.map((a) => a.name),
+        tags: parseTagsJson(row.tags),
       );
+    }
+  }
+
+  Future<List<String>> listDistinctTags() async {
+    try {
+      final rows = await customSelect(
+        '''
+        SELECT DISTINCT je.value AS tag
+        FROM notes n, json_each(n.tags) je
+        WHERE n.deleted = 0
+        ORDER BY tag COLLATE NOCASE
+        ''',
+        readsFrom: {notes},
+      ).get();
+      return rows.map((row) => row.read<String>('tag')).toList();
+    } catch (_) {
+      final rows = await (select(notes)
+            ..where((t) => t.deleted.equals(false)))
+          .get();
+      final tags = <String>{};
+      for (final row in rows) {
+        tags.addAll(parseTagsJson(row.tags));
+      }
+      final sorted = tags.toList()..sort();
+      return sorted;
     }
   }
 

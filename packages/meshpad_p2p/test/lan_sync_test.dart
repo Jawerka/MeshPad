@@ -357,4 +357,44 @@ void main() {
 
     await server.stop();
   });
+
+  test('chunked resumable attachment upload over LAN HTTP', () async {
+    final harness = await _pairingTestHarness();
+    addTearDown(() async {
+      await harness.dbA.close();
+      await harness.dbB.close();
+      await harness.serverA.stop();
+      await harness.serverB.stop();
+      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
+      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+    });
+
+    final largeBytes = List<int>.generate(300 * 1024, (i) => i % 251);
+    final attachmentSource = File('${harness.dirA.path}/large.bin');
+    await attachmentSource.writeAsBytes(largeBytes);
+    final noteWithFile = await harness.repoA.createNote(
+      markdown: 'large attachment',
+      attachmentPaths: [attachmentSource.path],
+    );
+
+    final gatewayB = HttpRemoteSyncGateway(
+      endpoint: LanPeerEndpoint(
+        peerId: 'peer-b',
+        displayName: 'B',
+        host: InternetAddress.loopbackIPv4.address,
+        httpPort: harness.portB,
+      ),
+      callerPeerId: 'peer-a',
+      authToken: harness.sharedToken,
+    );
+
+    await harness.engineA.syncWithRemote(gatewayB);
+
+    final synced = await harness.repoB.getNote(noteWithFile.id);
+    expect(synced?.attachments.length, 1);
+    expect(
+      await harness.repoB.attachmentMatches(synced!.id, synced.attachments.first),
+      isTrue,
+    );
+  });
 }

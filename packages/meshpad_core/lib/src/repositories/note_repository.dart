@@ -8,6 +8,7 @@ import '../models/attachment_copy_progress.dart';
 import '../models/note.dart';
 import '../models/note_folder.dart';
 import '../models/note_meta.dart';
+import '../models/note_tags.dart';
 import '../models/note_head.dart';
 import '../models/note_search_hit.dart';
 import '../models/sync_event.dart';
@@ -16,6 +17,9 @@ import '../storage/attachment_storage.dart';
 import '../storage/attachment_thumbnails.dart';
 import '../errors/meshpad_exception.dart';
 import '../storage/meshpad_paths.dart';
+import '../sync/attachment_upload.dart' as attachment_upload;
+import '../sync/attachment_upload.dart'
+    show AttachmentUploadResult, AttachmentUploadStatus;
 import '../storage/note_folder_repository.dart';
 import '../sync/lww_merge.dart';
 import '../sync/remote_note_snapshot.dart';
@@ -141,11 +145,24 @@ class NoteRepository {
   }
 
   /// Active notes count (non-deleted).
-  Future<int> countActiveNotes() async {
+  Future<int> countActiveNotes({String? tag}) async {
+    if (tag == null) {
+      final countExp = _db.notes.id.count();
+      final query = _db.selectOnly(_db.notes)
+        ..addColumns([countExp])
+        ..where(_db.notes.deleted.equals(false));
+      final row = await query.getSingle();
+      return row.read(countExp) ?? 0;
+    }
+    final normalized = normalizeTag(tag);
+    if (normalized == null) return 0;
+    final pattern = '%"$normalized"%';
     final countExp = _db.notes.id.count();
     final query = _db.selectOnly(_db.notes)
       ..addColumns([countExp])
-      ..where(_db.notes.deleted.equals(false));
+      ..where(
+        _db.notes.deleted.equals(false) & _db.notes.tags.like(pattern),
+      );
     final row = await query.getSingle();
     return row.read(countExp) ?? 0;
   }
@@ -155,8 +172,17 @@ class NoteRepository {
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) async {
-    final query = _db.select(_db.notes)..where((t) => t.deleted.equals(false));
+    final normalizedTag = tag == null ? null : normalizeTag(tag);
+    final query = _db.select(_db.notes)
+      ..where((t) {
+        var expr = t.deleted.equals(false);
+        if (normalizedTag != null) {
+          expr = expr & t.tags.like('%"$normalizedTag"%');
+        }
+        return expr;
+      });
     switch (sort) {
       case NoteSort.createdAt:
         query.orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
@@ -165,6 +191,21 @@ class NoteRepository {
     }
     query.limit(limit, offset: offset);
     return _notesFromRows(await query.get());
+  }
+
+  Future<List<String>> listDistinctTags() => _db.listDistinctTags();
+
+  Future<Note> setNoteTags(String id, List<String> tags) async {
+    final existing = await getNote(id);
+    if (existing == null) {
+      throw NoteNotFoundException(id);
+    }
+    final updated = existing.copyWith(
+      tags: normalizeTags(tags),
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist(updated);
+    return updated;
   }
 
   Future<List<Note>> listTrash() async {
@@ -261,6 +302,63 @@ class NoteRepository {
     await writeAttachmentBytes(
       attachmentsDir: _paths.attachmentsDir(noteId),
       meta: meta,
+      bytes: bytes,
+    );
+  }
+
+  Future<AttachmentUploadStatus?> attachmentUploadStatus(
+    String noteId,
+    String fileName,
+  ) async {
+    final note = await getNote(noteId);
+    if (note == null) return null;
+
+    AttachmentMeta? meta;
+    for (final item in note.toMeta().attachments) {
+      if (item.name == fileName) {
+        meta = item;
+        break;
+      }
+    }
+    if (meta == null) return null;
+
+    return attachment_upload.readAttachmentUploadStatus(
+      attachmentsDir: _paths.attachmentsDir(noteId),
+      fileName: fileName,
+      meta: meta,
+    );
+  }
+
+  Future<AttachmentUploadResult> receiveAttachmentUploadChunk({
+    required String noteId,
+    required String fileName,
+    required int offset,
+    required int totalSize,
+    required String sha256,
+    required List<int> bytes,
+  }) async {
+    final note = await getNote(noteId);
+    if (note == null) {
+      throw StateError('note not found');
+    }
+
+    AttachmentMeta? meta;
+    for (final item in note.toMeta().attachments) {
+      if (item.name == fileName) {
+        meta = item;
+        break;
+      }
+    }
+    if (meta == null) {
+      throw StateError('attachment not in note meta');
+    }
+
+    return attachment_upload.receiveAttachmentUploadChunk(
+      attachmentsDir: _paths.attachmentsDir(noteId),
+      meta: meta,
+      offset: offset,
+      totalSize: totalSize,
+      sha256: sha256,
       bytes: bytes,
     );
   }
@@ -525,6 +623,7 @@ class NoteRepository {
       deletedAt: note.deletedAt,
       previewSnippet: previewSnippetFromMarkdown(note.markdown),
       markdown: note.markdown,
+      tags: note.tags,
     );
     await _db.replaceAttachments(
       note.id,
@@ -548,6 +647,7 @@ class NoteRepository {
         note.title,
         note.markdown,
         attachmentNames: note.attachments.map((attachment) => attachment.name),
+        tags: note.tags,
       );
     }
   }
@@ -589,6 +689,7 @@ class NoteRepository {
         deleted: row.deleted,
         deletedAt: row.deletedAt,
         attachments: attachments,
+        tags: parseTagsJson(row.tags),
       );
 }
 

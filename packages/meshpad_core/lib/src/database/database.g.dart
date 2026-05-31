@@ -71,6 +71,13 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant(''));
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+      'tags', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -81,7 +88,8 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
         deleted,
         deletedAt,
         previewSnippet,
-        markdown
+        markdown,
+        tags
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -136,6 +144,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
       context.handle(_markdownMeta,
           markdown.isAcceptableOrUnknown(data['markdown']!, _markdownMeta));
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+          _tagsMeta, tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta));
+    }
     return context;
   }
 
@@ -163,6 +175,8 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
           DriftSqlType.string, data['${effectivePrefix}preview_snippet'])!,
       markdown: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}markdown'])!,
+      tags: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tags'])!,
     );
   }
 
@@ -182,6 +196,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
   final DateTime? deletedAt;
   final String previewSnippet;
   final String markdown;
+  final String tags;
   const NoteRow(
       {required this.id,
       required this.title,
@@ -191,7 +206,8 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       required this.deleted,
       this.deletedAt,
       required this.previewSnippet,
-      required this.markdown});
+      required this.markdown,
+      required this.tags});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -206,6 +222,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
     }
     map['preview_snippet'] = Variable<String>(previewSnippet);
     map['markdown'] = Variable<String>(markdown);
+    map['tags'] = Variable<String>(tags);
     return map;
   }
 
@@ -222,6 +239,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           : Value(deletedAt),
       previewSnippet: Value(previewSnippet),
       markdown: Value(markdown),
+      tags: Value(tags),
     );
   }
 
@@ -238,6 +256,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       previewSnippet: serializer.fromJson<String>(json['previewSnippet']),
       markdown: serializer.fromJson<String>(json['markdown']),
+      tags: serializer.fromJson<String>(json['tags']),
     );
   }
   @override
@@ -253,6 +272,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'previewSnippet': serializer.toJson<String>(previewSnippet),
       'markdown': serializer.toJson<String>(markdown),
+      'tags': serializer.toJson<String>(tags),
     };
   }
 
@@ -265,7 +285,8 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           bool? deleted,
           Value<DateTime?> deletedAt = const Value.absent(),
           String? previewSnippet,
-          String? markdown}) =>
+          String? markdown,
+          String? tags}) =>
       NoteRow(
         id: id ?? this.id,
         title: title ?? this.title,
@@ -276,6 +297,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
         deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
         previewSnippet: previewSnippet ?? this.previewSnippet,
         markdown: markdown ?? this.markdown,
+        tags: tags ?? this.tags,
       );
   NoteRow copyWithCompanion(NotesCompanion data) {
     return NoteRow(
@@ -290,6 +312,7 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           ? data.previewSnippet.value
           : this.previewSnippet,
       markdown: data.markdown.present ? data.markdown.value : this.markdown,
+      tags: data.tags.present ? data.tags.value : this.tags,
     );
   }
 
@@ -304,14 +327,15 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           ..write('deleted: $deleted, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('previewSnippet: $previewSnippet, ')
-          ..write('markdown: $markdown')
+          ..write('markdown: $markdown, ')
+          ..write('tags: $tags')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, title, author, createdAt, updatedAt,
-      deleted, deletedAt, previewSnippet, markdown);
+      deleted, deletedAt, previewSnippet, markdown, tags);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -324,7 +348,8 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           other.deleted == this.deleted &&
           other.deletedAt == this.deletedAt &&
           other.previewSnippet == this.previewSnippet &&
-          other.markdown == this.markdown);
+          other.markdown == this.markdown &&
+          other.tags == this.tags);
 }
 
 class NotesCompanion extends UpdateCompanion<NoteRow> {
@@ -337,6 +362,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
   final Value<DateTime?> deletedAt;
   final Value<String> previewSnippet;
   final Value<String> markdown;
+  final Value<String> tags;
   final Value<int> rowid;
   const NotesCompanion({
     this.id = const Value.absent(),
@@ -348,6 +374,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     this.deletedAt = const Value.absent(),
     this.previewSnippet = const Value.absent(),
     this.markdown = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesCompanion.insert({
@@ -360,6 +387,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     this.deletedAt = const Value.absent(),
     this.previewSnippet = const Value.absent(),
     this.markdown = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         createdAt = Value(createdAt),
@@ -374,6 +402,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     Expression<DateTime>? deletedAt,
     Expression<String>? previewSnippet,
     Expression<String>? markdown,
+    Expression<String>? tags,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -386,6 +415,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (previewSnippet != null) 'preview_snippet': previewSnippet,
       if (markdown != null) 'markdown': markdown,
+      if (tags != null) 'tags': tags,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -400,6 +430,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       Value<DateTime?>? deletedAt,
       Value<String>? previewSnippet,
       Value<String>? markdown,
+      Value<String>? tags,
       Value<int>? rowid}) {
     return NotesCompanion(
       id: id ?? this.id,
@@ -411,6 +442,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       deletedAt: deletedAt ?? this.deletedAt,
       previewSnippet: previewSnippet ?? this.previewSnippet,
       markdown: markdown ?? this.markdown,
+      tags: tags ?? this.tags,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -445,6 +477,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     if (markdown.present) {
       map['markdown'] = Variable<String>(markdown.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -463,6 +498,7 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
           ..write('deletedAt: $deletedAt, ')
           ..write('previewSnippet: $previewSnippet, ')
           ..write('markdown: $markdown, ')
+          ..write('tags: $tags, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1516,6 +1552,7 @@ typedef $$NotesTableCreateCompanionBuilder = NotesCompanion Function({
   Value<DateTime?> deletedAt,
   Value<String> previewSnippet,
   Value<String> markdown,
+  Value<String> tags,
   Value<int> rowid,
 });
 typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
@@ -1528,6 +1565,7 @@ typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
   Value<DateTime?> deletedAt,
   Value<String> previewSnippet,
   Value<String> markdown,
+  Value<String> tags,
   Value<int> rowid,
 });
 
@@ -1567,6 +1605,9 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<String> get markdown => $composableBuilder(
       column: $table.markdown, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnFilters(column));
 }
 
 class $$NotesTableOrderingComposer
@@ -1605,6 +1646,9 @@ class $$NotesTableOrderingComposer
 
   ColumnOrderings<String> get markdown => $composableBuilder(
       column: $table.markdown, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnOrderings(column));
 }
 
 class $$NotesTableAnnotationComposer
@@ -1642,6 +1686,9 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<String> get markdown =>
       $composableBuilder(column: $table.markdown, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
 }
 
 class $$NotesTableTableManager extends RootTableManager<
@@ -1676,6 +1723,7 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<DateTime?> deletedAt = const Value.absent(),
             Value<String> previewSnippet = const Value.absent(),
             Value<String> markdown = const Value.absent(),
+            Value<String> tags = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               NotesCompanion(
@@ -1688,6 +1736,7 @@ class $$NotesTableTableManager extends RootTableManager<
             deletedAt: deletedAt,
             previewSnippet: previewSnippet,
             markdown: markdown,
+            tags: tags,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -1700,6 +1749,7 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<DateTime?> deletedAt = const Value.absent(),
             Value<String> previewSnippet = const Value.absent(),
             Value<String> markdown = const Value.absent(),
+            Value<String> tags = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               NotesCompanion.insert(
@@ -1712,6 +1762,7 @@ class $$NotesTableTableManager extends RootTableManager<
             deletedAt: deletedAt,
             previewSnippet: previewSnippet,
             markdown: markdown,
+            tags: tags,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

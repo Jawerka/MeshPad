@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/providers/web_feed_events_provider.dart';
 import '../../core/sync/local_author_labels.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../platform/desktop_shell.dart';
@@ -23,8 +25,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(isWebClientProvider)) {
-        ref.read(syncLoopProvider).start();
-        ref.read(discoveryServiceProvider).start();
+        try {
+          await ref.read(appSettingsProvider.future);
+          await ref.read(localIdentityProvider.future);
+          ref.read(syncLoopProvider).start();
+          await ref.read(discoveryServiceProvider).start();
+        } catch (e, st) {
+          MeshPadLog.warn('discovery', 'LAN transport startup failed: $e');
+          MeshPadLog.warn('discovery', '$st');
+        }
         if (DesktopShell.isSupported) {
           DesktopShell.instance.onSync =
               () => ref.read(syncControllerProvider).runSync();
@@ -45,6 +54,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.watch(autoSyncOnNotesChangeProvider);
+    ref.watch(webFeedEventsProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(

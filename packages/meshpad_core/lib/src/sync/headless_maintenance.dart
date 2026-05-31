@@ -7,10 +7,12 @@ import '../database/database.dart';
 class HeadlessMaintenanceResult {
   const HeadlessMaintenanceResult({
     required this.indexedNotes,
+    required this.purgedTrash,
     required this.trustedDeviceCount,
   });
 
   final int indexedNotes;
+  final int purgedTrash;
   final int trustedDeviceCount;
 }
 
@@ -27,10 +29,12 @@ Future<HeadlessMaintenanceResult> runHeadlessMaintenance({
       database: db,
     );
     final indexed = await repo.reconcileFromFilesystem();
+    final purged = await repo.purgeExpiredTrash();
     final store = DeviceIdentityStore(paths: MeshPadPaths(dataDir));
     final trusted = await store.listTrustedDevices();
     return HeadlessMaintenanceResult(
       indexedNotes: indexed,
+      purgedTrash: purged,
       trustedDeviceCount: trusted.length,
     );
   } finally {

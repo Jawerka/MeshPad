@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens from ref/chat-layout.css (dark theme).
+import 'meshpad_palette.dart';
+
+/// Design tokens from ref/chat-layout.css; colors follow [MeshPadPalette.active].
 abstract final class MeshPadColors {
-  static const background = Color(0xFF0f1419);
-  static const backgroundElevated = Color(0xFF151b23);
-  static const surface = Color(0xFF1c2430);
-  static const border = Color(0xFF2d3748);
-  static const textPrimary = Color(0xFFe7ecf3);
-  static const textMuted = Color(0xFF8b98a8);
-  static const primary = Color(0xFF6b9fff);
-  static const primaryHover = Color(0xFF85b1ff);
-  static const danger = Color(0xFFf85149);
-  static const success = Color(0xFF3fb950);
+  static MeshPadPalette _palette = MeshPadPalette.dark;
+
+  static MeshPadPalette get palette => _palette;
+
+  static void applyPalette(MeshPadPalette palette) {
+    _palette = palette;
+  }
+
+  static Color get background => _palette.background;
+  static Color get backgroundElevated => _palette.backgroundElevated;
+  static Color get surface => _palette.surface;
+  static Color get border => _palette.border;
+  static Color get textPrimary => _palette.textPrimary;
+  static Color get textMuted => _palette.textMuted;
+  static Color get primary => _palette.primary;
+  static Color get primaryHover => _palette.primaryHover;
+  static Color get danger => _palette.danger;
+  static Color get success => _palette.success;
 
   static const sidebarWidth = 280.0;
   static const headerHeight = 52.0;

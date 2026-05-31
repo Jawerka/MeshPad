@@ -54,3 +54,34 @@ Image _resizeToFit(Image source, int maxEdge) {
   }
   return copyResize(source, height: maxEdge);
 }
+
+/// Returns an on-disk JPEG preview, generating or refreshing it when needed.
+Future<File?> resolveImageThumbnailFile({
+  required String attachmentPath,
+  required String thumbsDir,
+  required String attachmentName,
+  int maxEdge = defaultThumbMaxEdge,
+}) async {
+  final mime = mimeFromFileName(attachmentName);
+  if (mime == null || !mime.startsWith('image/')) return null;
+  if (mime == 'image/svg+xml' || mime == 'image/gif') return null;
+
+  final source = File(attachmentPath);
+  if (!await source.exists()) return null;
+
+  final thumbPath = p.join(thumbsDir, thumbFileName(attachmentName));
+  final thumb = File(thumbPath);
+  final needsBuild = !await thumb.exists() ||
+      (await source.lastModified()).isAfter(await thumb.lastModified());
+
+  if (needsBuild) {
+    await ensureImageThumbnail(
+      attachmentPath: attachmentPath,
+      thumbsDir: thumbsDir,
+      attachmentName: attachmentName,
+      maxEdge: maxEdge,
+    );
+  }
+
+  return await thumb.exists() ? thumb : null;
+}

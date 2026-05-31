@@ -9,6 +9,7 @@ Future<String?> showTextInputDialog(
   String? hintText,
   String confirmLabel = 'Сохранить',
   TextCapitalization textCapitalization = TextCapitalization.none,
+  bool obscureText = false,
 }) {
   return showDialog<String>(
     context: context,
@@ -19,6 +20,7 @@ Future<String?> showTextInputDialog(
       hintText: hintText,
       confirmLabel: confirmLabel,
       textCapitalization: textCapitalization,
+      obscureText: obscureText,
     ),
   );
 }
@@ -31,6 +33,7 @@ class _TextInputDialog extends StatefulWidget {
     this.hintText,
     required this.confirmLabel,
     required this.textCapitalization,
+    this.obscureText = false,
   });
 
   final String title;
@@ -39,6 +42,7 @@ class _TextInputDialog extends StatefulWidget {
   final String? hintText;
   final String confirmLabel;
   final TextCapitalization textCapitalization;
+  final bool obscureText;
 
   @override
   State<_TextInputDialog> createState() => _TextInputDialogState();
@@ -68,6 +72,7 @@ class _TextInputDialogState extends State<_TextInputDialog> {
       content: TextField(
         controller: _controller,
         autofocus: true,
+        obscureText: widget.obscureText,
         decoration: InputDecoration(
           labelText: widget.labelText,
           hintText: widget.hintText,

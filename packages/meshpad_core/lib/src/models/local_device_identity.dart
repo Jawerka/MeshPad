@@ -50,6 +50,7 @@ class TrustedDeviceRecord {
     this.lanHost,
     this.lanHttpPort,
     this.authToken,
+    this.tlsCertSha256,
   });
 
   final String peerId;
@@ -60,6 +61,7 @@ class TrustedDeviceRecord {
   final String? lanHost;
   final int? lanHttpPort;
   final String? authToken;
+  final String? tlsCertSha256;
 
   Device toDevice() => Device(
         peerId: peerId,
@@ -80,6 +82,7 @@ class TrustedDeviceRecord {
         if (lanHost != null) 'lan_host': lanHost,
         if (lanHttpPort != null) 'lan_http_port': lanHttpPort,
         if (authToken != null) 'auth_token': authToken,
+        if (tlsCertSha256 != null) 'tls_cert_sha256': tlsCertSha256,
       };
 
   factory TrustedDeviceRecord.fromJson(Map<String, dynamic> json) {
@@ -94,6 +97,7 @@ class TrustedDeviceRecord {
       lanHost: json['lan_host'] as String?,
       lanHttpPort: json['lan_http_port'] as int?,
       authToken: json['auth_token'] as String?,
+      tlsCertSha256: json['tls_cert_sha256'] as String?,
     );
   }
 }

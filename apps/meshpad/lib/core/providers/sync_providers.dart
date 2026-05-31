@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import '../constants/feature_flags.dart';
 import '../platform/default_device_display_name.dart';
 import '../sync/local_author_labels.dart';
 import 'notes_providers.dart';
@@ -47,6 +48,22 @@ final lanSyncCoordinatorProvider = FutureProvider<LanSyncCoordinator>((ref) asyn
   return LanSyncCoordinator(deviceStore: store);
 });
 
+final syncTransportKindProvider = Provider<SyncTransportKind>((ref) {
+  const fromEnv = String.fromEnvironment('MESHPAD_SYNC_TRANSPORT');
+  if (fromEnv == 'libp2p') return SyncTransportKind.libp2p;
+
+  final settings = ref.watch(appSettingsProvider);
+  final fromSettings = settings.maybeWhen(
+    data: (s) => s.syncTransportKind,
+    orElse: () => SyncTransportKind.lan,
+  );
+  if (!MeshPadFeatureFlags.libp2pTransportSettingVisible &&
+      fromSettings == SyncTransportKind.libp2p) {
+    return SyncTransportKind.lan;
+  }
+  return fromSettings;
+});
+
 final syncTransportProvider = Provider<SyncTransport>((ref) {
   if (ref.watch(isWebClientProvider)) {
     final transport = FakeSyncTransport();
@@ -54,23 +71,34 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
     return transport;
   }
 
-  final transport = LanSyncTransport(
-    getEngine: () => ref.read(syncEngineProvider.future),
-    getIdentity: () => ref.read(localIdentityProvider.future),
-    getDeviceStore: () => ref.read(deviceStoreProvider.future),
+  const kind = String.fromEnvironment('MESHPAD_SYNC_TRANSPORT');
+  final transportKind = kind == 'libp2p'
+      ? SyncTransportKind.libp2p
+      : ref.watch(syncTransportKindProvider);
+
+  final engineFuture = ref.watch(syncEngineProvider.future);
+  final identityFuture = ref.watch(localIdentityProvider.future);
+  final deviceStoreFuture = ref.watch(deviceStoreProvider.future);
+
+  final transport = createSyncTransport(
+    kind: transportKind,
+    getEngine: () => engineFuture,
+    getIdentity: () => identityFuture,
+    getDeviceStore: () => deviceStoreFuture,
     onRemoteTrusted: (confirm) async {
       final initiatorId = confirm.initiatorPeerId;
       final host = confirm.initiatorLanHost;
       final port = confirm.initiatorHttpPort;
       if (initiatorId == null || host == null || port == null) return;
 
-      final store = await ref.read(deviceStoreProvider.future);
+      final store = await deviceStoreFuture;
       await store.trustDevice(
         peerId: initiatorId,
         name: confirm.initiatorDisplayName ?? 'Устройство',
         lanHost: host,
         lanHttpPort: port,
         authToken: confirm.authToken,
+        tlsCertSha256: confirm.initiatorTlsCertSha256,
       );
       ref.invalidate(trustedDevicesProvider);
     },
@@ -160,7 +188,8 @@ class SyncController {
     try {
       final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
       final transport = _ref.read(syncTransportProvider);
-      if (transport is! LanSyncTransport) {
+      final lan = transport.lanAccess;
+      if (lan == null) {
         return const SyncRunResult(
           SyncRunStatus.failed,
           message: 'LAN transport недоступен',
@@ -186,7 +215,7 @@ class SyncController {
       );
 
       final result = await coordinator.syncTrustedPeers(
-        transport: transport,
+        transport: lan,
         repository: repo,
         trusted: trusted,
         excludePeerId: excludePeerId,

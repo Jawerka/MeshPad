@@ -20,6 +20,8 @@ class DeviceIdentityStore {
   final MeshPadPaths _paths;
   final Uuid _uuid;
 
+  MeshPadPaths get paths => _paths;
+
   Future<LocalDeviceIdentity> loadOrCreateIdentity({
     String defaultDisplayName = 'Это устройство',
   }) async {
@@ -80,6 +82,7 @@ class DeviceIdentityStore {
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
         authToken: record.authToken,
+        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }
@@ -101,6 +104,7 @@ class DeviceIdentityStore {
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
         authToken: record.authToken,
+        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }
@@ -136,6 +140,7 @@ class DeviceIdentityStore {
     String? lanHost,
     int? lanHttpPort,
     String? authToken,
+    String? tlsCertSha256,
   }) async {
     final trustedDir = Directory(p.join(_paths.devicesRoot, 'trusted'));
     await trustedDir.create(recursive: true);
@@ -149,6 +154,7 @@ class DeviceIdentityStore {
       lanHost: lanHost,
       lanHttpPort: lanHttpPort,
       authToken: authToken ?? generateSyncAuthToken(_uuid),
+      tlsCertSha256: tlsCertSha256,
     );
     await _writeTrustedRecord(record);
   }
@@ -179,6 +185,7 @@ class DeviceIdentityStore {
         lanHost: lanHost,
         lanHttpPort: lanHttpPort,
         authToken: record.authToken,
+        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }
@@ -195,6 +202,7 @@ class DeviceIdentityStore {
         trustedAt: record.trustedAt,
         lastSeenAt: record.lastSeenAt,
         authToken: record.authToken,
+        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }
@@ -220,6 +228,7 @@ class DeviceIdentityStore {
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
         authToken: record.authToken,
+        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }

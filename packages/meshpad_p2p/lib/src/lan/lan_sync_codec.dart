@@ -9,6 +9,9 @@ import 'lan_broadcast.dart';
 /// DNS-SD service type for MeshPad LAN sync (PLAN §5.1).
 const meshpadMdnsServiceType = '_meshpad._tcp';
 
+/// Default LAN HTTPS port for TLS sync (Phase B.4).
+const meshpadPreferredLanTlsPort = 45840;
+
 /// UDP announce payload for LAN discovery (fallback + legacy peers).
 class LanPeerAnnouncement {
   const LanPeerAnnouncement({
@@ -16,6 +19,7 @@ class LanPeerAnnouncement {
     required this.displayName,
     required this.host,
     required this.httpPort,
+    this.tlsPort,
   });
 
   static const protocolVersion = 1;
@@ -24,6 +28,7 @@ class LanPeerAnnouncement {
   final String displayName;
   final String host;
   final int httpPort;
+  final int? tlsPort;
 
   Map<String, dynamic> toJson() => {
         'v': protocolVersion,
@@ -32,6 +37,7 @@ class LanPeerAnnouncement {
         'display_name': displayName,
         'host': host,
         'http_port': httpPort,
+        if (tlsPort != null) 'tls_port': tlsPort,
       };
 
   factory LanPeerAnnouncement.fromJson(Map<String, dynamic> json) {
@@ -40,6 +46,7 @@ class LanPeerAnnouncement {
       displayName: json['display_name'] as String? ?? 'MeshPad',
       host: json['host'] as String,
       httpPort: json['http_port'] as int,
+      tlsPort: json['tls_port'] as int?,
     );
   }
 
@@ -74,6 +81,7 @@ class LanPeerAnnouncement {
       displayName: _decodeMdnsDisplayName(fields['display_name'] ?? entry.name),
       host: host,
       httpPort: entry.port,
+      tlsPort: int.tryParse(fields['tls_port'] ?? ''),
     );
   }
 }
@@ -115,12 +123,14 @@ class LanPeerEndpoint {
     required this.displayName,
     required this.host,
     required this.httpPort,
+    this.tlsPort,
   });
 
   final String peerId;
   final String displayName;
   final String host;
   final int httpPort;
+  final int? tlsPort;
 
   factory LanPeerEndpoint.fromAnnouncement(LanPeerAnnouncement announcement) {
     return LanPeerEndpoint(
@@ -128,15 +138,19 @@ class LanPeerEndpoint {
       displayName: announcement.displayName,
       host: announcement.host,
       httpPort: announcement.httpPort,
+      tlsPort: announcement.tlsPort,
     );
   }
 
-  Uri uriFor(String path) => Uri(
-        scheme: 'http',
-        host: host,
-        port: httpPort,
-        path: path,
-      );
+  Uri uriFor(String path, {bool secure = false}) {
+    final port = secure ? (tlsPort ?? httpPort) : httpPort;
+    return Uri(
+      scheme: secure ? 'https' : 'http',
+      host: host,
+      port: port,
+      path: path,
+    );
+  }
 }
 
 String noteApplyResultWire(NoteApplyResult result) => switch (result) {

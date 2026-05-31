@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// Desktop tray + minimize-to-tray (Windows/Linux, Sprint 5).
+/// Desktop tray + minimize-to-tray (Windows/Linux/macOS).
 class DesktopShell with TrayListener, WindowListener {
   DesktopShell._();
   static final DesktopShell instance = DesktopShell._();
@@ -16,7 +16,8 @@ class DesktopShell with TrayListener, WindowListener {
   var _shuttingDown = false;
 
   static bool get isSupported =>
-      !kIsWeb && (Platform.isWindows || Platform.isLinux);
+      !kIsWeb &&
+      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
   Future<void> init() async {
     if (!isSupported) return;
@@ -25,11 +26,7 @@ class DesktopShell with TrayListener, WindowListener {
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
-    await trayManager.setIcon(
-      Platform.isWindows
-          ? 'assets/icons/tray_icon.ico'
-          : 'assets/icons/tray_icon.ico',
-    );
+    await trayManager.setIcon('assets/icons/tray_icon.ico');
     await trayManager.setToolTip('MeshPad');
     await trayManager.setContextMenu(
       Menu(

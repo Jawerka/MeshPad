@@ -15,8 +15,8 @@ enum MeshPadLogLevel {
 abstract final class MeshPadLog {
   static var enabled = true;
 
-  /// Only [MeshPadLogLevel.warn] and [MeshPadLogLevel.error] are emitted by default.
-  static MeshPadLogLevel minLevel = MeshPadLogLevel.warn;
+  /// [MeshPadLogLevel.info] includes discovery/lan; [MeshPadLogLevel.debug] adds sync noise.
+  static MeshPadLogLevel minLevel = MeshPadLogLevel.info;
 
   static IOSink? _sink;
   static const _maxLogBytes = 2 * 1024 * 1024;
@@ -34,14 +34,14 @@ abstract final class MeshPadLog {
   }
 
   static void discovery(String message) =>
-      _write(MeshPadLogLevel.debug, 'discovery', message);
+      _write(MeshPadLogLevel.info, 'discovery', message);
 
   static void sync(String message) => _write(MeshPadLogLevel.debug, 'sync', message);
 
-  static void lan(String message) => _write(MeshPadLogLevel.debug, 'lan', message);
+  static void lan(String message) => _write(MeshPadLogLevel.info, 'lan', message);
 
   static void pairing(String message) =>
-      _write(MeshPadLogLevel.debug, 'pairing', message);
+      _write(MeshPadLogLevel.info, 'pairing', message);
 
   static void warn(String tag, String message) =>
       _write(MeshPadLogLevel.warn, tag, message);

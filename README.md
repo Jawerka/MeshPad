@@ -1,19 +1,28 @@
 # MeshPad
 
-Локальный Markdown-блокнот в виде чат-ленты с синхронизацией между доверенными устройствами в локальной сети.
+Local-first Markdown-блокнот в формате чат-ленты с синхронизацией между **доверенными** устройствами в локальной сети (LAN).
 
-**Статус:** MVP **0.1.0** — рабочее приложение на Android, Windows, Linux и Web (через headless-сервер).
+**Статус:** релиз **0.2.0** — MVP 0.1.0 + post-MVP (LAN security/TLS, надёжный sync, Web SSE, macOS, теги, экспорт/импорт, темы, ru/en i18n). Дорожная карта §12 в [PLAN.md](PLAN.md) **закрыта**; дальнейшие задачи — §13 бэклог.
+
+**Production sync:** только **LAN** (mDNS + UDP + HTTP/HTTPS, PIN-pairing). libp2p — scaffold и sidecar; переключатель в настройках **скрыт** до Rust push/pull (B.2). См. [docs/LIBP2P.md](docs/LIBP2P.md).
+
+| Платформа | Клиент | Sync |
+|-----------|--------|------|
+| Android, Windows, Linux, macOS | Flutter (`apps/meshpad`) | LAN P2P |
+| Web | Thin client → `meshpad_server` | через headless `--p2p` (не в браузере) |
 
 ## Документация
 
 | Документ | Содержание |
 |----------|------------|
-| [PLAN.md](PLAN.md) | Продукт, **реализованное MVP**, план post-MVP |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Установка, запуск, API, чеклист |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Слои, потоки данных, sync |
+| [PLAN.md](PLAN.md) | Продукт, реализованное MVP (§5), итог §6, бэклог §13 |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Установка, запуск, API, чеклист, troubleshooting |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Слои, потоки данных, LAN sync, Web server |
+| [docs/SYNC_WIRE.md](docs/SYNC_WIRE.md) | Wire format catalog/push/pull (LAN и будущий libp2p) |
+| [docs/LIBP2P.md](docs/LIBP2P.md) | libp2p Phase B: sidecar, factory, feature flag |
 | [CHANGELOG.md](CHANGELOG.md) | История релизов |
 
-> **Источник истины по поведению приложения** — код и раздел «Реализованное MVP» в PLAN.md. HTML-референс `ref/` и ранние черновики плана могут расходиться с фактической реализацией.
+> **Источник истины по поведению** — код и [PLAN.md §5](PLAN.md#5-реализованное-mvp-010). HTML-референс `ref/` и ранние черновики могут расходиться с приложением.
 
 ## Быстрый старт
 
@@ -24,8 +33,12 @@ cd MeshPad
 .\scripts\run.ps1 -Device windows
 ```
 
-Android: `.\scripts\launch-emulator.ps1` → `.\scripts\run.ps1 -Device android`  
-Web: `.\scripts\run-web.ps1` (сервер + Chrome)
+| Цель | Команда |
+|------|---------|
+| Android | `.\scripts\launch-emulator.ps1` → `.\scripts\run.ps1 -Device android` |
+| macOS | `cd apps/meshpad && flutter run -d macos` (на Mac) |
+| Web | `.\scripts\run-web.ps1` (сервер + Chrome) |
+| Win + Android | `.\scripts\run.ps1 -Device dual` |
 
 Проверка: `dart run melos run check`
 

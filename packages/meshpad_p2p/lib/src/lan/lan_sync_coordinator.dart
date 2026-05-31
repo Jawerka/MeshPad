@@ -4,7 +4,6 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../meshpad_log.dart';
 import '../sync_transport.dart';
-import 'http_remote_sync_gateway.dart';
 import 'lan_sync_codec.dart';
 import 'lan_sync_transport.dart';
 
@@ -132,12 +131,8 @@ class LanSyncCoordinator {
 
         if (propagateCascade && localPeerId != null) {
           try {
-            final authToken = await deviceStore.authTokenForPeer(peer.peerId);
-            await HttpRemoteSyncGateway(
-              endpoint: endpoint,
-              callerPeerId: localPeerId,
-              authToken: authToken,
-            ).requestCascadeSync(
+            final gateway = await transport.gatewayForPeer(peer.peerId);
+            await gateway.requestCascadeSync(
               excludePeerId: localPeerId,
             );
           } catch (e) {

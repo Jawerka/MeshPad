@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
@@ -9,6 +11,7 @@ import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
 import '../../platform/background_sync.dart';
 import '../theme/device_icons.dart';
+import 'discovery_providers.dart';
 import 'notes_providers.dart';
 import 'sync_loop_provider.dart';
 import 'sync_providers.dart';
@@ -64,6 +67,54 @@ class SettingsController {
     await BackgroundSyncRegistrar.applySettings(next);
   }
 
+  Future<void> setSyncTransportKind(SyncTransportKind kind) async {
+    final current = await _store.loadSettings();
+    if (current.syncTransportKind == kind) return;
+    final discovery = _ref.read(discoveryServiceProvider);
+    await discovery.prepareForTransportChange();
+    final next = current.copyWith(syncTransportKind: kind);
+    await _store.saveSettings(next);
+    _ref.invalidate(appSettingsProvider);
+    _ref.invalidate(syncTransportProvider);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      unawaited(discovery.ensureRunning());
+    });
+  }
+
+  Future<void> setThemeMode(AppThemeMode mode) async {
+    final current = await _store.loadSettings();
+    if (current.themeMode == mode) return;
+    await _store.saveSettings(current.copyWith(themeMode: mode));
+    _ref.invalidate(appSettingsProvider);
+  }
+
+  Future<void> setLocaleMode(AppLocaleMode mode) async {
+    final current = await _store.loadSettings();
+    if (current.localeMode == mode) return;
+    await _store.saveSettings(current.copyWith(localeMode: mode));
+    _ref.invalidate(appSettingsProvider);
+  }
+
+  Future<int> exportNotesArchive(String zipPath) async {
+    final dataDir = await _ref.read(dataDirProvider.future);
+    final paths = MeshPadPaths(dataDir!);
+    return NotesArchive.exportToFile(paths: paths, zipPath: zipPath);
+  }
+
+  Future<NotesArchiveImportResult> importNotesArchive(String zipPath) async {
+    final dataDir = await _ref.read(dataDirProvider.future);
+    final paths = MeshPadPaths(dataDir!);
+    final result = await NotesArchive.importFromFile(
+      paths: paths,
+      zipPath: zipPath,
+    );
+    final repo = await _ref.read(noteRepositoryProvider.future);
+    await repo.reconcileFromFilesystem();
+    _ref.invalidate(notesListProvider);
+    _ref.invalidate(searchResultsProvider);
+    return result;
+  }
+
   Future<int> rebuildIndex() async {
     final repo = await _ref.read(noteRepositoryProvider.future);
     final count = await repo.reconcileFromFilesystem();
@@ -77,6 +128,11 @@ class SettingsController {
     _reloadWebProviders();
   }
 
+  Future<void> setApiKey(String? key) async {
+    await _ref.read(webApiSettingsStoreProvider).saveApiKey(key);
+    _reloadWebProviders();
+  }
+
   Future<void> setLocalDisplayName(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
@@ -87,8 +143,9 @@ class SettingsController {
     _ref.invalidate(syncEngineProvider);
 
     final transport = _ref.read(syncTransportProvider);
-    if (transport is LanSyncTransport) {
-      await transport.refreshLocalDisplayName(trimmed);
+    final lan = transport.lanAccess;
+    if (lan != null) {
+      await lan.refreshLocalDisplayName(trimmed);
     }
   }
 
@@ -135,6 +192,7 @@ class SettingsController {
 
   void _reloadWebProviders() {
     _ref.invalidate(webApiBaseUrlProvider);
+    _ref.invalidate(webApiKeyProvider);
     _ref.invalidate(notesServiceProvider);
     _ref.invalidate(notesListProvider);
     _ref.invalidate(searchResultsProvider);

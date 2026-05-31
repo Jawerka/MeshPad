@@ -11,6 +11,7 @@ class Notes extends Table {
   DateTimeColumn get deletedAt => dateTime().nullable()();
   TextColumn get previewSnippet => text().withDefault(const Constant(''))();
   TextColumn get markdown => text().withDefault(const Constant(''))();
+  TextColumn get tags => text().withDefault(const Constant('[]'))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

@@ -1,18 +1,24 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
+import 'core/l10n/app_locale.dart';
+import 'core/providers/discovery_providers.dart';
+import 'core/providers/notes_providers.dart';
+import 'core/storage/app_settings.dart';
 import 'core/storage/app_settings_store.dart';
 import 'core/theme/meshpad_theme.dart';
+import 'core/theme/meshpad_theme_scope.dart';
 import 'features/shell/app_shell.dart';
+import 'l10n/app_localizations.dart';
 import 'platform/background_sync.dart';
 import 'platform/desktop_shell.dart';
 import 'platform/share_intent_listener.dart';
@@ -43,22 +49,67 @@ class _MeshPadAppState extends ConsumerState<MeshPadApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       unawaited(DesktopShell.instance.destroyTray());
+    } else if (state == AppLifecycleState.resumed && !kIsWeb) {
+      unawaited(ref.read(discoveryServiceProvider).refresh());
     }
   }
 
   @override
+  void didChangePlatformBrightness() {
+    setState(() {});
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(appSettingsProvider);
+    final themeMode = settingsAsync.maybeWhen(
+      data: (s) => s.themeMode,
+      orElse: () => AppThemeMode.dark,
+    );
+    final localeMode = settingsAsync.maybeWhen(
+      data: (s) => s.localeMode,
+      orElse: () => AppLocaleMode.ru,
+    );
+    final platformBrightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final overlayBrightness = effectiveBrightness(
+      mode: themeMode,
+      platformBrightness: platformBrightness,
+    );
+    final isDark = overlayBrightness == Brightness.dark;
+
+    if (Platform.isAndroid) {
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'MeshPad',
       debugShowCheckedModeBanner: false,
-      theme: MeshPadTheme.dark(),
-      locale: const Locale('ru'),
-      supportedLocales: const [Locale('ru')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      theme: MeshPadTheme.light(),
+      darkTheme: MeshPadTheme.dark(),
+      themeMode: toMaterialThemeMode(themeMode),
+      locale: resolveAppLocale(localeMode),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      builder: (context, child) {
+        return MeshPadThemeScope(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const ShareIntentListener(child: AppShell()),
     );
   }
@@ -89,4 +140,5 @@ Future<void> bootstrapMeshPadApp() async {
   MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
   await BackgroundSyncRegistrar.applySettings(settings);
   await initializeDateFormatting('ru');
+  await initializeDateFormatting('en');
 }

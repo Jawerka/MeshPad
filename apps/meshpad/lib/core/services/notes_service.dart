@@ -15,12 +15,17 @@ abstract class NotesService {
 
   Uri? attachmentUri(String noteId, String fileName);
 
-  Future<int> countActiveNotes();
+  Uri? attachmentThumbUri(String noteId, String fileName) => null;
+
+  Future<int> countActiveNotes({String? tag});
+
+  Future<List<String>> listDistinctTags();
 
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   });
 
   Future<List<Note>> listTrash();
@@ -36,6 +41,8 @@ abstract class NotesService {
   });
 
   Future<void> updateNote(String id, {String? title, String? markdown});
+
+  Future<void> setNoteTags(String id, List<String> tags);
 
   Future<void> addAttachment(
     String noteId,
@@ -70,15 +77,28 @@ class LocalNotesService implements NotesService {
   Uri? attachmentUri(String noteId, String fileName) => null;
 
   @override
-  Future<int> countActiveNotes() => repository.countActiveNotes();
+  Uri? attachmentThumbUri(String noteId, String fileName) => null;
+
+  @override
+  Future<int> countActiveNotes({String? tag}) =>
+      repository.countActiveNotes(tag: tag);
+
+  @override
+  Future<List<String>> listDistinctTags() => repository.listDistinctTags();
 
   @override
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) =>
-      repository.listNotesSlice(offset: offset, limit: limit, sort: sort);
+      repository.listNotesSlice(
+        offset: offset,
+        limit: limit,
+        sort: sort,
+        tag: tag,
+      );
 
   @override
   Future<List<Note>> listTrash() => repository.listTrash();
@@ -106,6 +126,11 @@ class LocalNotesService implements NotesService {
   @override
   Future<void> updateNote(String id, {String? title, String? markdown}) =>
       repository.updateNote(id, title: title, markdown: markdown);
+
+  @override
+  Future<void> setNoteTags(String id, List<String> tags) async {
+    await repository.setNoteTags(id, tags);
+  }
 
   @override
   Future<void> addAttachment(
@@ -148,13 +173,21 @@ class RemoteNotesService implements NotesService {
       _client.attachmentUri(noteId, fileName);
 
   @override
-  Future<int> countActiveNotes() => _client.countActiveNotes();
+  Uri? attachmentThumbUri(String noteId, String fileName) =>
+      _client.attachmentThumbUri(noteId, fileName);
+
+  @override
+  Future<int> countActiveNotes({String? tag}) => _client.countActiveNotes();
+
+  @override
+  Future<List<String>> listDistinctTags() async => const [];
 
   @override
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) =>
       _client.listNotesSlice(offset: offset, limit: limit, sort: sort);
 
@@ -212,6 +245,11 @@ class RemoteNotesService implements NotesService {
   @override
   Future<void> updateNote(String id, {String? title, String? markdown}) async {
     await _client.updateNote(id, title: title, markdown: markdown);
+  }
+
+  @override
+  Future<void> setNoteTags(String id, List<String> tags) async {
+    throw UnsupportedError('Теги недоступны в Web-клиенте');
   }
 
   @override

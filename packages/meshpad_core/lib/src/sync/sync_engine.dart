@@ -31,11 +31,13 @@ class SyncSessionResult {
     required this.pulled,
     required this.receivedByPeer,
     required this.acknowledged,
+    this.failedPushNoteIds = const [],
   });
 
   final int pulled;
   final int receivedByPeer;
   final int acknowledged;
+  final List<String> failedPushNoteIds;
 
   int get total => pulled + receivedByPeer;
 }

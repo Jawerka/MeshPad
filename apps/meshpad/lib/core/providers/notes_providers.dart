@@ -5,6 +5,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../models/notes_feed_state.dart';
 import '../services/notes_service.dart';
+import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
 import '../storage/web_api_settings_store.dart';
 
@@ -21,8 +22,18 @@ final webApiBaseUrlProvider = FutureProvider<String>((ref) async {
   return store.loadBaseUrl();
 });
 
+final webApiKeyProvider = FutureProvider<String?>((ref) async {
+  final store = ref.watch(webApiSettingsStoreProvider);
+  return store.loadApiKey();
+});
+
 final appSettingsStoreProvider = Provider<AppSettingsStore>((ref) {
   return AppSettingsStore();
+});
+
+final appSettingsProvider = FutureProvider<AppSettings>((ref) async {
+  final store = ref.watch(appSettingsStoreProvider);
+  return store.loadSettings();
 });
 
 final dataDirProvider = FutureProvider<String?>((ref) async {
@@ -56,7 +67,8 @@ final noteRepositoryProvider = FutureProvider<NoteRepository>((ref) async {
 final notesServiceProvider = FutureProvider<NotesService>((ref) async {
   if (ref.watch(isWebClientProvider)) {
     final baseUrl = await ref.watch(webApiBaseUrlProvider.future);
-    final client = MeshPadApiClient(baseUrl: baseUrl);
+    final apiKey = await ref.watch(webApiKeyProvider.future);
+    final client = MeshPadApiClient(baseUrl: baseUrl, apiKey: apiKey);
     ref.onDispose(client.close);
     await client.checkHealth();
     return RemoteNotesService(client);
@@ -72,6 +84,14 @@ enum FeedMode { feed, trash }
 final feedModeProvider = StateProvider<FeedMode>((ref) => FeedMode.feed);
 
 final feedSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final feedTagFilterProvider = StateProvider<String?>((ref) => null);
+
+final distinctTagsProvider = FutureProvider<List<String>>((ref) async {
+  if (ref.watch(isWebClientProvider)) return const [];
+  final service = await ref.watch(notesServiceProvider.future);
+  return service.listDistinctTags();
+});
 
 final feedSortProvider = NotifierProvider<FeedSortNotifier, NoteSort>(
   FeedSortNotifier.new,
@@ -143,7 +163,15 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     ref.listen(feedModeProvider, (previous, next) {
       if (previous != next) ref.invalidateSelf();
     });
+    ref.listen(feedTagFilterProvider, (previous, next) {
+      if (previous != next) ref.invalidateSelf();
+    });
     return _loadInitial(service);
+  }
+
+  String? get _activeTag {
+    if (ref.read(isWebClientProvider)) return null;
+    return ref.read(feedTagFilterProvider);
   }
 
   Future<NotesFeedState> _loadInitial(NotesService service) async {
@@ -153,7 +181,8 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     }
 
     final sort = ref.read(feedSortProvider);
-    final total = await service.countActiveNotes();
+    final tag = _activeTag;
+    final total = await service.countActiveNotes(tag: tag);
     final offset = total > NotesFeedState.pageSize
         ? total - NotesFeedState.pageSize
         : 0;
@@ -161,6 +190,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
       offset: offset,
       limit: NotesFeedState.pageSize,
       sort: sort,
+      tag: tag,
     );
     return NotesFeedState(
       notes: notes,
@@ -190,6 +220,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     try {
       final service = await ref.read(notesServiceProvider.future);
       final sort = ref.read(feedSortProvider);
+      final tag = _activeTag;
       final nextOffset = current.offset > NotesFeedState.pageSize
           ? current.offset - NotesFeedState.pageSize
           : 0;
@@ -198,6 +229,7 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
         offset: nextOffset,
         limit: take,
         sort: sort,
+        tag: tag,
       );
       state = AsyncData(
         NotesFeedState(
@@ -238,6 +270,13 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
   Future<void> updateNote(String id, {String? title, String? markdown}) async {
     final service = await ref.read(notesServiceProvider.future);
     await service.updateNote(id, title: title, markdown: markdown);
+    await _afterLocalMutation();
+  }
+
+  Future<void> setNoteTags(String id, List<String> tags) async {
+    final service = await ref.read(notesServiceProvider.future);
+    await service.setNoteTags(id, tags);
+    ref.invalidate(distinctTagsProvider);
     await _afterLocalMutation();
   }
 

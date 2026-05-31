@@ -1,0 +1,189 @@
+{
+  "@@locale": "ru",
+  "appTitle": "MeshPad",
+  "settingsTitle": "Настройки",
+  "cancel": "Отмена",
+  "save": "Сохранить",
+  "close": "Закрыть",
+  "change": "Сменить",
+  "reset": "Сбросить",
+  "clear": "Очистить",
+  "download": "Скачать",
+  "defaultAction": "По умолчанию",
+  "selectFile": "Выбрать файл",
+  "changeDataDirTitle": "Сменить папку данных?",
+  "changeDataDirBody": "Новая папка:\n{path}\n\nЗаметки из текущей папки не переносятся автоматически. Скопируйте содержимое вручную, если нужно.",
+  "@changeDataDirBody": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "dataDirChanged": "Папка данных: {path}",
+  "@dataDirChanged": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "dataDirChangeFailed": "Не удалось сменить папку: {error}",
+  "@dataDirChangeFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "resetDataDirTitle": "Вернуть папку по умолчанию?",
+  "resetDataDirBody": "Приложение снова будет использовать стандартную папку в профиле пользователя.",
+  "dataDirReset": "Папка данных сброшена",
+  "updatesTitle": "Обновления",
+  "updatesUpToDate": "Установлена актуальная версия {version}",
+  "@updatesUpToDate": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "updatesAvailable": "Доступна версия {version}",
+  "@updatesAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "updatesUnavailable": "Не удалось проверить обновления",
+  "purgeOutboxTitle": "Очистить ошибки sync?",
+  "purgeOutboxBody": "Записи outbox с исчерпанными повторами будут удалены. Сами заметки на диске не затрагиваются.",
+  "purgeOutboxNone": "Нет записей с ошибками sync",
+  "purgeOutboxRemoved": "Удалено записей outbox: {count}",
+  "@purgeOutboxRemoved": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "indexRebuilt": "Индекс пересобран: {count} заметок",
+  "@indexRebuilt": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "errorGeneric": "Ошибка: {error}",
+  "@errorGeneric": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "deviceNameTitle": "Имя устройства",
+  "deviceNameHint": "Видно другим устройствам в сети",
+  "deviceNameSaved": "Имя: {name}",
+  "@deviceNameSaved": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "apiKeyTitle": "API ключ сервера",
+  "apiKeyHint": "Оставьте пустым, если сервер без auth",
+  "apiKeyNotSet": "Не задан",
+  "apiKeyMasked": "••••••••",
+  "apiKeyRemoved": "API ключ удалён",
+  "apiKeySaved": "API ключ сохранён",
+  "apiUrlTitle": "URL сервера MeshPad",
+  "apiUrlLabel": "Базовый URL API",
+  "apiUrlHint": "http://127.0.0.1:8787",
+  "exportDialogTitle": "Экспорт заметок MeshPad",
+  "importArchiveDialogTitle": "Архив MeshPad (.zip)",
+  "apiUrlSaved": "Сервер: {url}",
+  "@apiUrlSaved": {
+    "placeholders": {
+      "url": { "type": "String" }
+    }
+  },
+  "exportNotesCount": "Экспортировано заметок: {count}",
+  "@exportNotesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "importNotesTitle": "Импорт заметок?",
+  "importNotesBody": "Заметки из архива будут объединены с локальными по дате изменения. Папка devices/ (ключи sync) не импортируется.",
+  "importNotesResult": "Импорт: {imported} новых, {updated} обновлено, {skipped} пропущено",
+  "@importNotesResult": {
+    "placeholders": {
+      "imported": { "type": "int" },
+      "updated": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "apiServer": "Сервер API",
+  "apiKey": "API ключ",
+  "dataFolder": "Папка данных",
+  "deviceName": "Имя устройства",
+  "devicesAndSync": "Устройства и синхронизация",
+  "syncOutboxErrors": "Ошибки sync в очереди",
+  "syncOutboxErrorsSubtitle": "{count} записей с исчерпанными повторами",
+  "@syncOutboxErrorsSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncSettingsError": "Настройки sync: {error}",
+  "@syncSettingsError": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "autoSync": "Автосинхронизация",
+  "autoSyncEvery": "Каждые {minutes} мин.",
+  "@autoSyncEvery": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "autoSyncOff": "Выключена",
+  "minutesShort": "{minutes} мин",
+  "@minutesShort": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "themeSection": "Тема",
+  "themeDark": "Тёмная",
+  "themeLight": "Светлая",
+  "themeSystem": "Системная",
+  "localeSection": "Язык",
+  "localeRu": "Русский",
+  "localeEn": "English",
+  "localeSystem": "Системный",
+  "syncTransportSection": "Транспорт sync",
+  "syncTransportLan": "LAN (HTTP)",
+  "syncTransportLibp2p": "libp2p (эксп.)",
+  "syncTransportLanHint": "mDNS + HTTP/HTTPS между доверенными устройствами",
+  "syncTransportLibp2pHint": "Sidecar на :45839; sync пока через LAN fallback",
+  "exportNotes": "Экспорт заметок",
+  "exportNotesSubtitle": "Zip-архив notes/ без ключей sync",
+  "importNotes": "Импорт заметок",
+  "importNotesSubtitle": "Объединение по дате изменения (LWW)",
+  "verifyData": "Проверить данные",
+  "verifyDataSubtitle": "Пересобрать индекс из файлов и создать отсутствующие превью",
+  "about": "О приложении",
+  "aboutWeb": "MeshPad Web · {version}",
+  "@aboutWeb": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "aboutNative": "MeshPad {version} · local-first Markdown",
+  "@aboutNative": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "checkUpdates": "Проверить обновления",
+  "footerWeb": "Web-клиент подключается к headless-серверу (meshpad_server).",
+  "footerNative": "Local-first Markdown. Синхронизация между устройствами — LAN (HTTP).",
+  "devicesDiscoveryHint": "Поиск устройств в локальной сети (mDNS/UDP)",
+  "filterAllTags": "Все",
+  "noteTagsTitle": "Теги заметки",
+  "noteTagsHint": "работа, идеи (через запятую)",
+  "noteTagsLabel": "Теги",
+  "noteMenuEdit": "Редактировать",
+  "noteMenuTags": "Теги",
+  "noteMenuTrash": "В корзину",
+  "noteMenuRestore": "Восстановить",
+  "emptyNotePlaceholder": "_Пустая заметка_"
+}

@@ -15,6 +15,7 @@ import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../platform/desktop_shell.dart';
 import '../devices/devices_sheet.dart';
+import '../../l10n/app_localizations.dart';
 import '../settings/settings_sheet.dart';
 import 'composer_drop_target.dart';
 import 'note_bubble.dart';
@@ -42,6 +43,7 @@ class FeedScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _FeedHeader(mode: mode, count: feed.notes.length),
+            if (mode == FeedMode.feed) const _TagFilterBar(),
             Expanded(
               child: feed.notes.isEmpty
                   ? _EmptyFeed(mode: mode, onRefresh: () async {
@@ -363,7 +365,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
         Container(
           height: MeshPadColors.headerHeight,
           padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: MeshPadColors.backgroundElevated,
             border: Border(bottom: BorderSide(color: MeshPadColors.border)),
           ),
@@ -431,7 +433,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
         if (_searchOpen)
           Container(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: MeshPadColors.backgroundElevated,
               border: Border(bottom: BorderSide(color: MeshPadColors.border)),
             ),
@@ -591,7 +593,7 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
       onFilesDropped: _addPendingFiles,
       child: Container(
         padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 12, compact ? 8 : 16, 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: MeshPadColors.backgroundElevated,
           border: Border(top: BorderSide(color: MeshPadColors.border)),
         ),
@@ -827,6 +829,62 @@ class _HeaderSyncButtonState extends State<_HeaderSyncButton>
           child: Icon(Icons.sync, color: color),
         ),
       ),
+    );
+  }
+}
+
+class _TagFilterBar extends ConsumerWidget {
+  const _TagFilterBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isWebClientProvider)) return const SizedBox.shrink();
+
+    final tagsAsync = ref.watch(distinctTagsProvider);
+    return tagsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (tags) {
+        if (tags.isEmpty) return const SizedBox.shrink();
+        final active = ref.watch(feedTagFilterProvider);
+        final l10n = AppLocalizations.of(context);
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: BoxDecoration(
+            color: MeshPadColors.backgroundElevated,
+            border: Border(bottom: BorderSide(color: MeshPadColors.border)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                FilterChip(
+                  label: Text(l10n.filterAllTags),
+                  selected: active == null,
+                  onSelected: (_) {
+                    ref.read(feedTagFilterProvider.notifier).state = null;
+                    ref.invalidate(notesListProvider);
+                  },
+                ),
+                const SizedBox(width: 8),
+                for (final tag in tags)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text('#$tag'),
+                      selected: active == tag,
+                      onSelected: (_) {
+                        ref.read(feedTagFilterProvider.notifier).state = tag;
+                        ref.invalidate(notesListProvider);
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,7 +1,7 @@
 name: meshpad
 description: MeshPad — local-first Markdown notes in a chat-style feed.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+1
 resolution: workspace
 
 environment:
@@ -43,6 +43,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 
 flutter:
+  generate: true
   uses-material-design: true
   assets:
     - assets/icons/tray_icon.ico

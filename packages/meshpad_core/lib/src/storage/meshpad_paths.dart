@@ -14,6 +14,8 @@ class MeshPadPaths {
 
   String get localIdentityFile => p.join(devicesRoot, 'local_identity.json');
 
+  String get tlsRoot => p.join(devicesRoot, 'tls');
+
   String trustedDeviceFile(String peerId) => p.join(devicesRoot, 'trusted', '$peerId.json');
 
   String noteDir(String id) => p.join(notesRoot, id);

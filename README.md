@@ -42,6 +42,17 @@ cd MeshPad
 
 Проверка: `dart run melos run check`
 
+## Релизы (CI/CD)
+
+GitHub Actions собирает **APK** и **Windows zip** (`meshpad.exe` + runtime):
+
+```powershell
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Подробности: [docs/DEVELOPMENT.md § CI/CD](docs/DEVELOPMENT.md#ci--cd).
+
 ## UI-референс
 
 Каталог `ref/` — HTML/CSS прототип. **Sidebar из ref не реализован**; навигация только через шапку.

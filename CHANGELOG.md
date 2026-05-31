@@ -2,11 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions workflow **Build Release** (`.github/workflows/build-release.yml`): release APK + Windows x64 zip; GitHub Release on tag `v*`
+
 ### Changed
 
 - Hide libp2p transport toggle in settings until Rust push/pull (B.2); saved `sync_transport: libp2p` runs as LAN; dev override `--dart-define=MESHPAD_SYNC_TRANSPORT=libp2p` unchanged
-
-_Нет других изменений._
 
 ---
 

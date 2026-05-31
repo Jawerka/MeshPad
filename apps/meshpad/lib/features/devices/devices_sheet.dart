@@ -480,11 +480,10 @@ class DevicesSheet extends ConsumerWidget {
 
     if (lan != null) {
       await lan.setPairingOffer(
-        PinPairingOffer(
+        createPairingOffer(
           peerId: identity.peerId,
           displayName: identity.displayName,
           pin: pin,
-          expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
         ),
       );
     }
@@ -500,6 +499,7 @@ class DevicesSheet extends ConsumerWidget {
         onConfirm: (remotePin, targetPeer) async {
           final store = await ref.read(deviceStoreProvider.future);
           final identity = await ref.read(localIdentityProvider.future);
+          final authToken = generateSyncAuthToken();
 
           if (lan != null && targetPeer != null) {
             await lan.start();
@@ -520,6 +520,7 @@ class DevicesSheet extends ConsumerWidget {
                     initiatorDisplayName: identity.displayName,
                     initiatorLanHost: lan.localLanHost,
                     initiatorHttpPort: lan.localHttpPort,
+                    authToken: authToken,
                   ),
                 );
                 if (ok) {
@@ -528,6 +529,7 @@ class DevicesSheet extends ConsumerWidget {
                     name: offer.displayName,
                     lanHost: endpoint.host,
                     lanHttpPort: endpoint.httpPort,
+                    authToken: authToken,
                   );
                   ref.invalidate(trustedDevicesProvider);
                   ref

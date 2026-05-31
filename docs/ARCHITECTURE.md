@@ -118,12 +118,13 @@ flowchart TB
 |-----------|--------|
 | Discovery | mDNS `_meshpad._tcp` + UDP `:45837` |
 | Sync | HTTP `/meshpad/p2p/*` — каталог, push/pull, вложения |
-| Pairing | PIN over HTTP; **только PIN** (без «доверять без PIN») |
+| Pairing | PIN over HTTP (**только PIN**); TTL offer; rate-limited confirm |
+| Auth | Shared secret в `trusted/`; headers `X-MeshPad-Peer-Id`, `X-MeshPad-Auth-Token` на sync endpoints |
 | Trust store | `devices/trusted/<peer_id>.json` + LAN endpoint |
 | Merge | LWW по `updated_at`; tombstones; purge через 7 дней |
 | Maintenance | `purgeExpiredTrash` на auto-sync tick; reconcile → rebuild `.thumbs/` |
 
-**Post-MVP:** native libp2p, TLS/Noise, auth token на sync endpoints.
+**Post-MVP:** native libp2p, TLS/Noise. Auth token на sync endpoints — **реализовано** (Phase A.1).
 
 ## Auto-sync (native)
 
@@ -155,6 +156,6 @@ Drift-индекс пересобирается: старт, «Проверит�
 Кратко:
 
 1. **libp2p native crate** — замена LAN HTTP, тот же `SyncTransport` API.
-2. **Sync auth** — shared secret / token в `trusted/` для HTTP endpoints.
+2. **Sync auth** — shared secret / token в `trusted/` для HTTP endpoints (**реализовано**).
 3. **Web push** — WebSocket или SSE для обновления ленты без polling.
 4. **Resume upload** — chunked transfer больших вложений по sha256.

@@ -57,6 +57,7 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
   final transport = LanSyncTransport(
     getEngine: () => ref.read(syncEngineProvider.future),
     getIdentity: () => ref.read(localIdentityProvider.future),
+    getDeviceStore: () => ref.read(deviceStoreProvider.future),
     onRemoteTrusted: (confirm) async {
       final initiatorId = confirm.initiatorPeerId;
       final host = confirm.initiatorLanHost;
@@ -69,6 +70,7 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
         name: confirm.initiatorDisplayName ?? 'Устройство',
         lanHost: host,
         lanHttpPort: port,
+        authToken: confirm.authToken,
       );
       ref.invalidate(trustedDevicesProvider);
     },

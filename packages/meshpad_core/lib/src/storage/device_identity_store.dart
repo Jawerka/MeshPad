@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/device.dart';
 import '../models/local_device_identity.dart';
+import '../sync/sync_auth.dart';
 import 'meshpad_paths.dart';
 
 /// File-system store for local identity and trusted peers.
@@ -78,6 +79,7 @@ class DeviceIdentityStore {
         lastSeenAt: record.lastSeenAt,
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
+        authToken: record.authToken,
       ),
     );
   }
@@ -98,6 +100,7 @@ class DeviceIdentityStore {
         lastSeenAt: record.lastSeenAt,
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
+        authToken: record.authToken,
       ),
     );
   }
@@ -132,6 +135,7 @@ class DeviceIdentityStore {
     String icon = 'device',
     String? lanHost,
     int? lanHttpPort,
+    String? authToken,
   }) async {
     final trustedDir = Directory(p.join(_paths.devicesRoot, 'trusted'));
     await trustedDir.create(recursive: true);
@@ -144,8 +148,17 @@ class DeviceIdentityStore {
       lastSeenAt: DateTime.now().toUtc(),
       lanHost: lanHost,
       lanHttpPort: lanHttpPort,
+      authToken: authToken ?? generateSyncAuthToken(_uuid),
     );
     await _writeTrustedRecord(record);
+  }
+
+  Future<TrustedDeviceRecord?> trustedRecordFor(String peerId) =>
+      _loadTrustedRecord(peerId);
+
+  Future<String?> authTokenForPeer(String peerId) async {
+    final record = await _loadTrustedRecord(peerId);
+    return record?.authToken;
   }
 
   Future<void> updateLanEndpoint({
@@ -165,6 +178,7 @@ class DeviceIdentityStore {
         lastSeenAt: DateTime.now().toUtc(),
         lanHost: lanHost,
         lanHttpPort: lanHttpPort,
+        authToken: record.authToken,
       ),
     );
   }
@@ -180,6 +194,7 @@ class DeviceIdentityStore {
         icon: record.icon,
         trustedAt: record.trustedAt,
         lastSeenAt: record.lastSeenAt,
+        authToken: record.authToken,
       ),
     );
   }
@@ -204,6 +219,7 @@ class DeviceIdentityStore {
         lastSeenAt: DateTime.now().toUtc(),
         lanHost: record.lanHost,
         lanHttpPort: record.lanHttpPort,
+        authToken: record.authToken,
       ),
     );
   }

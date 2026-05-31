@@ -41,6 +41,8 @@ class LanSyncTransport implements SyncTransport {
 
     required Future<LocalDeviceIdentity> Function() getIdentity,
 
+    this.getDeviceStore,
+
     this.announceHost,
 
     this.onRemoteTrusted,
@@ -56,6 +58,8 @@ class LanSyncTransport implements SyncTransport {
   final Future<SyncEngine> Function() _getEngine;
 
   final Future<LocalDeviceIdentity> Function() _getIdentity;
+
+  final Future<DeviceIdentityStore> Function()? getDeviceStore;
 
   final String? announceHost;
 
@@ -186,6 +190,13 @@ class LanSyncTransport implements SyncTransport {
     _server = LanPeerServer(
 
       getEngine: _getEngine,
+
+      lookupTrustedPeer: getDeviceStore == null
+          ? null
+          : (peerId) async {
+              final store = await getDeviceStore!();
+              return store.trustedRecordFor(peerId);
+            },
 
       onPairingConfirmed: _handlePairingConfirmed,
 
@@ -524,7 +535,19 @@ class LanSyncTransport implements SyncTransport {
 
       final engine = await _getEngine();
 
-      final gateway = HttpRemoteSyncGateway(endpoint: resolved);
+      final identity = await _getIdentity();
+
+      final authToken = await _authTokenFor(peerId);
+
+      final gateway = HttpRemoteSyncGateway(
+
+        endpoint: resolved,
+
+        callerPeerId: identity.peerId,
+
+        authToken: authToken,
+
+      );
 
       final result = await engine.syncWithRemote(gateway);
 
@@ -543,8 +566,16 @@ class LanSyncTransport implements SyncTransport {
       );
 
     } catch (e) {
+      if (e is HttpRemoteSyncException &&
+          (e.statusCode == 401 || e.statusCode == 403)) {
+        forgetPeer(peerId);
+      }
 
-      final message = e is MeshPadException ? e.message : e.toString();
+      final message = e is MeshPadException
+          ? e.message
+          : e is HttpRemoteSyncException
+              ? _httpSyncErrorMessage(e)
+              : e.toString();
 
       MeshPadLog.warn('sync', 'sync failed $peerId: $message');
 
@@ -571,6 +602,34 @@ class LanSyncTransport implements SyncTransport {
     final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
 
     return gateway.confirmPairing(confirm);
+
+  }
+
+
+
+  Future<HttpRemoteSyncGateway> gatewayForPeer(String peerId) async {
+
+    final endpoint = _peers[peerId];
+
+    if (endpoint == null) {
+
+      throw StateError('no endpoint for $peerId');
+
+    }
+
+    final identity = await _getIdentity();
+
+    final authToken = await _authTokenFor(peerId);
+
+    return HttpRemoteSyncGateway(
+
+      endpoint: endpoint,
+
+      callerPeerId: identity.peerId,
+
+      authToken: authToken,
+
+    );
 
   }
 
@@ -624,6 +683,23 @@ class LanSyncTransport implements SyncTransport {
 
     MeshPadLog.lan('local display name updated to $trimmed');
 
+  }
+
+
+
+  Future<String?> _authTokenFor(String peerId) async {
+    final loader = getDeviceStore;
+    if (loader == null) return null;
+    final store = await loader();
+    return store.authTokenForPeer(peerId);
+  }
+
+  String _httpSyncErrorMessage(HttpRemoteSyncException e) {
+    return switch (e.statusCode) {
+      401 => 'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.',
+      403 => 'Синхронизация отклонена: устройство не доверено.',
+      _ => e.toString(),
+    };
   }
 
 

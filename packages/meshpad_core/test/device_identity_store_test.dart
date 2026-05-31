@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
@@ -69,5 +70,30 @@ void main() {
     devices = await store.listTrustedDevices();
     expect(devices.first.lanHost, '192.168.1.11');
     expect(devices.first.lanHttpPort, 45839);
+  });
+
+  test('persists auth token for trusted peer', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    const token = 'test-auth-token';
+    await store.trustDevice(
+      peerId: 'peer-1',
+      name: 'Laptop',
+      authToken: token,
+    );
+
+    expect(await store.authTokenForPeer('peer-1'), token);
+
+    final file = File(MeshPadPaths(tempDir.path).trustedDeviceFile('peer-1'));
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(json['auth_token'], token);
+  });
+
+  test('generates auth token when not provided', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone');
+
+    final token = await store.authTokenForPeer('peer-1');
+    expect(token, isNotNull);
+    expect(token!.length, greaterThan(10));
   });
 }

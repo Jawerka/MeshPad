@@ -29,6 +29,7 @@ class HeadlessLanSyncService {
     return _transport ??= LanSyncTransport(
       getEngine: () async => engine,
       getIdentity: () async => identity,
+      getDeviceStore: () async => deviceStore,
       onRemoteTrusted: (confirm) async {
         final initiatorId = confirm.initiatorPeerId;
         final host = confirm.initiatorLanHost;
@@ -40,6 +41,7 @@ class HeadlessLanSyncService {
           name: confirm.initiatorDisplayName ?? 'Устройство',
           lanHost: host,
           lanHttpPort: port,
+          authToken: confirm.authToken,
         );
       },
     );

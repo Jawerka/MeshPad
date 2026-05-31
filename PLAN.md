@@ -21,7 +21,7 @@ Local-first Markdown-блокнот в формате **одной ленты**:
 | Платформы | Android, Linux, Windows, Web | macOS |
 | UI | Flutter, тёмная тема, русский | i18n, светлая тема |
 | Сеть | **LAN:** mDNS + UDP + HTTP sync | libp2p, relay, TLS/Noise |
-| Pairing | PIN over LAN | + auth token на sync |
+| Pairing | PIN over LAN + auth token | — |
 | Конфликты | LWW по `updated_at` | vector clock (опционально) |
 | Корзина | 7 дней → purge + tombstone | — |
 | Web | Thin client → `meshpad_server` | WebSocket push |
@@ -188,11 +188,11 @@ MeshPad/
 
 | Задача | Описание | Файлы |
 |--------|----------|-------|
-| A.1 Auth token | Shared secret в `trusted/<peer_id>.json`; заголовок на все `/meshpad/p2p/*` кроме pairing | `lan_peer_server.dart`, `http_remote_sync_gateway.dart`, `device_identity_store.dart` |
-| A.2 Reject revoked | 403 для отозванных peer; server-side ignore | `lan_sync_transport.dart` |
-| A.3 Pairing hardening | TTL PIN offer; rate limit confirm | `lan_peer_server.dart`, `pairing_protocol.dart` |
+| A.1 Auth token | Shared secret в `trusted/<peer_id>.json`; заголовок на все `/meshpad/p2p/*` кроме pairing | ✅ `lan_peer_server.dart`, `http_remote_sync_gateway.dart`, `device_identity_store.dart` |
+| A.2 Reject revoked | 403 для отозванных peer; server-side ignore | ✅ |
+| A.3 Pairing hardening | TTL PIN offer; rate limit confirm | ✅ `lan_peer_server.dart`, `pairing_protocol.dart` |
 
-**DoD:** два desktop в LAN; без token sync = 401; после revoke — отказ.
+**DoD:** два desktop в LAN; без token sync = 401; после revoke — отказ. ✅
 
 ### Фаза B — Native libp2p
 
@@ -211,7 +211,7 @@ MeshPad/
 
 | Задача | Описание |
 |--------|----------|
-| C.1 Per-entry outbox retry | Не bump all on batch fail |
+| C.1 Per-entry outbox retry | Не bump all on batch fail | ✅ transport failures; partial push — follow-up |
 | C.2 Partial sync ack | Ack после успешной передачи вложений |
 | C.3 Resume upload | Chunked + sha256 verify |
 | C.4 Android background sync | WorkManager + LAN sync (ограничения OS) |
@@ -235,7 +235,7 @@ MeshPad/
 A (security) → C.1–C.2 (reliability) → B (libp2p) → D (web scale) → E
 ```
 
-**Следующий спринт:** начать с **A.1** (auth token на LAN sync HTTP).
+**Следующий спринт:** **C.2** (partial sync ack) или **B.1** (libp2p native crate).
 
 ---
 

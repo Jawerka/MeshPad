@@ -2,10 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **LAN sync auth token (Phase A.1):** shared secret in `devices/trusted/<peer_id>.json`; headers `X-MeshPad-Peer-Id` + `X-MeshPad-Auth-Token` on all `/meshpad/p2p/*` except pairing and health; 401 without/wrong token, 403 for untrusted peer
+- Auth token generated at PIN pairing and exchanged via `PinPairingConfirm`
+- **Pairing hardening (Phase A.3):** centralized PIN offer TTL (`pairingOfferTtl`); rate limit on `/pairing/confirm` (429 after repeated failures)
+- **Sync reliability (Phase C.1):** outbox retry count no longer bumped on transport-level sync failures
+
 ### Post-MVP (planned)
 
-- LAN sync auth token (PLAN §12 Phase A)
 - Native libp2p transport (Phase B)
+- Per-note outbox bump on partial push failure (C.1 follow-up)
 
 ---
 

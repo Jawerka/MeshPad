@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
+import 'lan_sync_auth.dart';
 import 'lan_sync_codec.dart';
 import '../meshpad_log.dart';
 
@@ -13,6 +14,7 @@ const meshpadPreferredLanHttpPort = 45838;
 
 typedef PairingConfirmedHandler = Future<void> Function(PinPairingConfirm confirm);
 typedef CascadeSyncHandler = Future<void> Function(String? excludePeerId);
+typedef TrustedPeerLookup = Future<TrustedDeviceRecord?> Function(String peerId);
 
 /// Local HTTP server exposing sync + pairing endpoints for LAN peers.
 class LanPeerServer {
@@ -21,13 +23,18 @@ class LanPeerServer {
     this.validatePairingPin,
     this.onPairingConfirmed,
     this.onCascadeSyncRequested,
+    this.lookupTrustedPeer,
+    PairingConfirmRateLimiter? pairingRateLimiter,
     this.preferredPort = meshpadPreferredLanHttpPort,
-  }) : _getEngine = getEngine;
+  })  : _getEngine = getEngine,
+        _pairingRateLimiter = pairingRateLimiter ?? PairingConfirmRateLimiter();
 
   final Future<SyncEngine> Function() _getEngine;
   final bool Function(String pin)? validatePairingPin;
   final PairingConfirmedHandler? onPairingConfirmed;
   final CascadeSyncHandler? onCascadeSyncRequested;
+  final TrustedPeerLookup? lookupTrustedPeer;
+  final PairingConfirmRateLimiter _pairingRateLimiter;
   final int preferredPort;
 
   PinPairingOffer? _pairingOffer;
@@ -89,6 +96,23 @@ class LanPeerServer {
     final path = request.uri.path;
     final method = request.method;
 
+    if (!isLanSyncPublicPath(path)) {
+      final lookup = lookupTrustedPeer;
+      if (lookup != null) {
+        final failure = await validateLanSyncAuth(
+          callerPeerId: request.headers.value(meshpadSyncPeerIdHeader),
+          authToken: request.headers.value(meshpadSyncAuthTokenHeader),
+          lookupTrusted: lookup,
+        );
+        if (failure != null) {
+          return _HttpResponse(
+            statusCode: statusCodeFor(failure),
+            body: bodyFor(failure),
+          );
+        }
+      }
+    }
+
     if (path == '/meshpad/p2p/health' && method == 'GET') {
       return _HttpResponse.json({'status': 'ok'});
     }
@@ -134,6 +158,9 @@ class LanPeerServer {
     if (path == '/meshpad/p2p/pairing/offer' && method == 'GET') {
       final offer = _pairingOffer;
       if (offer == null || offer.isExpired) {
+        if (offer != null && offer.isExpired) {
+          _pairingOffer = null;
+        }
         return _HttpResponse(statusCode: 404, body: 'no active offer');
       }
       return _HttpResponse.json(offer.toJson());
@@ -158,6 +185,14 @@ class LanPeerServer {
     }
 
     if (path == '/meshpad/p2p/pairing/confirm' && method == 'POST') {
+      final clientKey = pairingClientKeyFromAddress(
+        request.connectionInfo?.remoteAddress,
+      );
+      if (_pairingRateLimiter.isBlocked(clientKey)) {
+        MeshPadLog.warn('pairing', 'confirm rate limited for $clientKey');
+        return _HttpResponse(statusCode: 429, body: 'rate limited');
+      }
+
       final body = await utf8.decoder.bind(request).join();
       final confirm = PinPairingConfirm.fromJson(
         jsonDecode(body) as Map<String, dynamic>,
@@ -167,12 +202,15 @@ class LanPeerServer {
           offer.isExpired ||
           offer.pin != confirm.pin ||
           offer.peerId != confirm.peerId) {
+        _pairingRateLimiter.recordFailure(clientKey);
         return _HttpResponse(statusCode: 403, body: 'invalid pin');
       }
       if (validatePairingPin != null && !validatePairingPin!(confirm.pin)) {
+        _pairingRateLimiter.recordFailure(clientKey);
         return _HttpResponse(statusCode: 403, body: 'invalid pin');
       }
       _pairingOffer = null;
+      _pairingRateLimiter.recordSuccess(clientKey);
       MeshPadLog.pairing(
         'PIN confirmed for ${confirm.peerId} by '
         '${confirm.initiatorPeerId ?? 'unknown initiator'}',

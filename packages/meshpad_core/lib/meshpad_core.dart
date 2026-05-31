@@ -22,4 +22,5 @@ export 'src/sync/note_sync_status.dart';
 export 'src/sync/outbox_processor.dart';
 export 'src/sync/remote_note_snapshot.dart';
 export 'src/sync/remote_sync_gateway.dart';
+export 'src/sync/sync_auth.dart';
 export 'src/sync/sync_engine.dart';

@@ -48,4 +48,39 @@ void main() {
     expect(result.status, LanSyncRunStatus.noPeers);
     transport.dispose();
   });
+
+  test('syncTrustedPeers does not bump outbox on transport failure', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-remote', name: 'Remote');
+    final db = MeshPadDatabase.inMemory();
+    addTearDown(db.close);
+
+    final repo = createNoteRepository(
+      dataDir: tempDir.path,
+      defaultAuthor: 'test',
+      database: db,
+    );
+    await repo.createNote(markdown: 'pending sync');
+
+    final identity = await store.loadOrCreateIdentity();
+    final engine = SyncEngine(notes: repo, identity: identity);
+    final transport = LanSyncTransport(
+      getEngine: () async => engine,
+      getIdentity: () async => identity,
+      getDeviceStore: () async => store,
+    );
+    await transport.start();
+
+    final coordinator = LanSyncCoordinator(deviceStore: store);
+    final result = await coordinator.syncTrustedPeers(
+      transport: transport,
+      repository: repo,
+    );
+
+    expect(result.status, LanSyncRunStatus.failed);
+    final outbox = await repo.listOutbox();
+    expect(outbox, isNotEmpty);
+    expect(outbox.every((entry) => entry.retryCount == 0), isTrue);
+    transport.dispose();
+  });
 }

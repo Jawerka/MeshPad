@@ -49,6 +49,7 @@ class TrustedDeviceRecord {
     this.lastSeenAt,
     this.lanHost,
     this.lanHttpPort,
+    this.authToken,
   });
 
   final String peerId;
@@ -58,6 +59,7 @@ class TrustedDeviceRecord {
   final DateTime? lastSeenAt;
   final String? lanHost;
   final int? lanHttpPort;
+  final String? authToken;
 
   Device toDevice() => Device(
         peerId: peerId,
@@ -77,6 +79,7 @@ class TrustedDeviceRecord {
         'last_seen_at': lastSeenAt?.toUtc().toIso8601String(),
         if (lanHost != null) 'lan_host': lanHost,
         if (lanHttpPort != null) 'lan_http_port': lanHttpPort,
+        if (authToken != null) 'auth_token': authToken,
       };
 
   factory TrustedDeviceRecord.fromJson(Map<String, dynamic> json) {
@@ -90,6 +93,7 @@ class TrustedDeviceRecord {
           : null,
       lanHost: json['lan_host'] as String?,
       lanHttpPort: json['lan_http_port'] as int?,
+      authToken: json['auth_token'] as String?,
     );
   }
 }

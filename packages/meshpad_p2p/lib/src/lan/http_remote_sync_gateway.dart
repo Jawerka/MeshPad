@@ -4,15 +4,21 @@ import 'dart:io';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
+import 'lan_sync_auth.dart';
 import 'lan_sync_codec.dart';
 import 'lan_sync_transfer_progress.dart';
 
 /// HTTP client for [LanPeerServer] sync endpoints.
 class HttpRemoteSyncGateway implements RemoteSyncGateway {
-  HttpRemoteSyncGateway({required LanPeerEndpoint endpoint})
-      : _endpoint = endpoint;
+  HttpRemoteSyncGateway({
+    required LanPeerEndpoint endpoint,
+    this.callerPeerId,
+    this.authToken,
+  }) : _endpoint = endpoint;
 
   final LanPeerEndpoint _endpoint;
+  final String? callerPeerId;
+  final String? authToken;
 
   @override
   Future<List<NoteHead>> fetchCatalog() async {
@@ -115,6 +121,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = HttpClient();
     try {
       final request = await client.getUrl(_endpoint.uriFor(path));
+      _applySyncAuthHeaders(request);
       final response = await request.close();
       final body = await utf8.decoder.bind(response).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -130,6 +137,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = HttpClient();
     try {
       final request = await client.putUrl(_endpoint.uriFor(path));
+      _applySyncAuthHeaders(request);
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(payload));
       final response = await request.close();
@@ -147,6 +155,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = HttpClient();
     try {
       final request = await client.putUrl(_endpoint.uriFor(path));
+      _applySyncAuthHeaders(request);
       request.headers.contentType = ContentType('application', 'octet-stream');
       request.contentLength = bytes.length;
       final fileName = path.split('/').last;
@@ -177,6 +186,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = HttpClient();
     try {
       final request = await client.getUrl(_endpoint.uriFor(path));
+      _applySyncAuthHeaders(request);
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await utf8.decoder.bind(response).join();
@@ -205,6 +215,9 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = HttpClient();
     try {
       final request = await client.postUrl(_endpoint.uriFor(path));
+      if (!isLanSyncPublicPath(path)) {
+        _applySyncAuthHeaders(request);
+      }
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(payload));
       final response = await request.close();
@@ -215,6 +228,17 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       return body;
     } finally {
       client.close(force: true);
+    }
+  }
+
+  void _applySyncAuthHeaders(HttpClientRequest request) {
+    final peerId = callerPeerId;
+    if (peerId != null) {
+      request.headers.set(meshpadSyncPeerIdHeader, peerId);
+    }
+    final token = authToken;
+    if (token != null) {
+      request.headers.set(meshpadSyncAuthTokenHeader, token);
     }
   }
 }

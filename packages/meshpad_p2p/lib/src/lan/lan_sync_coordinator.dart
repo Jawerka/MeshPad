@@ -132,7 +132,12 @@ class LanSyncCoordinator {
 
         if (propagateCascade && localPeerId != null) {
           try {
-            await HttpRemoteSyncGateway(endpoint: endpoint).requestCascadeSync(
+            final authToken = await deviceStore.authTokenForPeer(peer.peerId);
+            await HttpRemoteSyncGateway(
+              endpoint: endpoint,
+              callerPeerId: localPeerId,
+              authToken: authToken,
+            ).requestCascadeSync(
               excludePeerId: localPeerId,
             );
           } catch (e) {
@@ -153,7 +158,9 @@ class LanSyncCoordinator {
       MeshPadLog.sync('sync batch completed totalNotes=$total');
       return LanSyncRunResult(LanSyncRunStatus.completed, noteCount: total);
     } catch (e) {
-      await outboxProcessor.recordSyncFailure(repository);
+      if (e is! SyncTransportException) {
+        await outboxProcessor.recordSyncFailure(repository);
+      }
       final message = e is MeshPadException
           ? e.message
           : meshPadExceptionUserMessage(e);

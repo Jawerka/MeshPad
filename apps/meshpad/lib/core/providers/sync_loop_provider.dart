@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+
 import '../storage/app_settings.dart';
 import 'notes_providers.dart';
 import 'sync_providers.dart';
@@ -56,6 +58,7 @@ class SyncLoopController {
 
     _syncInProgress = true;
     try {
+      MeshPadLog.sync('auto-sync tick (${trusted.length} trusted peer(s))');
       await _ref.read(syncControllerProvider).runSync();
     } finally {
       _syncInProgress = false;

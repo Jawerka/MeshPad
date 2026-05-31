@@ -296,7 +296,7 @@ MeshPad/
 - [x] Device identity (`local_identity.json`, trusted/)
 - [x] SyncEngine + LWW/tombstone + outbox ack
 - [x] FakeSyncTransport + FakeSyncHub + тесты двух пиров
-- [x] LAN discovery заглушка (демо-пиры до libp2p/mDNS)
+- [x] LAN discovery mDNS (`_meshpad._tcp`) + UDP fallback
 - [x] PIN-pairing протокол (модели сообщений)
 - [x] LAN sync HTTP/UDP + PIN over LAN (interim transport до native libp2p)
 - [ ] Native libp2p MVP (LAN + PIN)

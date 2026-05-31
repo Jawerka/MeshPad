@@ -92,8 +92,10 @@ flutter run -d windows
 
 ```powershell
 .\scripts\run-server.ps1
-# или: .\scripts\run-server.ps1 -DataDir D:\MeshPadData -Port 8787
+# или: .\scripts\run-server.ps1 -DataDir D:\MeshPadData -Port 8787 -P2p
 ```
+
+С флагом `-P2p` сервер участвует в LAN-синхронизации с доверенными устройствами (UDP discovery + HTTP), как desktop-клиент.
 
 Эндпоинты:
 

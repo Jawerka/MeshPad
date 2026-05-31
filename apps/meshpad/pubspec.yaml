@@ -30,8 +30,10 @@ dependencies:
   url_launcher: ^6.3.1
   tray_manager: ^0.2.3
   window_manager: ^0.4.3
-  workmanager: ^0.5.2
-
+  workmanager: ^0.9.0+3
+  sqlite3_flutter_libs: 0.5.42
+  open_file: ^3.5.11
+  desktop_drop: ^0.7.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

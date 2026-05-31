@@ -5,6 +5,8 @@ import '../../core/providers/notes_providers.dart';
 import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/sync/local_author_labels.dart';
+import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../platform/desktop_shell.dart';
 import '../feed/feed_screen.dart';
@@ -20,7 +22,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(isWebClientProvider)) {
         ref.read(syncLoopProvider).start();
         ref.read(discoveryServiceProvider).start();
@@ -28,6 +30,15 @@ class _AppShellState extends ConsumerState<AppShell> {
           DesktopShell.instance.onSync =
               () => ref.read(syncControllerProvider).runSync();
         }
+        try {
+          final repo = await ref.read(noteRepositoryProvider.future);
+          final identity = await ref.read(localIdentityProvider.future);
+          await repo.purgeMisfiledRemoteOutbox(
+            localAuthorLabels: localAuthorLabels(identity.displayName),
+          );
+          await repo.purgeExhaustedOutboxEntries(maxRetries: 5);
+          ref.invalidate(outboxCountProvider);
+        } catch (_) {}
       }
     });
   }
@@ -35,23 +46,38 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final mode = ref.watch(feedModeProvider);
-    final topPadding = MediaQuery.paddingOf(context).top;
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      body: Stack(
+      backgroundColor: MeshPadColors.backgroundElevated,
+      body: Column(
         children: [
-          const FeedScreen(),
-          if (mode == FeedMode.feed)
-            Positioned(
-              top: topPadding + MeshPadColors.headerHeight + 12,
-              right: 16,
-              child: _TrashFab(
-                onPressed: () {
-                  ref.read(feedModeProvider.notifier).state = FeedMode.trash;
-                  ref.invalidate(notesListProvider);
-                },
+          ColoredBox(
+            color: MeshPadColors.backgroundElevated,
+            child: SizedBox(height: topInset),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Stack(
+                children: [
+                  const FeedScreen(),
+                  if (mode == FeedMode.feed && !isCompactFeedLayout(context))
+                    Positioned(
+                      top: MeshPadColors.headerHeight + 12,
+                      right: 16,
+                      child: _TrashFab(
+                        onPressed: () {
+                          ref.read(feedModeProvider.notifier).state =
+                              FeedMode.trash;
+                          ref.invalidate(notesListProvider);
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );

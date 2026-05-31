@@ -284,6 +284,37 @@ class NoteRepository {
 
   Future<void> incrementOutboxRetry(int id) => _db.incrementOutboxRetry(id);
 
+  /// Removes outbox rows for notes authored on other devices (legacy bug).
+  Future<int> purgeMisfiledRemoteOutbox({
+    required Set<String> localAuthorLabels,
+  }) async {
+    final outbox = await listOutbox();
+    var removed = 0;
+    for (final entry in outbox) {
+      if (entry.entityType != SyncEvent.entityNote) continue;
+      final note = await getNote(entry.entityId);
+      if (note == null) continue;
+      if (!localAuthorLabels.contains(note.author.trim())) {
+        await removeOutboxEntry(entry.id);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  /// Drops outbox rows that exceeded retry limit (legacy false errors).
+  Future<int> purgeExhaustedOutboxEntries({required int maxRetries}) async {
+    final outbox = await listOutbox();
+    var removed = 0;
+    for (final entry in outbox) {
+      if (entry.retryCount >= maxRetries) {
+        await removeOutboxEntry(entry.id);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   Future<NoteApplyResult> applyRemoteMerge(
     NoteMeta remoteMeta,
     String remoteMarkdown,
@@ -311,7 +342,7 @@ class NoteRepository {
     if (unchanged) return NoteApplyResult.unchanged;
 
     final note = Note.fromMeta(meta: merged, markdown: markdown);
-    await _persist(note);
+    await _persist(note, enqueueOutbox: false);
     return NoteApplyResult.applied;
   }
 
@@ -411,7 +442,7 @@ class NoteRepository {
     await _enqueue(SyncEvent.opPurge, id);
   }
 
-  Future<void> _persist(Note note) async {
+  Future<void> _persist(Note note, {bool enqueueOutbox = true}) async {
     final folder = NoteFolder(
       path: _paths.noteDir(note.id),
       meta: note.toMeta(),
@@ -419,7 +450,9 @@ class NoteRepository {
     );
     await _fs.write(folder);
     await _indexNote(note);
-    await _enqueue(SyncEvent.opUpsert, note.id);
+    if (enqueueOutbox) {
+      await _enqueue(SyncEvent.opUpsert, note.id);
+    }
   }
 
   Future<void> _indexNote(Note note) async {
@@ -450,8 +483,13 @@ class NoteRepository {
     );
   }
 
-  Future<void> _enqueue(String operation, String noteId) {
-    return _db.enqueueSync(
+  Future<void> _enqueue(String operation, String noteId) async {
+    await _db.removeOutboxEntries(
+      entityType: SyncEvent.entityNote,
+      entityId: noteId,
+      operation: operation,
+    );
+    await _db.enqueueSync(
       entityType: SyncEvent.entityNote,
       entityId: noteId,
       operation: operation,

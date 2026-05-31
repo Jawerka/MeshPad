@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
@@ -66,13 +67,39 @@ class SettingsController {
     final count = await repo.reconcileFromFilesystem();
     await _ref.read(notesListProvider.notifier).reload();
     _ref.invalidate(outboxCountProvider);
-    _ref.invalidate(noteSyncStatusesProvider);
     return count;
   }
 
   Future<void> setApiBaseUrl(String url) async {
     await _ref.read(webApiSettingsStoreProvider).saveBaseUrl(url);
     _reloadWebProviders();
+  }
+
+  Future<void> setLocalDisplayName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final store = await _ref.read(deviceStoreProvider.future);
+    await store.updateDisplayName(trimmed);
+    _ref.invalidate(localIdentityProvider);
+    _ref.invalidate(syncEngineProvider);
+
+    final transport = _ref.read(syncTransportProvider);
+    if (transport is LanSyncTransport) {
+      await transport.refreshLocalDisplayName(trimmed);
+    }
+  }
+
+  Future<void> renameTrustedDevice({
+    required String peerId,
+    required String name,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final store = await _ref.read(deviceStoreProvider.future);
+    await store.updateTrustedDeviceName(peerId: peerId, name: trimmed);
+    _ref.invalidate(trustedDevicesProvider);
   }
 
   void _reloadWebProviders() {
@@ -91,7 +118,6 @@ class SettingsController {
     _ref.invalidate(searchResultsProvider);
     _ref.invalidate(outboxCountProvider);
     _ref.invalidate(pendingSyncNoteIdsProvider);
-    _ref.invalidate(noteSyncStatusesProvider);
     _ref.invalidate(outboxFailedCountProvider);
     _ref.invalidate(deviceStoreProvider);
     _ref.invalidate(localIdentityProvider);

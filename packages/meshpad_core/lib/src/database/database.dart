@@ -240,6 +240,21 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     );
   }
 
+  Future<void> removeOutboxEntries({
+    required String entityType,
+    required String entityId,
+    required String operation,
+  }) {
+    return (delete(syncOutbox)
+          ..where(
+            (t) =>
+                t.entityType.equals(entityType) &
+                t.entityId.equals(entityId) &
+                t.operation.equals(operation),
+          ))
+        .go();
+  }
+
   Future<int> pendingOutboxCount() async {
     final count = syncOutbox.id.count();
     final row = await (selectOnly(syncOutbox)..addColumns([count])).getSingle();

@@ -139,7 +139,14 @@ void main() {
     );
 
     final ok = await gateway.confirmPairing(
-      const PinPairingConfirm(peerId: 'peer-x', pin: '123456'),
+      const PinPairingConfirm(
+        peerId: 'peer-x',
+        pin: '123456',
+        initiatorPeerId: 'peer-y',
+        initiatorDisplayName: 'Y',
+        initiatorLanHost: '127.0.0.1',
+        initiatorHttpPort: 45839,
+      ),
     );
     expect(ok, isTrue);
 

@@ -1,7 +1,9 @@
 package com.meshpad.meshpad
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -16,6 +18,7 @@ class MainActivity : FlutterActivity() {
 
     private var pendingShare: Map<String, String?>? = null
     private var shareEventSink: EventChannel.EventSink? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -51,7 +54,29 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        acquireMulticastLock()
         handleIntent(intent)
+    }
+
+    override fun onDestroy() {
+        releaseMulticastLock()
+        super.onDestroy()
+    }
+
+    private fun acquireMulticastLock() {
+        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            ?: return
+        multicastLock = wifi.createMulticastLock("meshpad_lan").apply {
+            setReferenceCounted(true)
+            acquire()
+        }
+    }
+
+    private fun releaseMulticastLock() {
+        multicastLock?.let {
+            if (it.isHeld) it.release()
+        }
+        multicastLock = null
     }
 
     override fun onNewIntent(intent: Intent) {

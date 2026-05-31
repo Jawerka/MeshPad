@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,16 +6,29 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
 import 'lan_sync_codec.dart';
+import '../meshpad_log.dart';
+
+/// Default LAN HTTP port (stable across restarts when free).
+const meshpadPreferredLanHttpPort = 45838;
+
+typedef PairingConfirmedHandler = Future<void> Function(PinPairingConfirm confirm);
+typedef CascadeSyncHandler = Future<void> Function(String? excludePeerId);
 
 /// Local HTTP server exposing sync + pairing endpoints for LAN peers.
 class LanPeerServer {
   LanPeerServer({
     required Future<SyncEngine> Function() getEngine,
     this.validatePairingPin,
+    this.onPairingConfirmed,
+    this.onCascadeSyncRequested,
+    this.preferredPort = meshpadPreferredLanHttpPort,
   }) : _getEngine = getEngine;
 
   final Future<SyncEngine> Function() _getEngine;
   final bool Function(String pin)? validatePairingPin;
+  final PairingConfirmedHandler? onPairingConfirmed;
+  final CascadeSyncHandler? onCascadeSyncRequested;
+  final int preferredPort;
 
   PinPairingOffer? _pairingOffer;
   HttpServer? _server;
@@ -24,11 +38,21 @@ class LanPeerServer {
   Future<int> start({InternetAddress? address}) async {
     if (_server != null) return _server!.port;
 
-    _server = await HttpServer.bind(
-      address ?? InternetAddress.anyIPv4,
-      0,
-      shared: true,
-    );
+    final bindAddress = address ?? InternetAddress.anyIPv4;
+    try {
+      _server = await HttpServer.bind(
+        bindAddress,
+        preferredPort,
+        shared: false,
+      );
+      MeshPadLog.lan('HTTP server on preferred port $preferredPort');
+    } on SocketException {
+      _server = await HttpServer.bind(bindAddress, 0, shared: true);
+      MeshPadLog.lan(
+        'HTTP server on dynamic port ${_server!.port} '
+        '(preferred $preferredPort busy)',
+      );
+    }
     _server!.listen(_handleRequest);
     return _server!.port;
   }
@@ -114,6 +138,24 @@ class LanPeerServer {
       return _HttpResponse.json(offer.toJson());
     }
 
+    if (path == '/meshpad/p2p/sync/cascade' && method == 'POST') {
+      String? excludePeerId;
+      try {
+        final body = await utf8.decoder.bind(request).join();
+        if (body.trim().isNotEmpty) {
+          final json = jsonDecode(body) as Map<String, dynamic>;
+          excludePeerId = json['excludePeerId'] as String?;
+        }
+      } catch (_) {
+        excludePeerId = null;
+      }
+      final handler = onCascadeSyncRequested;
+      if (handler != null) {
+        unawaited(handler(excludePeerId));
+      }
+      return _HttpResponse.json({'status': 'accepted'});
+    }
+
     if (path == '/meshpad/p2p/pairing/confirm' && method == 'POST') {
       final body = await utf8.decoder.bind(request).join();
       final confirm = PinPairingConfirm.fromJson(
@@ -130,6 +172,13 @@ class LanPeerServer {
         return _HttpResponse(statusCode: 403, body: 'invalid pin');
       }
       _pairingOffer = null;
+      MeshPadLog.pairing(
+        'PIN confirmed for ${confirm.peerId} by '
+        '${confirm.initiatorPeerId ?? 'unknown initiator'}',
+      );
+      if (onPairingConfirmed != null) {
+        await onPairingConfirmed!(confirm);
+      }
       return _HttpResponse.json({'status': 'trusted'});
     }
 

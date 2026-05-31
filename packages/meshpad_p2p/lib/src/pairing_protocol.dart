@@ -35,20 +35,38 @@ class PinPairingConfirm {
   const PinPairingConfirm({
     required this.peerId,
     required this.pin,
+    this.initiatorPeerId,
+    this.initiatorDisplayName,
+    this.initiatorLanHost,
+    this.initiatorHttpPort,
   });
 
   final String peerId;
   final String pin;
+  final String? initiatorPeerId;
+  final String? initiatorDisplayName;
+  final String? initiatorLanHost;
+  final int? initiatorHttpPort;
 
   Map<String, dynamic> toJson() => {
         'peer_id': peerId,
         'pin': pin,
+        if (initiatorPeerId != null) 'initiator_peer_id': initiatorPeerId,
+        if (initiatorDisplayName != null)
+          'initiator_display_name': initiatorDisplayName,
+        if (initiatorLanHost != null) 'initiator_lan_host': initiatorLanHost,
+        if (initiatorHttpPort != null)
+          'initiator_http_port': initiatorHttpPort,
       };
 
   factory PinPairingConfirm.fromJson(Map<String, dynamic> json) {
     return PinPairingConfirm(
       peerId: json['peer_id'] as String,
       pin: json['pin'] as String,
+      initiatorPeerId: json['initiator_peer_id'] as String?,
+      initiatorDisplayName: json['initiator_display_name'] as String?,
+      initiatorLanHost: json['initiator_lan_host'] as String?,
+      initiatorHttpPort: json['initiator_http_port'] as int?,
     );
   }
 }

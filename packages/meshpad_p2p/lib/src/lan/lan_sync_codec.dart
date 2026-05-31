@@ -1,8 +1,15 @@
 import 'dart:convert';
 
+import 'package:mdns_dart/mdns_dart.dart';
+
 import 'package:meshpad_core/meshpad_core.dart';
 
-/// UDP announce payload for LAN discovery (interim until libp2p/mDNS).
+import 'lan_broadcast.dart';
+
+/// DNS-SD service type for MeshPad LAN sync (PLAN §5.1).
+const meshpadMdnsServiceType = '_meshpad._tcp';
+
+/// UDP announce payload for LAN discovery (fallback + legacy peers).
 class LanPeerAnnouncement {
   const LanPeerAnnouncement({
     required this.peerId,
@@ -48,6 +55,58 @@ class LanPeerAnnouncement {
   }
 
   List<int> toDatagram() => utf8.encode(jsonEncode(toJson()));
+
+  static LanPeerAnnouncement? tryParseMdnsService(ServiceEntry entry) {
+    if (!entry.isComplete) return null;
+
+    final fields = parseMdnsTxtFields(entry.infoFields);
+    final version = int.tryParse(fields['v'] ?? '') ?? 0;
+    if (version != protocolVersion) return null;
+
+    final peerId = fields['peer_id'];
+    if (peerId == null || entry.port == 0) return null;
+
+    final host = _preferredMdnsHost(entry);
+    if (host == null) return null;
+
+    return LanPeerAnnouncement(
+      peerId: peerId,
+      displayName: _decodeMdnsDisplayName(fields['display_name'] ?? entry.name),
+      host: host,
+      httpPort: entry.port,
+    );
+  }
+}
+
+String? _preferredMdnsHost(ServiceEntry entry) {
+  final addresses = entry.addrsV4;
+  if (addresses == null || addresses.isEmpty) {
+    return entry.primaryAddress?.address;
+  }
+  var best = addresses.first.address;
+  for (final address in addresses.skip(1)) {
+    best = preferredLanHost(best, address.address);
+  }
+  return best;
+}
+
+String _decodeMdnsDisplayName(String raw) {
+  if (raw.isEmpty) return 'MeshPad';
+  try {
+    return Uri.decodeComponent(raw.replaceAll('+', ' '));
+  } on Object {
+    return raw;
+  }
+}
+
+Map<String, String> parseMdnsTxtFields(List<String> fields) {
+  final map = <String, String>{};
+  for (final field in fields) {
+    final separator = field.indexOf('=');
+    if (separator <= 0) continue;
+    map[field.substring(0, separator)] = field.substring(separator + 1);
+  }
+  return map;
 }
 
 class LanPeerEndpoint {

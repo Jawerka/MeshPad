@@ -8,10 +8,17 @@ class OutboxProcessor {
 
   final int maxRetries;
 
-  Map<String, NoteSyncStatus> statusMap(List<SyncEvent> outbox) {
+  Map<String, NoteSyncStatus> statusMap(
+    List<SyncEvent> outbox, {
+    Map<String, String>? noteAuthors,
+    Set<String>? localAuthorLabels,
+  }) {
     final map = <String, NoteSyncStatus>{};
+    final localAuthors = localAuthorLabels ?? const {'', 'Это устройство'};
     for (final entry in outbox) {
       if (entry.entityType != SyncEvent.entityNote) continue;
+      final author = noteAuthors?[entry.entityId]?.trim() ?? '';
+      if (!localAuthors.contains(author)) continue;
       map[entry.entityId] = entry.retryCount >= maxRetries
           ? NoteSyncStatus.error
           : NoteSyncStatus.pending;

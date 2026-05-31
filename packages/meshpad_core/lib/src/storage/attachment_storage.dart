@@ -19,6 +19,11 @@ String? mimeFromFileName(String name) {
     '.pdf' => 'application/pdf',
     '.txt' => 'text/plain',
     '.md' => 'text/markdown',
+    '.mp4' => 'video/mp4',
+    '.webm' => 'video/webm',
+    '.mov' => 'video/quicktime',
+    '.mkv' => 'video/x-matroska',
+    '.avi' => 'video/x-msvideo',
     _ => null,
   };
 }

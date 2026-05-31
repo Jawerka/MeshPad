@@ -65,7 +65,8 @@ flowchart TB
 Headless-процесс `apps/meshpad_server`:
 
 - тот же `meshpad_core` + REST API на Shelf;
-- Web-клиент (Flutter web) ходит в API; P2P остаётся на сервере (позже).
+- Web-клиент (Flutter web) ходит в API;
+- LAN P2P sync с доверенными устройствами (`--p2p` на сервере).
 
 ### HTTP API (MVP)
 
@@ -89,7 +90,8 @@ Headless-процесс `apps/meshpad_server`:
 
 Desktop/Android используют `LanSyncTransport`:
 
-- UDP broadcast `:45837` — discovery пиров в LAN
+- UDP broadcast `:45837` — fallback discovery
+- mDNS `_meshpad._tcp` — primary LAN discovery (Bonjour)
 - HTTP `/meshpad/p2p/*` — каталог заметок, push/pull, PIN-pairing, вложения (`GET/PUT .../attachments/<name>`)
 - Адрес peer (`lan_host`, `lan_http_port`) сохраняется в `devices/trusted/` для sync без активного UDP
 - Дельта sync: `meta.json` + `note.md` + файлы вложений (проверка sha256/size)

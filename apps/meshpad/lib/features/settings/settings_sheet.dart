@@ -10,6 +10,7 @@ import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/services/update_checker.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../core/widgets/text_input_dialog.dart';
 import '../devices/devices_sheet.dart';
 
 class SettingsSheet extends ConsumerStatefulWidget {
@@ -200,35 +201,45 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     }
   }
 
+  Future<void> _editLocalDisplayName(String currentName) async {
+    if (_busy) return;
+
+    final nextName = await showTextInputDialog(
+      context,
+      title: 'Имя устройства',
+      initialValue: currentName,
+      labelText: 'Имя',
+      hintText: 'Видно другим устройствам в сети',
+      textCapitalization: TextCapitalization.sentences,
+    );
+
+    if (nextName == null || nextName.isEmpty || nextName == currentName) {
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(settingsControllerProvider).setLocalDisplayName(nextName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Имя: $nextName')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _saveApiUrl(String currentUrl) async {
     if (_busy) return;
 
-    final controller = TextEditingController(text: currentUrl);
-    final nextUrl = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('URL сервера MeshPad'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'http://127.0.0.1:8787',
-            labelText: 'Базовый URL API',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
+    final nextUrl = await showTextInputDialog(
+      context,
+      title: 'URL сервера MeshPad',
+      initialValue: currentUrl,
+      labelText: 'Базовый URL API',
+      hintText: 'http://127.0.0.1:8787',
     );
-    controller.dispose();
 
     if (nextUrl == null || nextUrl.isEmpty || nextUrl == currentUrl || !mounted) {
       return;
@@ -350,6 +361,26 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
               ),
             ),
           if (!isWeb) ...[
+            ref.watch(localIdentityProvider).when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (identity) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.badge_outlined),
+                    title: const Text('Имя устройства'),
+                    subtitle: Text(identity.displayName),
+                    trailing: _busy
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chevron_right),
+                    onTap: _busy
+                        ? null
+                        : () => _editLocalDisplayName(identity.displayName),
+                  ),
+                ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.devices),

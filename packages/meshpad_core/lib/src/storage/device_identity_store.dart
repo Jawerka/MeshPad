@@ -50,6 +50,26 @@ class DeviceIdentityStore {
     );
   }
 
+  Future<void> updateTrustedDeviceName({
+    required String peerId,
+    required String name,
+  }) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(
+      TrustedDeviceRecord(
+        peerId: record.peerId,
+        name: name,
+        icon: record.icon,
+        trustedAt: record.trustedAt,
+        lastSeenAt: record.lastSeenAt,
+        lanHost: record.lanHost,
+        lanHttpPort: record.lanHttpPort,
+      ),
+    );
+  }
+
   Future<void> _saveIdentity(LocalDeviceIdentity identity) async {
     final dir = Directory(_paths.devicesRoot);
     await dir.create(recursive: true);

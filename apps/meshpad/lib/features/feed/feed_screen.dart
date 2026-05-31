@@ -8,11 +8,15 @@ import 'package:meshpad_core/meshpad_core.dart';
 import '../../core/errors/user_messages.dart';
 import '../../core/models/notes_feed_state.dart';
 import '../../core/providers/notes_providers.dart';
+import '../../core/providers/sync_activity_provider.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/services/notes_service.dart';
+import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../platform/desktop_shell.dart';
 import '../devices/devices_sheet.dart';
 import '../settings/settings_sheet.dart';
+import 'composer_drop_target.dart';
 import 'note_bubble.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -29,24 +33,26 @@ class FeedScreen extends ConsumerWidget {
     }
 
     final notesAsync = ref.watch(notesListProvider);
-    final syncStatusesAsync = ref.watch(noteSyncStatusesProvider);
 
     return notesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(userFacingError(e))),
       data: (feed) {
-        final syncMap = syncStatusesAsync.valueOrNull ?? const {};
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _FeedHeader(mode: mode, count: feed.notes.length),
             Expanded(
               child: feed.notes.isEmpty
-                  ? _EmptyFeed(mode: mode)
+                  ? _EmptyFeed(mode: mode, onRefresh: () async {
+                      if (!ref.read(isWebClientProvider)) {
+                        await ref.read(syncControllerProvider).runSync();
+                      }
+                      await ref.read(notesListProvider.notifier).reload();
+                    })
                   : _PaginatedFeedList(
                       feed: feed,
                       mode: mode,
-                      syncMap: syncMap,
                     ),
             ),
             if (mode == FeedMode.feed) const _ComposerSection(),
@@ -61,12 +67,10 @@ class _PaginatedFeedList extends ConsumerStatefulWidget {
   const _PaginatedFeedList({
     required this.feed,
     required this.mode,
-    required this.syncMap,
   });
 
   final NotesFeedState feed;
   final FeedMode mode;
-  final Map<String, NoteSyncStatus> syncMap;
 
   @override
   ConsumerState<_PaginatedFeedList> createState() => _PaginatedFeedListState();
@@ -74,7 +78,6 @@ class _PaginatedFeedList extends ConsumerStatefulWidget {
 
 class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
   final _scrollController = ScrollController();
-  var _didInitialScroll = false;
 
   @override
   void initState() {
@@ -96,19 +99,20 @@ class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
         !widget.feed.isLoadingMore &&
         widget.feed.notes.length > oldWidget.feed.notes.length &&
         widget.feed.notes.last.id != oldWidget.feed.notes.last.id) {
-      _scrollToBottom();
+      _scrollToLatest();
     }
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients || widget.mode != FeedMode.feed) return;
-    if (_scrollController.position.pixels > 240) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent - position.pixels > 240) return;
 
     final feed = ref.read(notesListProvider).valueOrNull;
     if (feed == null || !feed.hasMoreOlder || feed.isLoadingMore) return;
 
-    final beforeExtent = _scrollController.position.maxScrollExtent;
-    final beforePixels = _scrollController.position.pixels;
+    final beforeExtent = position.maxScrollExtent;
+    final beforePixels = position.pixels;
 
     ref.read(notesListProvider.notifier).loadOlder().then((_) {
       if (!mounted) return;
@@ -129,61 +133,70 @@ class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
     });
   }
 
-  void _scrollToBottom() {
+  void _scrollToLatest() {
     if (widget.mode != FeedMode.feed) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      _didInitialScroll = true;
+      _scrollController.jumpTo(0);
     });
+  }
+
+  Future<void> _refreshFeed() async {
+    if (!ref.read(isWebClientProvider)) {
+      await ref.read(syncControllerProvider).runSync();
+    }
+    await ref.read(notesListProvider.notifier).reload();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_didInitialScroll && widget.feed.notes.isNotEmpty) {
-      _scrollToBottom();
-    }
-
     final notes = widget.feed.notes;
     final headerCount = widget.feed.isLoadingMore ? 1 : 0;
+    final compact = isCompactFeedLayout(context);
+    final bubbleMaxWidth = feedBubbleMaxWidth(context);
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      itemCount: notes.length + headerCount,
-      itemBuilder: (context, index) {
-        if (headerCount > 0 && index == 0) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+    return RefreshIndicator(
+      onRefresh: _refreshFeed,
+      child: ListView.builder(
+        controller: _scrollController,
+        reverse: true,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 16, compact ? 8 : 16, 8),
+        itemCount: notes.length + headerCount,
+        itemBuilder: (context, index) {
+          if (headerCount > 0 && index == notes.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
-            ),
+            );
+          }
+
+          final note = notes[notes.length - 1 - index];
+          return Padding(
+            padding: EdgeInsets.only(bottom: compact ? 8 : 12),
+            child: compact
+                ? NoteBubble(
+                    note: note,
+                    isTrash: widget.mode == FeedMode.trash,
+                  )
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+                      child: NoteBubble(
+                        note: note,
+                        isTrash: widget.mode == FeedMode.trash,
+                      ),
+                    ),
+                  ),
           );
-        }
-
-        final noteIndex = index - headerCount;
-        final note = notes[noteIndex];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: MeshPadColors.chatMaxWidth,
-              ),
-              child: NoteBubble(
-                note: note,
-                isTrash: widget.mode == FeedMode.trash,
-                syncStatus:
-                    widget.syncMap[note.id] ?? NoteSyncStatus.synced,
-              ),
-            ),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -218,33 +231,62 @@ class _SearchFeed extends ConsumerWidget {
                 );
               }
               return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: EdgeInsets.fromLTRB(
+                  isCompactFeedLayout(context) ? 8 : 16,
+                  8,
+                  isCompactFeedLayout(context) ? 8 : 16,
+                  16,
+                ),
                 itemCount: hits.length,
                 itemBuilder: (context, index) {
                   final hit = hits[index];
+                  final compact = isCompactFeedLayout(context);
+                  final bubble = NoteBubble(note: hit.note);
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: MeshPadColors.chatMaxWidth,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (hit.snippet.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6, left: 4),
-                                child: Text(
-                                  hit.snippet,
-                                  style: Theme.of(context).textTheme.labelSmall,
+                    padding: EdgeInsets.only(bottom: compact ? 8 : 12),
+                    child: compact
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hit.snippet.isNotEmpty)
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.only(bottom: 6, left: 4),
+                                  child: Text(
+                                    hit.snippet,
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall,
+                                  ),
                                 ),
+                              bubble,
+                            ],
+                          )
+                        : Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: feedBubbleMaxWidth(context),
                               ),
-                            NoteBubble(note: hit.note),
-                          ],
-                        ),
-                      ),
-                    ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (hit.snippet.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 6,
+                                        left: 4,
+                                      ),
+                                      child: Text(
+                                        hit.snippet,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall,
+                                      ),
+                                    ),
+                                  bubble,
+                                ],
+                              ),
+                            ),
+                          ),
                   );
                 },
               );
@@ -312,13 +354,15 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
     final isWeb = ref.watch(isWebClientProvider);
     final outboxAsync = ref.watch(outboxCountProvider);
     final outboxCount = outboxAsync.valueOrNull ?? 0;
+    final syncActivity = ref.watch(syncActivityProvider);
+    final compact = isCompactFeedLayout(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           height: MeshPadColors.headerHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
           decoration: const BoxDecoration(
             color: MeshPadColors.backgroundElevated,
             border: Border(bottom: BorderSide(color: MeshPadColors.border)),
@@ -342,27 +386,17 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
               ),
               const Spacer(),
               if (!isTrash) ...[
-                if (!isWeb && outboxCount > 0)
-                  Tooltip(
-                    message: 'В очереди синхронизации: $outboxCount',
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.sync,
-                            size: 16,
-                            color: MeshPadColors.textMuted,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$outboxCount',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
-                      ),
-                    ),
+                if (!isWeb && DesktopShell.isSupported)
+                  _HeaderSyncButton(
+                    activity: syncActivity,
+                    outboxCount: outboxCount,
+                    onPressed: () =>
+                        ref.read(syncControllerProvider).runSync(),
+                  )
+                else if (!isWeb && (syncActivity.active || outboxCount > 0))
+                  _SyncQueueIndicator(
+                    activity: syncActivity,
+                    outboxCount: outboxCount,
                   ),
                 IconButton(
                   icon: const Icon(Icons.search),
@@ -381,10 +415,19 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   tooltip: 'Настройки',
                   onPressed: () => SettingsSheet.show(context),
                 ),
+                if (compact)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Корзина',
+                    onPressed: () {
+                      ref.read(feedModeProvider.notifier).state = FeedMode.trash;
+                      ref.invalidate(notesListProvider);
+                    },
+                  ),
               ],
               if (!isTrash || widget.count > 0)
                 Text('${widget.count}', style: Theme.of(context).textTheme.labelSmall),
-              const SizedBox(width: 12),
+              SizedBox(width: compact ? 4 : 12),
             ],
           ),
         ),
@@ -426,22 +469,32 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
 }
 
 class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed({required this.mode});
+  const _EmptyFeed({required this.mode, required this.onRefresh});
 
   final FeedMode mode;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final text = mode == FeedMode.feed
         ? 'Нет заметок.\nНапишите первую в поле внизу.'
         : 'Корзина пуста.\nУдалённые заметки хранятся 7 дней.';
-    return Center(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: MeshPadColors.textMuted,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.sizeOf(context).height * 0.35),
+          Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeshPadColors.textMuted,
+                  ),
             ),
+          ),
+        ],
       ),
     );
   }
@@ -472,12 +525,17 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
       withData: kIsWeb,
     );
     if (result == null) return;
+    _addPendingFiles(result.files);
+  }
+
+  void _addPendingFiles(List<PlatformFile> incoming) {
     setState(() {
-      for (final file in result.files) {
+      for (final file in incoming) {
         if (kIsWeb && file.bytes == null) continue;
         if (!kIsWeb && file.path == null) continue;
         final duplicate = _pendingFiles.any(
-          (existing) => existing.name == file.name && existing.size == file.size,
+          (existing) =>
+              existing.name == file.name && existing.size == file.size,
         );
         if (!duplicate) _pendingFiles.add(file);
       }
@@ -529,107 +587,119 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: MeshPadColors.backgroundElevated,
-        border: Border(top: BorderSide(color: MeshPadColors.border)),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(maxWidth: MeshPadColors.composerMaxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_copyProgress != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        _copyProgress!.fileCount > 1
-                            ? 'Копирование ${_copyProgress!.fileName} '
-                                '(${_copyProgress!.fileIndex}/${_copyProgress!.fileCount})'
-                            : 'Копирование ${_copyProgress!.fileName}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: MeshPadColors.textMuted,
-                            ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      LinearProgressIndicator(
-                        value: _copyProgress!.isIndeterminate
-                            ? null
-                            : _copyProgress!.fraction,
-                        minHeight: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              if (_pendingFiles.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final file in _pendingFiles)
-                        _PendingAttachmentChip(
-                          name: file.name,
-                          onRemove: () =>
-                              setState(() => _pendingFiles.remove(file)),
-                        ),
-                    ],
-                  ),
-                ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    onPressed: _saving ? null : _pickAttachments,
-                    icon: const Icon(Icons.attach_file),
-                    tooltip: 'Прикрепить файл',
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _bodyController,
-                      decoration: const InputDecoration(
-                        hintText: 'Новая заметка…',
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                      ),
-                      minLines: 1,
-                      maxLines: 10,
-                      textInputAction: TextInputAction.newline,
-                      keyboardType: TextInputType.multiline,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(44, 44),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send_rounded, size: 20),
-                  ),
-                ],
-              ),
-            ],
-          ),
+    final compact = isCompactFeedLayout(context);
+    final composer = _buildComposer(context);
+    return ComposerDropTarget(
+      enabled: !_saving,
+      onFilesDropped: _addPendingFiles,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 12, compact ? 8 : 16, 16),
+        decoration: const BoxDecoration(
+          color: MeshPadColors.backgroundElevated,
+          border: Border(top: BorderSide(color: MeshPadColors.border)),
         ),
+        child: compact
+            ? composer
+            : Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: MeshPadColors.composerMaxWidth,
+                  ),
+                  child: composer,
+                ),
+              ),
       ),
+    );
+  }
+
+  Widget _buildComposer(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_copyProgress != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _copyProgress!.fileCount > 1
+                      ? 'Копирование ${_copyProgress!.fileName} '
+                          '(${_copyProgress!.fileIndex}/${_copyProgress!.fileCount})'
+                      : 'Копирование ${_copyProgress!.fileName}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeshPadColors.textMuted,
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                LinearProgressIndicator(
+                  value: _copyProgress!.isIndeterminate
+                      ? null
+                      : _copyProgress!.fraction,
+                  minHeight: 3,
+                ),
+              ],
+            ),
+          ),
+        if (_pendingFiles.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final file in _pendingFiles)
+                  _PendingAttachmentChip(
+                    name: file.name,
+                    onRemove: () => setState(() => _pendingFiles.remove(file)),
+                  ),
+              ],
+            ),
+          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            IconButton(
+              onPressed: _saving ? null : _pickAttachments,
+              icon: const Icon(Icons.attach_file),
+              tooltip: 'Прикрепить файл',
+            ),
+            Expanded(
+              child: TextField(
+                controller: _bodyController,
+                decoration: const InputDecoration(
+                  hintText: 'Новая заметка…',
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                ),
+                minLines: 1,
+                maxLines: 10,
+                textInputAction: TextInputAction.newline,
+                keyboardType: TextInputType.multiline,
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _saving ? null : _submit,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                padding: EdgeInsets.zero,
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded, size: 20),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -659,5 +729,127 @@ class _PendingAttachmentChip extends StatelessWidget {
 }
 
 String formatNoteDate(DateTime dt) {
-  return DateFormat('d MMM yyyy, HH:mm', 'ru').format(dt.toLocal());
+  return DateFormat('HH:mm dd.MM.yy', 'ru').format(dt.toLocal());
+}
+
+class _HeaderSyncButton extends StatelessWidget {
+  const _HeaderSyncButton({
+    required this.activity,
+    required this.outboxCount,
+    required this.onPressed,
+  });
+
+  final SyncActivity activity;
+  final int outboxCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activity.active;
+    final color = active
+        ? Theme.of(context).colorScheme.primary
+        : null;
+
+    return IconButton(
+      tooltip: active ? 'Синхронизация…' : 'Синхронизировать',
+      onPressed: active ? null : onPressed,
+      icon: Badge(
+        isLabelVisible: outboxCount > 0,
+        label: Text('$outboxCount'),
+        child: active
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: color,
+                ),
+              )
+            : Icon(Icons.sync, color: color),
+      ),
+    );
+  }
+}
+
+class _SyncQueueIndicator extends StatefulWidget {
+  const _SyncQueueIndicator({
+    required this.activity,
+    required this.outboxCount,
+  });
+
+  final SyncActivity activity;
+  final int outboxCount;
+
+  @override
+  State<_SyncQueueIndicator> createState() => _SyncQueueIndicatorState();
+}
+
+class _SyncQueueIndicatorState extends State<_SyncQueueIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin;
+
+  @override
+  void initState() {
+    super.initState();
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _SyncQueueIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.activity.active && !_spin.isAnimating) {
+      _spin.repeat();
+    } else if (!widget.activity.active) {
+      _spin.stop();
+      _spin.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.activity.active;
+    final color = active
+        ? Theme.of(context).colorScheme.primary
+        : MeshPadColors.textMuted;
+    if (active && !_spin.isAnimating) {
+      _spin.repeat();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RotationTransition(
+            turns: active ? _spin : const AlwaysStoppedAnimation(0),
+            child: Icon(Icons.sync, size: 16, color: color),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${widget.outboxCount}',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          if (active && widget.activity.progress != null) ...[
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 48,
+              child: LinearProgressIndicator(
+                value: widget.activity.progress,
+                minHeight: 3,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

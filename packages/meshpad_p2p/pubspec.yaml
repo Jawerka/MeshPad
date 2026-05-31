@@ -8,6 +8,7 @@ environment:
   sdk: ^3.5.0
 
 dependencies:
+  mdns_dart: ^2.2.1
   meshpad_core:
     path: ../meshpad_core
   meta: ^1.15.0

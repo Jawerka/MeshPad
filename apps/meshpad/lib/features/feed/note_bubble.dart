@@ -3,7 +3,10 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 
+import '../../core/errors/user_messages.dart';
+import '../../core/openers/attachment_opener.dart';
 import '../../core/providers/notes_providers.dart';
+import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import 'attachment_grid.dart';
 import 'feed_screen.dart';
@@ -13,12 +16,10 @@ class NoteBubble extends ConsumerStatefulWidget {
     super.key,
     required this.note,
     this.isTrash = false,
-    this.syncStatus = NoteSyncStatus.synced,
   });
 
   final Note note;
   final bool isTrash;
-  final NoteSyncStatus syncStatus;
 
   @override
   ConsumerState<NoteBubble> createState() => _NoteBubbleState();
@@ -67,10 +68,52 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     final note = widget.note;
     final notesService = ref.watch(notesServiceProvider).valueOrNull;
     final dataDir = ref.watch(dataDirProvider).valueOrNull;
+    final compact = isCompactFeedLayout(context);
+    final metaStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: MeshPadColors.textMuted,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+    final attachmentUriBuilder = notesService == null
+        ? null
+        : (AttachmentMeta attachment) =>
+            notesService.attachmentUri(note.id, attachment.name);
+
+    Future<void> openLink(String href) async {
+      try {
+        await openMarkdownLink(
+          href: href,
+          note: note,
+          dataDir: dataDir,
+          attachmentUriBuilder: attachmentUriBuilder,
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(userFacingError(e))),
+        );
+      }
+    }
+
+    Future<void> openAttachment(AttachmentMeta attachment) async {
+      try {
+        await openNoteAttachment(
+          note: note,
+          attachment: attachment,
+          dataDir: dataDir,
+          remoteUri: attachmentUriBuilder?.call(attachment),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(userFacingError(e))),
+        );
+      }
+    }
 
     return Card(
+      margin: compact ? EdgeInsets.zero : null,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -94,12 +137,22 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                           textInputAction: TextInputAction.newline,
                         )
                       : MarkdownBody(
-                          data: note.markdown.isEmpty
-                              ? '_Пустая заметка_'
-                              : note.markdown,
+                          data: linkifyBareUrls(
+                            note.markdown.isEmpty
+                                ? '_Пустая заметка_'
+                                : note.markdown,
+                          ),
+                          onTapLink: (text, href, title) {
+                            if (href == null) return;
+                            openLink(href);
+                          },
                           styleSheet: MarkdownStyleSheet(
                             p: Theme.of(context).textTheme.bodyMedium,
                             h1: Theme.of(context).textTheme.titleMedium,
+                            a: const TextStyle(
+                              color: MeshPadColors.primary,
+                              decoration: TextDecoration.underline,
+                            ),
                             code: const TextStyle(
                               fontFamily: 'Consolas',
                               backgroundColor: MeshPadColors.backgroundElevated,
@@ -149,50 +202,13 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
             AttachmentGrid(
               note: note,
               dataDir: dataDir,
-              attachmentUriBuilder: notesService == null
-                  ? null
-                  : (attachment) =>
-                      notesService.attachmentUri(note.id, attachment.name),
+              attachmentUriBuilder: attachmentUriBuilder,
+              onOpenAttachment: openAttachment,
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(note.author, style: Theme.of(context).textTheme.labelSmall),
-                const SizedBox(width: 8),
-                Text('·', style: Theme.of(context).textTheme.labelSmall),
-                const SizedBox(width: 8),
-                Text(
-                  formatNoteDate(note.updatedAt),
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                if (widget.syncStatus != NoteSyncStatus.synced) ...[
-                  const SizedBox(width: 8),
-                  Icon(
-                    switch (widget.syncStatus) {
-                      NoteSyncStatus.pending => Icons.cloud_upload_outlined,
-                      NoteSyncStatus.error => Icons.cloud_off_outlined,
-                      NoteSyncStatus.synced => Icons.check,
-                    },
-                    size: 14,
-                    color: widget.syncStatus == NoteSyncStatus.error
-                        ? MeshPadColors.danger
-                        : MeshPadColors.textMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    switch (widget.syncStatus) {
-                      NoteSyncStatus.pending => 'в очереди',
-                      NoteSyncStatus.error => 'ошибка sync',
-                      NoteSyncStatus.synced => '',
-                    },
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: widget.syncStatus == NoteSyncStatus.error
-                              ? MeshPadColors.danger
-                              : null,
-                        ),
-                  ),
-                ],
-              ],
+            Text(
+              formatNoteDate(note.updatedAt),
+              style: metaStyle,
             ),
             if (_editing) ...[
               const SizedBox(height: 10),

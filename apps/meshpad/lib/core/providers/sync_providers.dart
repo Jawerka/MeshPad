@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import '../platform/default_device_display_name.dart';
+import '../sync/local_author_labels.dart';
 import 'notes_providers.dart';
+import 'sync_activity_provider.dart';
 
 final _outboxProcessor = OutboxProcessor();
 
@@ -21,7 +24,7 @@ final localIdentityProvider = FutureProvider<LocalDeviceIdentity>((ref) async {
     throw UnsupportedError('Device identity unavailable on Web');
   }
   final store = await ref.watch(deviceStoreProvider.future);
-  return store.loadOrCreateIdentity(defaultDisplayName: 'Это устройство');
+  return store.loadOrCreateIdentity(defaultDisplayName: defaultDeviceDisplayName());
 });
 
 final trustedDevicesProvider = FutureProvider<List<Device>>((ref) async {
@@ -38,6 +41,12 @@ final syncEngineProvider = FutureProvider<SyncEngine>((ref) async {
   final identity = await ref.watch(localIdentityProvider.future);
   return SyncEngine(notes: repo, identity: identity);
 });
+
+final lanSyncCoordinatorProvider = FutureProvider<LanSyncCoordinator>((ref) async {
+  final store = await ref.watch(deviceStoreProvider.future);
+  return LanSyncCoordinator(deviceStore: store);
+});
+
 final syncTransportProvider = Provider<SyncTransport>((ref) {
   if (ref.watch(isWebClientProvider)) {
     final transport = FakeSyncTransport();
@@ -48,17 +57,30 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
   final transport = LanSyncTransport(
     getEngine: () => ref.read(syncEngineProvider.future),
     getIdentity: () => ref.read(localIdentityProvider.future),
+    onRemoteTrusted: (confirm) async {
+      final initiatorId = confirm.initiatorPeerId;
+      final host = confirm.initiatorLanHost;
+      final port = confirm.initiatorHttpPort;
+      if (initiatorId == null || host == null || port == null) return;
+
+      final store = await ref.read(deviceStoreProvider.future);
+      await store.trustDevice(
+        peerId: initiatorId,
+        name: confirm.initiatorDisplayName ?? 'Устройство',
+        lanHost: host,
+        lanHttpPort: port,
+      );
+      ref.invalidate(trustedDevicesProvider);
+    },
+    onCascadeSync: (excludePeerId) async {
+      await ref.read(syncControllerProvider).runSync(
+            excludePeerId: excludePeerId,
+            propagateCascade: false,
+          );
+    },
   );
   ref.onDispose(transport.dispose);
   return transport;
-});
-
-final noteSyncStatusesProvider =
-    FutureProvider<Map<String, NoteSyncStatus>>((ref) async {
-  if (ref.watch(isWebClientProvider)) return {};
-  ref.watch(notesListProvider);
-  final repo = await ref.watch(noteRepositoryProvider.future);
-  return _outboxProcessor.statusMap(await repo.listOutbox());
 });
 
 final outboxFailedCountProvider = FutureProvider<int>((ref) async {
@@ -86,104 +108,87 @@ class SyncController {
 
   final Ref _ref;
 
-  Future<SyncRunResult> runSync() async {
+  Future<SyncRunResult> runSync({
+    String? excludePeerId,
+    bool propagateCascade = true,
+  }) async {
     if (_ref.read(isWebClientProvider)) {
       return const SyncRunResult(
         SyncRunStatus.noPeers,
         message: 'Синхронизация недоступна в Web-клиенте',
       );
     }
-    final trusted = await _ref.read(trustedDevicesProvider.future);
-    if (trusted.isEmpty) {
-      return const SyncRunResult(
-        SyncRunStatus.noPeers,
-        message: 'Нет доверенных устройств',
-      );
-    }
 
-    final repo = await _ref.read(noteRepositoryProvider.future);
+    final activity = _ref.read(syncActivityProvider.notifier);
+    final transferReporter = _ref.read(syncTransferReporterProvider);
+    lanSyncTransferProgress.onProgress = transferReporter.onProgress;
 
     try {
+      final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
       final transport = _ref.read(syncTransportProvider);
-      await transport.start();
-
-      var total = 0;
-      for (final peer in trusted) {
-        if (transport is LanSyncTransport) {
-          rememberPeerEndpoint(transport, peer);
-        }
-
-        final completer = Completer<SyncTransportEvent>();
-        late final StreamSubscription<SyncTransportEvent> sub;
-        sub = transport.events.listen((event) {
-          if (event is SyncCompleted || event is SyncFailed) {
-            if (!completer.isCompleted) completer.complete(event);
-          }
-        });
-
-        await transport.requestSync(peerId: peer.peerId);
-        final event = await completer.future.timeout(
-          const Duration(seconds: 120),
-          onTimeout: () => SyncFailed(message: 'Таймаут синхронизации'),
+      if (transport is! LanSyncTransport) {
+        return const SyncRunResult(
+          SyncRunStatus.failed,
+          message: 'LAN transport недоступен',
         );
-        await sub.cancel();
-
-        if (event is SyncFailed) {
-          throw SyncTransportException(event.message);
-        }
-        if (event is SyncCompleted) total += event.noteCount;
-
-        final store = await _ref.read(deviceStoreProvider.future);
-        await store.markPeerSeen(peer.peerId);
-        if (transport is LanSyncTransport) {
-          final endpoint = transport.endpointFor(peer.peerId);
-          if (endpoint != null) {
-            await store.updateLanEndpoint(
-              peerId: peer.peerId,
-              lanHost: endpoint.host,
-              lanHttpPort: endpoint.httpPort,
-            );
-          }
-        }
       }
 
-      _invalidateSyncState();
-      return SyncRunResult(SyncRunStatus.completed, noteCount: total);
-    } catch (e) {
-      await _outboxProcessor.recordSyncFailure(repo);
-      _invalidateSyncState();
-      final message = e is MeshPadException
-          ? e.message
-          : meshPadExceptionUserMessage(e);
-      return SyncRunResult(
-        SyncRunStatus.failed,
-        message: message,
+      final trusted = await _ref.read(trustedDevicesProvider.future);
+      final peers = excludePeerId == null
+          ? trusted
+          : trusted.where((p) => p.peerId != excludePeerId).toList();
+      if (peers.isEmpty) {
+        return const SyncRunResult(
+          SyncRunStatus.noPeers,
+          message: 'Нет доверенных устройств',
+        );
+      }
+
+      activity.begin(totalPeers: peers.length);
+      final identity = await _ref.read(localIdentityProvider.future);
+      final repo = await _ref.read(noteRepositoryProvider.future);
+      await repo.purgeMisfiledRemoteOutbox(
+        localAuthorLabels: localAuthorLabels(identity.displayName),
       );
+
+      final result = await coordinator.syncTrustedPeers(
+        transport: transport,
+        repository: repo,
+        trusted: trusted,
+        excludePeerId: excludePeerId,
+        localPeerId: identity.peerId,
+        propagateCascade: propagateCascade,
+        onPeerProgress: ({required peer, required completed, required total}) {
+          activity.setPeer(
+            label: 'Синхронизация с ${peer.name}',
+            completedPeers: completed,
+            totalPeers: total,
+          );
+        },
+      );
+
+      _invalidateSyncState();
+
+      return SyncRunResult(
+        switch (result.status) {
+          LanSyncRunStatus.noPeers => SyncRunStatus.noPeers,
+          LanSyncRunStatus.completed => SyncRunStatus.completed,
+          LanSyncRunStatus.failed => SyncRunStatus.failed,
+        },
+        noteCount: result.noteCount,
+        message: result.message,
+      );
+    } finally {
+      lanSyncTransferProgress.onProgress = null;
+      activity.finish();
     }
   }
 
   void _invalidateSyncState() {
     _ref.invalidate(outboxCountProvider);
     _ref.invalidate(pendingSyncNoteIdsProvider);
-    _ref.invalidate(noteSyncStatusesProvider);
     _ref.invalidate(outboxFailedCountProvider);
     _ref.invalidate(notesListProvider);
     _ref.invalidate(trustedDevicesProvider);
-  }
-}
-
-void rememberPeerEndpoint(LanSyncTransport transport, Device peer) {
-  final live = transport.endpointFor(peer.peerId);
-  if (live != null) return;
-
-  if (peer.hasLanEndpoint) {
-    transport.rememberEndpoint(
-      LanPeerEndpoint(
-        peerId: peer.peerId,
-        displayName: peer.name,
-        host: peer.lanHost!,
-        httpPort: peer.lanHttpPort!,
-      ),
-    );
   }
 }

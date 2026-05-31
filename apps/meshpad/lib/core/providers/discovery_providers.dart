@@ -54,17 +54,10 @@ class DiscoveryService {
           );
 
       if (transport is! LanSyncTransport) return;
-      final endpoint = transport.endpointFor(event.peerId);
-      if (endpoint == null) return;
-
-      final trusted = await _ref.read(trustedDevicesProvider.future);
-      if (!trusted.any((d) => d.peerId == event.peerId)) return;
-
-      final store = await _ref.read(deviceStoreProvider.future);
-      await store.updateLanEndpoint(
+      final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
+      await coordinator.rememberDiscoveredTrustedEndpoint(
+        transport: transport,
         peerId: event.peerId,
-        lanHost: endpoint.host,
-        lanHttpPort: endpoint.httpPort,
       );
     });
 

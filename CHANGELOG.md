@@ -15,5 +15,5 @@
 - **Sprint 4 (partial):** Device identity, SyncEngine, FakeSyncHub, LAN HTTP/UDP sync transport with PIN pairing over LAN.
 - **Sprint 5 (partial):** Windows/Linux system tray, settings sheet, customizable data directory, auto-sync loop, rebuild index, Android Share-to, WorkManager background maintenance, headless HTTP server (`apps/meshpad_server`), Web client via `meshpad_api_client`.
 - **Sprint 6 (partial):** Manual update check in settings, LAN discovery stub UI, lazy paginated feed, MeshPadException and sync error messages, PIN pairing protocol models, update download link, attachment copy progress UI.
-- **Sprint 4 (continued):** `LanSyncTransport` — LAN HTTP sync + UDP discovery + PIN pairing; синхронизация вложений по LAN.
+- **Sprint 4 (continued):** mDNS discovery (`_meshpad._tcp`) + UDP fallback; LAN sync with attachments; headless server LAN P2P (`--p2p`).
 - **Sprint 5 (continued):** Web-клиент — загрузка вложений через `PUT /api/notes/<id>/attachments/<name>`.

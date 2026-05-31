@@ -24,6 +24,7 @@ class SyncCompleted extends SyncTransportEvent {
 }
 
 class SyncFailed extends SyncTransportEvent {
-  SyncFailed({required this.message});
+  SyncFailed({this.peerId, required this.message});
+  final String? peerId;
   final String message;
 }

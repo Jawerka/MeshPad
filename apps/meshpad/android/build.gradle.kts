@@ -1,7 +1,17 @@
+import com.android.build.gradle.BaseExtension
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+subprojects {
+    afterEvaluate {
+        extensions.findByType(BaseExtension::class.java)?.apply {
+            compileSdkVersion(36)
+        }
     }
 }
 

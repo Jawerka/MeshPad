@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'core/storage/app_settings_store.dart';
 import 'core/theme/meshpad_theme.dart';
@@ -61,9 +66,27 @@ class _MeshPadAppState extends ConsumerState<MeshPadApp>
 
 Future<void> bootstrapMeshPadApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isAndroid) {
+    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
+  }
   await initDesktopShell();
   await BackgroundSyncRegistrar.initialize();
-  final settings = await AppSettingsStore().loadSettings();
+  final settingsStore = AppSettingsStore();
+  final settings = await settingsStore.loadSettings();
+  final dataDir = p.normalize(
+    settings.dataDir ?? await settingsStore.defaultDataDir(),
+  );
+  MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
   await BackgroundSyncRegistrar.applySettings(settings);
   await initializeDateFormatting('ru');
 }

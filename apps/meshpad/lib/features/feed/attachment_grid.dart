@@ -12,12 +12,14 @@ class AttachmentGrid extends StatelessWidget {
     this.dataDir,
     this.attachmentUriBuilder,
     this.onTapImage,
+    this.onOpenAttachment,
   });
 
   final Note note;
   final String? dataDir;
   final Uri? Function(AttachmentMeta attachment)? attachmentUriBuilder;
   final void Function(int index, List<AttachmentMeta> images)? onTapImage;
+  final Future<void> Function(AttachmentMeta attachment)? onOpenAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +64,9 @@ class AttachmentGrid extends StatelessWidget {
             (file) => _FileChip(
               name: file.name,
               size: file.size,
+              onTap: onOpenAttachment == null
+                  ? null
+                  : () => onOpenAttachment!(file),
             ),
           ),
         ],
@@ -137,28 +142,53 @@ class _ImageTile extends StatelessWidget {
 }
 
 class _FileChip extends StatelessWidget {
-  const _FileChip({required this.name, required this.size});
+  const _FileChip({
+    required this.name,
+    required this.size,
+    this.onTap,
+  });
 
   final String name;
   final int size;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final label = '$name · ${_formatSize(size)}';
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: onTap == null ? null : MeshPadColors.primary,
+          decoration:
+              onTap == null ? null : TextDecoration.underline,
+        );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.attach_file, size: 16, color: MeshPadColors.textMuted),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              '$name · ${_formatSize(size)}',
-              style: Theme.of(context).textTheme.labelSmall,
-              overflow: TextOverflow.ellipsis,
-            ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.attach_file,
+                size: 16,
+                color: onTap == null
+                    ? MeshPadColors.textMuted
+                    : MeshPadColors.primary,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: style,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

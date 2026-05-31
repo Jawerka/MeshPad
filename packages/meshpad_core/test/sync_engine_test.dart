@@ -91,6 +91,14 @@ void main() {
 
     expect(await repoA.pendingOutboxCount(), 0);
   });
+
+  test('remote merge does not enqueue outbox', () async {
+    final note = await repoA.createNote(markdown: 'from A');
+    await syncEngines(engineA, engineB);
+
+    expect(await repoB.pendingOutboxCount(), 0);
+    expect((await repoB.getNote(note.id))?.markdown, 'from A');
+  });
 }
 
 extension on NoteMeta {

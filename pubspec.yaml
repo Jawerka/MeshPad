@@ -39,3 +39,7 @@ melos:
     check:
       run: melos run analyze && melos run test && melos run flutter:test
       description: Local CI — analyze + all tests.
+
+    build:android:
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1
+      description: Release APK build; copies meshpad.apk to the phone sync folder.

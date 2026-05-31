@@ -5,6 +5,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
 import 'lan_sync_codec.dart';
+import 'lan_sync_transfer_progress.dart';
 
 /// HTTP client for [LanPeerServer] sync endpoints.
 class HttpRemoteSyncGateway implements RemoteSyncGateway {
@@ -92,6 +93,24 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     }
   }
 
+  Future<bool> checkHealth() async {
+    try {
+      await _get('/meshpad/p2p/health');
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> requestCascadeSync({String? excludePeerId}) async {
+    await _post(
+      '/meshpad/p2p/sync/cascade',
+      {
+        if (excludePeerId != null) 'excludePeerId': excludePeerId,
+      },
+    );
+  }
+
   Future<String> _get(String path) async {
     final client = HttpClient();
     try {
@@ -130,7 +149,19 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       final request = await client.putUrl(_endpoint.uriFor(path));
       request.headers.contentType = ContentType('application', 'octet-stream');
       request.contentLength = bytes.length;
-      request.add(bytes);
+      final fileName = path.split('/').last;
+      const chunkSize = 64 * 1024;
+      var sent = 0;
+      while (sent < bytes.length) {
+        final end = (sent + chunkSize > bytes.length) ? bytes.length : sent + chunkSize;
+        request.add(bytes.sublist(sent, end));
+        sent = end;
+        lanSyncTransferProgress.report(
+          fileName: fileName,
+          transferred: sent,
+          total: bytes.length,
+        );
+      }
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await utf8.decoder.bind(response).join();
@@ -151,10 +182,20 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
         final body = await utf8.decoder.bind(response).join();
         throw HttpRemoteSyncException(response.statusCode, body);
       }
-      return await response.fold<List<int>>(
-        <int>[],
-        (previous, element) => previous..addAll(element),
-      );
+      final total = response.contentLength;
+      final fileName = path.split('/').last;
+      final buffer = <int>[];
+      await for (final chunk in response) {
+        buffer.addAll(chunk);
+        if (total > 0) {
+          lanSyncTransferProgress.report(
+            fileName: fileName,
+            transferred: buffer.length,
+            total: total,
+          );
+        }
+      }
+      return buffer;
     } finally {
       client.close(force: true);
     }

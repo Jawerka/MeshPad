@@ -8,7 +8,7 @@ import '../services/notes_service.dart';
 import '../storage/app_settings_store.dart';
 import '../storage/web_api_settings_store.dart';
 
-const _defaultAuthor = 'Это устройство';
+const _defaultAuthor = '';
 
 final isWebClientProvider = Provider<bool>((ref) => kIsWeb);
 

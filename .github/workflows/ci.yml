@@ -38,13 +38,64 @@ jobs:
       - name: Test
         run: melos run test
 
-  rust-sidecar:
+  build-linux:
+    name: Linux x64 compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
 
-      - name: Cargo check (libp2p sidecar stub)
-        run: cargo check --manifest-path native/meshpad_p2p_native/Cargo.toml
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - name: Install melos
+        run: dart pub global activate melos
+
+      - name: Add pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Codegen
+        run: cd packages/meshpad_core && dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Linux release
+        run: flutter build linux --release
+        working-directory: apps/meshpad
+
+  build-windows:
+    name: Windows x64 compile
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install melos
+        run: dart pub global activate melos
+
+      - name: Add pub cache bin to PATH
+        run: echo "$env:USERPROFILE\.pub-cache\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Codegen
+        run: cd packages/meshpad_core; dart run build_runner build --delete-conflicting-outputs
+        shell: pwsh
+
+      - name: Build Windows release
+        run: flutter build windows --release
+        working-directory: apps/meshpad

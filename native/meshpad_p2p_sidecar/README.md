@@ -1,4 +1,6 @@
-# MeshPad libp2p sidecar (Phase B.2)
+# MeshPad libp2p sidecar (archived)
+
+> **Archived** — not used in production (ADR 0003). See [docs/LIBP2P.md](../../docs/LIBP2P.md).
 
 Localhost HTTP bridge between Flutter and the Rust libp2p backend.
 
@@ -22,7 +24,10 @@ cd ../meshpad_p2p_native && cargo run --release
 | GET | `/health` | — |
 | POST | `/v1/start` | `{ "peer_id", "display_name" }` — starts mDNS browse-only |
 | POST | `/v1/stop` | `{}` |
-| POST | `/v1/sync` | `{ "peer_id"? }` |
+| POST | `/v1/sync` | `{ "peer_id"?, "remote_wire_base"? }` |
+| GET | `/v1/wire/catalog` | `[]` — catalog heads stub ([SYNC_WIRE.md](../../docs/SYNC_WIRE.md)) |
+| POST | `/v1/wire/push` | `{ "peer_id"?, "snapshot" }` |
+| POST | `/v1/wire/pull` | `{ "peer_id"?, "note_ids": [] }` |
 | GET | `/v1/events` | SSE (`peer_discovered`, `sync_completed`, `sync_failed`) |
 
 ### SSE `peer_discovered`
@@ -34,9 +39,12 @@ cd ../meshpad_p2p_native && cargo run --release
   "display_name": "...",
   "lan_host": "192.168.1.10",
   "http_port": 45838,
-  "tls_port": 45840
+  "tls_port": 45840,
+  "wire_base": "http://192.168.1.10:45839/"
 }
 ```
+
+`POST /v1/sync` body may include `remote_wire_base` to import wire catalog from another sidecar (see [SYNC_WIRE.md](../../docs/SYNC_WIRE.md)).
 
 Dart client: `HttpLibp2pNativeApi` in `packages/meshpad_p2p`.
 

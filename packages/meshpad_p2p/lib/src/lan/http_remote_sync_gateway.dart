@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
 import 'lan_sync_auth.dart';
+import 'lan_catalog_body.dart';
 import 'lan_sync_codec.dart';
 import 'lan_sync_transfer_progress.dart';
+import 'lan_sync_wire_bytes.dart';
 import 'lan_tls_identity.dart';
 
 /// HTTP client for [LanPeerServer] sync endpoints.
@@ -17,21 +20,49 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     this.callerPeerId,
     this.authToken,
     this.tlsCertSha256,
+    this.signingPrivateKey,
   }) : _endpoint = endpoint;
 
   final LanPeerEndpoint _endpoint;
   final String? callerPeerId;
   final String? authToken;
   final String? tlsCertSha256;
+  final Uint8List? signingPrivateKey;
 
   bool get _useTlsForSync =>
       tlsCertSha256 != null && _endpoint.tlsPort != null;
 
+  bool get _encryptPayload =>
+      authToken != null &&
+      authToken!.isNotEmpty &&
+      callerPeerId != null &&
+      callerPeerId!.isNotEmpty;
+
+  Future<List<int>> _maybeDecryptBytes(List<int> bytes) async {
+    if (!_encryptPayload) return bytes;
+    final String text;
+    try {
+      text = utf8.decode(bytes);
+    } on FormatException {
+      return bytes;
+    }
+    if (!bodyLooksEncrypted(text)) return bytes;
+    final clear = await decryptJsonString(
+      body: text,
+      authToken: authToken!,
+      localPeerId: callerPeerId!,
+      remotePeerId: _endpoint.peerId,
+    );
+    return utf8.encode(clear);
+  }
+
   @override
   Future<List<NoteHead>> fetchCatalog() async {
-    final body = await _get('/meshpad/p2p/catalog');
-    final decoded = jsonDecode(body) as List<dynamic>;
-    return noteHeadsFromJsonList(decoded);
+    final bytes = await _getBytes(
+      '/meshpad/p2p/catalog',
+      acceptGzip: !_encryptPayload,
+    );
+    return decodeLanCatalogBody(await _maybeDecryptBytes(bytes));
   }
 
   @override
@@ -61,7 +92,10 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
   Future<List<int>?> fetchAttachment(String noteId, String fileName) async {
     final encodedName = Uri.encodeComponent(fileName);
     try {
-      return await _getBytes('/meshpad/p2p/notes/$noteId/attachments/$encodedName');
+      return await _getBytes(
+        '/meshpad/p2p/notes/$noteId/attachments/$encodedName',
+        decryptPayload: false,
+      );
     } on HttpRemoteSyncException catch (e) {
       if (e.statusCode == 404) return null;
       rethrow;
@@ -134,7 +168,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = _syncClient();
     try {
       final request = await client.putUrl(_uri(path, secure: _useTlsForSync));
-      _applySyncAuthHeaders(request);
+      await _applySyncAuthHeaders(request, method: 'PUT', path: path);
       request.headers.set(meshpadUploadOffsetHeader, '$offset');
       request.headers.set(meshpadUploadTotalHeader, '$total');
       request.headers.set(meshpadUploadSha256Header, sha256);
@@ -259,35 +293,45 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
 
   HttpClient _plainClient() => HttpClient();
 
-  Future<String> _get(String path, {bool? secure}) async {
-    final useTls = secure ?? _useTlsForSync;
-    final client = useTls ? _syncClient() : _plainClient();
-    try {
-      final request = await client.getUrl(_uri(path, secure: useTls));
-      _applySyncAuthHeaders(request);
-      final response = await request.close();
-      final body = await utf8.decoder.bind(response).join();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpRemoteSyncException(response.statusCode, body);
-      }
-      return body;
-    } finally {
-      client.close(force: true);
-    }
+  Future<String> _get(String path, {bool? secure, bool acceptGzip = false}) async {
+    final bytes = await _getBytes(path, secure: secure, acceptGzip: acceptGzip);
+    return utf8.decode(await _maybeDecryptBytes(bytes));
   }
 
   Future<String> _putJson(String path, Map<String, dynamic> payload) async {
     final client = _syncClient();
     try {
       final request = await client.putUrl(_uri(path, secure: _useTlsForSync));
-      _applySyncAuthHeaders(request);
-      request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(payload));
+      await _applySyncAuthHeaders(request, method: 'PUT', path: path);
+      final json = jsonEncode(payload);
+      if (_encryptPayload) {
+        request.headers.contentType = ContentType.parse(encryptedPayloadContentType());
+        request.write(
+          await encryptJsonString(
+            json: json,
+            authToken: authToken!,
+            localPeerId: callerPeerId!,
+            remotePeerId: _endpoint.peerId,
+          ),
+        );
+      } else {
+        request.headers.contentType = ContentType.json;
+        request.write(json);
+      }
       final response = await request.close();
-      final body = await utf8.decoder.bind(response).join();
+      var body = await utf8.decoder.bind(response).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpRemoteSyncException(response.statusCode, body);
       }
+      if (_encryptPayload && bodyLooksEncrypted(body)) {
+        body = await decryptJsonString(
+          body: body,
+          authToken: authToken!,
+          localPeerId: callerPeerId!,
+          remotePeerId: _endpoint.peerId,
+        );
+      }
+      LanSyncWireBytes.add(body.length);
       return body;
     } finally {
       client.close(force: true);
@@ -298,7 +342,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final client = _syncClient();
     try {
       final request = await client.putUrl(_uri(path, secure: _useTlsForSync));
-      _applySyncAuthHeaders(request);
+      await _applySyncAuthHeaders(request, method: 'PUT', path: path);
       request.headers.contentType = ContentType('application', 'octet-stream');
       request.contentLength = bytes.length;
       final fileName = path.split('/').last;
@@ -321,16 +365,26 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
         throw HttpRemoteSyncException(response.statusCode, body);
       }
       await response.drain();
+      LanSyncWireBytes.add(bytes.length);
     } finally {
       client.close(force: true);
     }
   }
 
-  Future<List<int>> _getBytes(String path) async {
-    final client = _syncClient();
+  Future<List<int>> _getBytes(
+    String path, {
+    bool? secure,
+    bool acceptGzip = false,
+    bool decryptPayload = true,
+  }) async {
+    final useTls = secure ?? _useTlsForSync;
+    final client = useTls ? _syncClient() : _plainClient();
     try {
-      final request = await client.getUrl(_uri(path, secure: _useTlsForSync));
-      _applySyncAuthHeaders(request);
+      final request = await client.getUrl(_uri(path, secure: useTls));
+      await _applySyncAuthHeaders(request, method: 'GET', path: path);
+      if (acceptGzip) {
+        request.headers.set(HttpHeaders.acceptEncodingHeader, 'gzip');
+      }
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await utf8.decoder.bind(response).join();
@@ -349,7 +403,9 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
           );
         }
       }
-      return buffer;
+      LanSyncWireBytes.add(buffer.length);
+      if (!decryptPayload) return buffer;
+      return _maybeDecryptBytes(buffer);
     } finally {
       client.close(force: true);
     }
@@ -365,10 +421,23 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     try {
       final request = await client.postUrl(_uri(path, secure: useTls));
       if (!isLanSyncPublicPath(path)) {
-        _applySyncAuthHeaders(request);
+        await _applySyncAuthHeaders(request, method: 'POST', path: path);
       }
-      request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(payload));
+      final json = jsonEncode(payload);
+      if (_encryptPayload) {
+        request.headers.contentType = ContentType.parse(encryptedPayloadContentType());
+        request.write(
+          await encryptJsonString(
+            json: json,
+            authToken: authToken!,
+            localPeerId: callerPeerId!,
+            remotePeerId: _endpoint.peerId,
+          ),
+        );
+      } else {
+        request.headers.contentType = ContentType.json;
+        request.write(json);
+      }
       final response = await request.close();
       final body = await utf8.decoder.bind(response).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -380,7 +449,11 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     }
   }
 
-  void _applySyncAuthHeaders(HttpClientRequest request) {
+  Future<void> _applySyncAuthHeaders(
+    HttpClientRequest request, {
+    required String method,
+    required String path,
+  }) async {
     final peerId = callerPeerId;
     if (peerId != null) {
       request.headers.set(meshpadSyncPeerIdHeader, peerId);
@@ -388,6 +461,17 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     final token = authToken;
     if (token != null) {
       request.headers.set(meshpadSyncAuthTokenHeader, token);
+      request.headers.set(meshpadPayloadEncHeader, meshpadPayloadEncValue);
+    }
+    final privateKey = signingPrivateKey;
+    if (peerId != null && privateKey != null) {
+      final signed = await syncSignatureHeaders(
+        peerId: peerId,
+        privateKeyBytes: privateKey,
+        method: method,
+        path: path,
+      );
+      signed.forEach(request.headers.set);
     }
   }
 }

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../errors/meshpad_exception.dart';
 import '../models/note_meta.dart';
+import '../security/attachment_upload_policy.dart';
 import '../storage/attachment_storage.dart';
 import '../storage/attachment_thumbnails.dart';
 
@@ -115,6 +116,11 @@ Future<AttachmentUploadResult> receiveAttachmentUploadChunk({
   required String sha256,
   required List<int> bytes,
 }) async {
+  validateAttachmentUpload(
+    fileName: meta.name,
+    byteLength: totalSize,
+  );
+
   if (totalSize != meta.size) {
     throw StateError(
       'Upload total mismatch for ${meta.name}: expected ${meta.size}, got $totalSize',

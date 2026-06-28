@@ -18,7 +18,14 @@ Note noteFromApiJson(Map<String, dynamic> json) {
       for (final raw in json['attachments'] as List? ?? const [])
         attachmentFromApiJson(raw as Map<String, dynamic>),
     ],
+    tags: tagsFromApiJson(json['tags']),
   );
+}
+
+List<String> tagsFromApiJson(dynamic raw) {
+  if (raw == null) return const [];
+  if (raw is! List) return const [];
+  return normalizeTags(raw.map((e) => '$e'));
 }
 
 AttachmentMeta attachmentFromApiJson(Map<String, dynamic> json) {

@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   archive: ^4.0.7
+  cryptography: ^2.7.0
   crypto: ^3.0.6
   drift: ^2.22.1
   image: ^4.5.4

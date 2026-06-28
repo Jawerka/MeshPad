@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'package:meshpad_p2p/meshpad_p2p.dart';
+
 import 'app_settings.dart';
 
 /// Persists app preferences outside the data directory (so path can be relocated).
@@ -50,7 +52,15 @@ class AppSettingsStore {
     try {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      return AppSettings.fromJson(json, defaultDataDir: defaultDir);
+      final settings = AppSettings.fromJson(json, defaultDataDir: defaultDir);
+      // ADR 0003: libp2p removed — migrate to LAN.
+      if (json['sync_transport'] == 'libp2p' ||
+          settings.syncTransportKind == SyncTransportKind.libp2p) {
+        final migrated = settings.copyWith(syncTransportKind: SyncTransportKind.lan);
+        await saveSettings(migrated);
+        return migrated;
+      }
+      return settings;
     } catch (_) {
       return AppSettings(dataDir: defaultDir);
     }

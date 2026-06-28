@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,8 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../core/errors/user_messages.dart';
 import '../../core/models/notes_feed_state.dart';
+import '../../core/providers/feed_ui_providers.dart';
+import '../../core/providers/git_sync_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_activity_provider.dart';
 import '../../core/providers/sync_providers.dart';
@@ -15,16 +19,33 @@ import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../platform/desktop_shell.dart';
 import '../devices/devices_sheet.dart';
-import '../../l10n/app_localizations.dart';
 import '../settings/settings_sheet.dart';
 import 'composer_drop_target.dart';
 import 'note_bubble.dart';
 
-class FeedScreen extends ConsumerWidget {
+class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends ConsumerState<FeedScreen> {
+  final _composerFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _composerFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(feedComposerFocusRequestProvider, (previous, next) {
+      if (next != previous) {
+        _composerFocusNode.requestFocus();
+      }
+    });
     final mode = ref.watch(feedModeProvider);
     final searchQuery = ref.watch(feedSearchQueryProvider);
     final isSearching = mode == FeedMode.feed && searchQuery.trim().isNotEmpty;
@@ -43,7 +64,6 @@ class FeedScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _FeedHeader(mode: mode, count: feed.notes.length),
-            if (mode == FeedMode.feed) const _TagFilterBar(),
             Expanded(
               child: feed.notes.isEmpty
                   ? _EmptyFeed(mode: mode, onRefresh: () async {
@@ -57,7 +77,8 @@ class FeedScreen extends ConsumerWidget {
                       mode: mode,
                     ),
             ),
-            if (mode == FeedMode.feed) const _ComposerSection(),
+            if (mode == FeedMode.feed)
+              _ComposerSection(focusNode: _composerFocusNode),
           ],
         );
       },
@@ -181,6 +202,7 @@ class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
 
           final note = notes[notes.length - 1 - index];
           return Padding(
+            key: ValueKey(note.id),
             padding: EdgeInsets.only(bottom: compact ? 8 : 12),
             child: compact
                 ? NoteBubble(
@@ -245,6 +267,7 @@ class _SearchFeed extends ConsumerWidget {
                   final compact = isCompactFeedLayout(context);
                   final bubble = NoteBubble(note: hit.note);
                   return Padding(
+                    key: ValueKey(hit.note.id),
                     padding: EdgeInsets.only(bottom: compact ? 8 : 12),
                     child: compact
                         ? Column(
@@ -317,7 +340,6 @@ class _FeedHeader extends ConsumerStatefulWidget {
 
 class _FeedHeaderState extends ConsumerState<_FeedHeader> {
   late final TextEditingController _searchController;
-  var _searchOpen = false;
 
   @override
   void initState() {
@@ -325,7 +347,9 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
     _searchController = TextEditingController(
       text: ref.read(feedSearchQueryProvider),
     );
-    _searchOpen = widget.showSearchField;
+    if (widget.showSearchField) {
+      ref.read(feedSearchOpenProvider.notifier).state = true;
+    }
   }
 
   @override
@@ -335,14 +359,13 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
   }
 
   void _toggleSearch() {
-    setState(() {
-      _searchOpen = !_searchOpen;
-      if (!_searchOpen) {
-        _searchController.clear();
-        ref.read(feedSearchQueryProvider.notifier).state = '';
-        ref.invalidate(searchResultsProvider);
-      }
-    });
+    final open = !ref.read(feedSearchOpenProvider);
+    ref.read(feedSearchOpenProvider.notifier).state = open;
+    if (!open) {
+      _searchController.clear();
+      ref.read(feedSearchQueryProvider.notifier).state = '';
+      ref.invalidate(searchResultsProvider);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -352,6 +375,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final searchOpen = ref.watch(feedSearchOpenProvider);
     final isTrash = widget.mode == FeedMode.trash;
     final isWeb = ref.watch(isWebClientProvider);
     final outboxAsync = ref.watch(outboxCountProvider);
@@ -397,9 +421,50 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                     onPressed: () =>
                         ref.read(syncControllerProvider).runSync(),
                   ),
+                if (!isWeb && (Platform.isWindows || Platform.isLinux)) ...[
+                  IconButton(
+                    icon: const Icon(Icons.cloud_download_outlined),
+                    tooltip: 'Git pull',
+                    onPressed: () async {
+                      final result =
+                          await ref.read(gitSyncControllerProvider).pull();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.ok
+                                ? 'Git: обновлено'
+                                : (result.message ?? 'Git pull failed'),
+                          ),
+                        ),
+                      );
+                      if (result.ok) {
+                        ref.invalidate(notesListProvider);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    tooltip: 'Git push',
+                    onPressed: () async {
+                      final result =
+                          await ref.read(gitSyncControllerProvider).push();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.ok
+                                ? 'Git: отправлено'
+                                : (result.message ?? 'Git push failed'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
                 IconButton(
                   icon: const Icon(Icons.search),
-                  color: _searchOpen ? MeshPadColors.primary : null,
+                  color: searchOpen ? MeshPadColors.primary : null,
                   tooltip: 'Поиск',
                   onPressed: _toggleSearch,
                 ),
@@ -430,7 +495,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
             ],
           ),
         ),
-        if (_searchOpen)
+        if (searchOpen)
           Container(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             decoration: BoxDecoration(
@@ -500,7 +565,9 @@ class _EmptyFeed extends StatelessWidget {
 }
 
 class _ComposerSection extends ConsumerStatefulWidget {
-  const _ComposerSection();
+  const _ComposerSection({required this.focusNode});
+
+  final FocusNode focusNode;
 
   @override
   ConsumerState<_ComposerSection> createState() => _ComposerSectionState();
@@ -666,6 +733,7 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
             ),
             Expanded(
               child: TextField(
+                focusNode: widget.focusNode,
                 controller: _bodyController,
                 decoration: const InputDecoration(
                   hintText: 'Новая заметка…',
@@ -829,62 +897,6 @@ class _HeaderSyncButtonState extends State<_HeaderSyncButton>
           child: Icon(Icons.sync, color: color),
         ),
       ),
-    );
-  }
-}
-
-class _TagFilterBar extends ConsumerWidget {
-  const _TagFilterBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(isWebClientProvider)) return const SizedBox.shrink();
-
-    final tagsAsync = ref.watch(distinctTagsProvider);
-    return tagsAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (tags) {
-        if (tags.isEmpty) return const SizedBox.shrink();
-        final active = ref.watch(feedTagFilterProvider);
-        final l10n = AppLocalizations.of(context);
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          decoration: BoxDecoration(
-            color: MeshPadColors.backgroundElevated,
-            border: Border(bottom: BorderSide(color: MeshPadColors.border)),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                FilterChip(
-                  label: Text(l10n.filterAllTags),
-                  selected: active == null,
-                  onSelected: (_) {
-                    ref.read(feedTagFilterProvider.notifier).state = null;
-                    ref.invalidate(notesListProvider);
-                  },
-                ),
-                const SizedBox(width: 8),
-                for (final tag in tags)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text('#$tag'),
-                      selected: active == tag,
-                      onSelected: (_) {
-                        ref.read(feedTagFilterProvider.notifier).state = tag;
-                        ref.invalidate(notesListProvider);
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

@@ -47,3 +47,36 @@ List<String> parseTagsInput(String input) {
 }
 
 String formatTagsInput(List<String> tags) => tags.join(', ');
+
+/// Token being typed after the last comma/semicolon (PLAN 9.5).
+String tagTokenBeforeCursor(String text, int cursorOffset) {
+  final end = cursorOffset.clamp(0, text.length);
+  final before = text.substring(0, end);
+  final sep = before.lastIndexOf(RegExp(r'[,;]'));
+  return before.substring(sep + 1).trim().toLowerCase();
+}
+
+/// Tags already committed before the cursor token.
+Set<String> committedTagsBeforeCursor(String text, int cursorOffset) {
+  final end = cursorOffset.clamp(0, text.length);
+  final before = text.substring(0, end);
+  final sep = before.lastIndexOf(RegExp(r'[,;]'));
+  final completed = sep < 0 ? '' : before.substring(0, sep);
+  return parseTagsInput(completed).toSet();
+}
+
+/// Autocomplete suggestions for the tag editor field.
+Iterable<String> tagAutocompleteSuggestions({
+  required List<String> allTags,
+  required String text,
+  required int cursorOffset,
+  int limit = 8,
+}) {
+  final token = tagTokenBeforeCursor(text, cursorOffset);
+  final committed = committedTagsBeforeCursor(text, cursorOffset);
+  Iterable<String> candidates = allTags;
+  if (token.isNotEmpty) {
+    candidates = allTags.where((t) => t.startsWith(token));
+  }
+  return candidates.where((t) => !committed.contains(t)).take(limit);
+}

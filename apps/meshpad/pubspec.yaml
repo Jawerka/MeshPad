@@ -8,6 +8,7 @@ environment:
   sdk: ^3.5.0
 
 dependencies:
+  connectivity_plus: ^6.1.4
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -37,6 +38,9 @@ dependencies:
   video_player: ^2.9.3
   video_player_win: ^3.2.2
   audioplayers: ^6.1.0
+  flutter_secure_storage: ^9.2.4
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -22,6 +22,19 @@ void main() {
     expect(note.attachments.single.name, 'a.png');
   });
 
+  test('noteFromApiJson maps tags array', () {
+    final note = noteFromApiJson({
+      'id': 'x',
+      'title': '',
+      'markdown': 'm',
+      'author': '',
+      'created_at': '2026-05-29T12:00:00.000Z',
+      'updated_at': '2026-05-29T12:00:00.000Z',
+      'tags': ['Work', 'work', 'ideas'],
+    });
+    expect(note.tags, ['work', 'ideas']);
+  });
+
   test('MeshPadApiClient normalizes base URL', () {
     final client = MeshPadApiClient(baseUrl: '127.0.0.1:8787');
     expect(client.baseUri.toString(), 'http://127.0.0.1:8787/');

@@ -106,6 +106,14 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     COMPONENT Runtime)
 endforeach(bundled_library)
 
+# Optional in-process libp2p FFI (PLAN 8.4); built via scripts/build-native-ffi.sh
+set(MESHPAD_P2P_FFI_SO "${CMAKE_CURRENT_SOURCE_DIR}/runner/native/libmeshpad_p2p_native.so")
+if(EXISTS "${MESHPAD_P2P_FFI_SO}")
+  install(FILES "${MESHPAD_P2P_FFI_SO}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

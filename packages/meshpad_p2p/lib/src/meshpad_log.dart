@@ -40,6 +40,10 @@ abstract final class MeshPadLog {
 
   static void lan(String message) => _write(MeshPadLogLevel.info, 'lan', message);
 
+  /// Structured metric for sync/reconcile timing (PLAN §11, task 1.6).
+  static void metric(String key, String value) =>
+      _write(MeshPadLogLevel.info, 'metric', '$key=$value');
+
   static void pairing(String message) =>
       _write(MeshPadLogLevel.info, 'pairing', message);
 

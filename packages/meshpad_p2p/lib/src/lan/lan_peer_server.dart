@@ -6,6 +6,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
 import 'lan_sync_auth.dart';
+import 'lan_catalog_body.dart';
 import 'lan_sync_codec.dart';
 import 'lan_tls_identity.dart';
 import '../meshpad_log.dart';
@@ -138,6 +139,12 @@ class LanPeerServer {
         final failure = await validateLanSyncAuth(
           callerPeerId: request.headers.value(meshpadSyncPeerIdHeader),
           authToken: request.headers.value(meshpadSyncAuthTokenHeader),
+          method: method,
+          path: path,
+          timestampHeader:
+              request.headers.value(meshpadSyncTimestampHeader),
+          signatureHeader:
+              request.headers.value(meshpadSyncSignatureHeader),
           lookupTrusted: lookup,
         );
         if (failure != null) {
@@ -162,10 +169,33 @@ class LanPeerServer {
 
     if (path == '/meshpad/p2p/catalog' && method == 'GET') {
       final engine = await _getEngine();
+      final localPeerId = engine.identity.peerId;
       final catalog = await engine.localCatalog();
-      return _HttpResponse.json([
-        for (final head in catalog) head.toJson(),
-      ]);
+      final acceptGzip = !requestWantsPayloadEncryption(
+            request.headers.value(meshpadPayloadEncHeader),
+          ) &&
+          lanCatalogAcceptsGzip(
+            request.headers.value(HttpHeaders.acceptEncodingHeader),
+          );
+      final encoded = encodeLanCatalogBody(
+        catalog,
+        useGzip: acceptGzip,
+      );
+      final jsonText = utf8.decode(
+        encoded.gzipped ? gzip.decode(encoded.bytes) : encoded.bytes,
+      );
+      return _encryptedOrPlainJson(
+        request: request,
+        jsonText: jsonText,
+        localPeerId: localPeerId,
+        plainBytes: encoded.bytes,
+        plainHeaders: encoded.gzipped
+            ? {
+                'content-type': 'application/json; charset=utf-8',
+                'content-encoding': lanCatalogGzipEncoding,
+              }
+            : {'content-type': 'application/json; charset=utf-8'},
+      );
     }
 
     if (path.startsWith('/meshpad/p2p/notes/') && method == 'GET') {
@@ -175,11 +205,16 @@ class LanPeerServer {
       }
       final id = suffix;
       final engine = await _getEngine();
+      final localPeerId = engine.identity.peerId;
       final snapshot = await engine.exportNote(id);
       if (snapshot == null) {
         return _HttpResponse(statusCode: 404, body: 'note not found');
       }
-      return _HttpResponse.json(remoteSnapshotToJson(snapshot));
+      return _encryptedOrPlainJson(
+        request: request,
+        jsonText: jsonEncode(remoteSnapshotToJson(snapshot)),
+        localPeerId: localPeerId,
+      );
     }
 
     if (path.startsWith('/meshpad/p2p/notes/') && method == 'PUT') {
@@ -188,14 +223,20 @@ class LanPeerServer {
         return _putAttachment(request, id);
       }
       final body = await utf8.decoder.bind(request).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
+      final engine = await _getEngine();
+      final localPeerId = engine.identity.peerId;
+      final clearBody = await _decryptRequestBody(request, body, localPeerId);
+      final json = jsonDecode(clearBody) as Map<String, dynamic>;
       final snapshot = remoteSnapshotFromJson(json);
       if (snapshot.meta.id != id) {
         return _HttpResponse(statusCode: 400, body: 'id mismatch');
       }
-      final engine = await _getEngine();
       final result = await engine.applyRemote(snapshot);
-      return _HttpResponse.json({'result': noteApplyResultWire(result)});
+      return _encryptedOrPlainJson(
+        request: request,
+        jsonText: jsonEncode({'result': noteApplyResultWire(result)}),
+        localPeerId: engine.identity.peerId,
+      );
     }
 
     if (path == '/meshpad/p2p/pairing/offer' && method == 'GET') {
@@ -365,6 +406,15 @@ class LanPeerServer {
       return _HttpResponse(statusCode: 404, body: 'attachment not in note meta');
     }
 
+    try {
+      validateAttachmentUpload(
+        fileName: fileName,
+        byteLength: bodyBytes.length,
+      );
+    } on AttachmentUploadRejectedException catch (e) {
+      return _attachmentRejectedResponse(e);
+    }
+
     await engine.notes.storeRemoteAttachment(noteId, meta, bodyBytes);
     return _HttpResponse.json({'status': 'stored'});
   }
@@ -389,6 +439,12 @@ class LanPeerServer {
     final sha = request.headers.value(meshpadUploadSha256Header);
     if (offset == null || total == null || sha == null || sha.isEmpty) {
       return _HttpResponse(statusCode: 400, body: 'invalid upload headers');
+    }
+
+    try {
+      validateAttachmentUpload(fileName: fileName, byteLength: total);
+    } on AttachmentUploadRejectedException catch (e) {
+      return _attachmentRejectedResponse(e);
     }
 
     final bodyBytes = await request.fold<List<int>>(
@@ -416,6 +472,67 @@ class LanPeerServer {
       return _HttpResponse(statusCode: 400, body: e.message);
     }
   }
+
+  Future<String?> _authTokenForCaller(String? callerPeerId) async {
+    if (callerPeerId == null || lookupTrustedPeer == null) return null;
+    final record = await lookupTrustedPeer!(callerPeerId);
+    return record?.authToken;
+  }
+
+  Future<String> _decryptRequestBody(
+    HttpRequest request,
+    String body,
+    String localPeerId,
+  ) async {
+    if (!bodyLooksEncrypted(body)) return body;
+    final caller = request.headers.value(meshpadSyncPeerIdHeader);
+    final token = await _authTokenForCaller(caller);
+    if (token == null || caller == null) return body;
+    return decryptJsonString(
+      body: body,
+      authToken: token,
+      localPeerId: localPeerId,
+      remotePeerId: caller,
+    );
+  }
+
+  Future<_HttpResponse> _encryptedOrPlainJson({
+    required HttpRequest request,
+    required String jsonText,
+    required String localPeerId,
+    List<int>? plainBytes,
+    Map<String, String>? plainHeaders,
+  }) async {
+    final caller = request.headers.value(meshpadSyncPeerIdHeader);
+    final wantsEnc = requestWantsPayloadEncryption(
+      request.headers.value(meshpadPayloadEncHeader),
+    );
+    final token = await _authTokenForCaller(caller);
+    if (wantsEnc && token != null && caller != null) {
+      final enc = await encryptJsonString(
+        json: jsonText,
+        authToken: token,
+        localPeerId: localPeerId,
+        remotePeerId: caller,
+      );
+      return _HttpResponse(
+        body: enc,
+        headers: {HttpHeaders.contentTypeHeader: encryptedPayloadContentType()},
+      );
+    }
+    if (plainBytes != null) {
+      return _HttpResponse(bodyBytes: plainBytes, headers: plainHeaders);
+    }
+    return _HttpResponse.json(jsonDecode(jsonText));
+  }
+}
+
+_HttpResponse _attachmentRejectedResponse(AttachmentUploadRejectedException e) {
+  final code = switch (e.code) {
+    'too_large' => 413,
+    _ => 400,
+  };
+  return _HttpResponse(statusCode: code, body: e.code);
 }
 
 class _HttpResponse {

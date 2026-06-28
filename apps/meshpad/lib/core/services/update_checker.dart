@@ -11,12 +11,16 @@ class UpdateCheckResult {
     required this.status,
     this.latestVersion,
     this.downloadUrl,
+    this.windowsDownloadUrl,
+    this.windowsInstallerUrl,
     this.message,
   });
 
   final UpdateCheckStatus status;
   final String? latestVersion;
   final String? downloadUrl;
+  final String? windowsDownloadUrl;
+  final String? windowsInstallerUrl;
   final String? message;
 }
 
@@ -45,8 +49,11 @@ class UpdateChecker {
       final latest = json['latest_version'] as String? ??
           json['version'] as String? ??
           '';
-      final downloadUrl = json['download_url'] as String? ??
+      final downloadUrl = json['android_apk_url'] as String? ??
+          json['download_url'] as String? ??
           json['url'] as String?;
+      final windowsDownloadUrl = json['windows_download_url'] as String?;
+      final windowsInstallerUrl = json['windows_installer_url'] as String?;
 
       if (latest.isEmpty) {
         return const UpdateCheckResult(
@@ -60,6 +67,8 @@ class UpdateChecker {
           status: UpdateCheckStatus.updateAvailable,
           latestVersion: latest,
           downloadUrl: downloadUrl,
+          windowsDownloadUrl: windowsDownloadUrl,
+          windowsInstallerUrl: windowsInstallerUrl,
         );
       }
 

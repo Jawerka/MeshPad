@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
@@ -25,6 +26,10 @@ void main() {
     );
     await repo.createNote(title: 't', markdown: 'hello headless');
     await db.close();
+    final dbFile = File(p.join(tempDir.path, 'index', 'meshpad.db'));
+    if (await dbFile.exists()) {
+      await dbFile.delete();
+    }
 
     final result = await runHeadlessMaintenance(dataDir: tempDir.path);
 

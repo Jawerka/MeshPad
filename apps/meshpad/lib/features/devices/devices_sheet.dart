@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
@@ -14,6 +15,8 @@ import '../../core/widgets/text_input_dialog.dart';
 import '../../core/theme/device_icons.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
+import 'devices_l10n.dart';
+import 'pairing_qr_ui.dart';
 
 class DevicesSheet extends ConsumerWidget {
   const DevicesSheet({super.key});
@@ -43,12 +46,12 @@ class DevicesSheet extends ConsumerWidget {
     final trustedAsync = ref.watch(trustedDevicesProvider);
     final discovered = ref.watch(discoveredPeersProvider);
     final lan = readLanSyncTransport(ref);
-    final localLanSubtitle = _localLanSubtitle(lan);
     final trustedIds = trustedAsync.valueOrNull?.map((d) => d.peerId).toSet() ?? {};
     final visibleDiscovered = discovered
         .where((peer) => !trustedIds.contains(peer.peerId))
         .toList();
     final compact = isCompactFeedLayout(context);
+    final l10n = AppLocalizations.of(context);
 
     return DraggableScrollableSheet(
       expand: false,
@@ -72,7 +75,10 @@ class DevicesSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Устройства', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                l10n.devicesSheetTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView(
@@ -80,10 +86,10 @@ class DevicesSheet extends ConsumerWidget {
                   children: [
                     identityAsync.when(
                       loading: () => const LinearProgressIndicator(),
-                      error: (e, _) => Text('Ошибка: $e'),
+                      error: (e, _) => Text(l10n.errorGeneric(e.toString())),
                       data: (identity) => _DeviceCard(
                         name: identity.displayName,
-                        subtitle: localLanSubtitle,
+                        subtitle: _localLanSubtitle(l10n, lan),
                         peerId: identity.peerId,
                         icon: peerIconFor(identity.icon),
                         accent: peerAccentColor(identity.peerId),
@@ -113,18 +119,17 @@ class DevicesSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Доверенные',
+                      l10n.devicesTrustedSection,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                     const SizedBox(height: 8),
                     trustedAsync.when(
                       loading: () => const SizedBox.shrink(),
-                      error: (e, _) => Text('Ошибка: $e'),
+                      error: (e, _) => Text(l10n.errorGeneric(e.toString())),
                       data: (devices) {
                         if (devices.isEmpty) {
                           return Text(
-                            'Нет доверенных устройств.\n'
-                            'Добавьте через PIN-pairing.',
+                            l10n.devicesTrustedEmpty,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: MeshPadColors.textMuted,
                                 ),
@@ -135,7 +140,7 @@ class DevicesSheet extends ConsumerWidget {
                             for (final device in devices)
                               _DeviceCard(
                                 name: device.name,
-                                subtitle: _trustedLanSubtitle(device),
+                                subtitle: _trustedLanSubtitle(l10n, device),
                                 peerId: device.peerId,
                                 icon: peerIconFor(device.icon),
                                 accent: peerAccentColor(device.peerId),
@@ -180,13 +185,15 @@ class DevicesSheet extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 20),
+                    _ManualPeerCard(compact: compact),
+                    const SizedBox(height: 20),
                     Text(
-                      'Обнаруженные',
+                      l10n.devicesDiscoveredSection,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      AppLocalizations.of(context).devicesDiscoveryHint,
+                      l10n.devicesDiscoveryHint,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: MeshPadColors.textMuted,
                           ),
@@ -194,7 +201,7 @@ class DevicesSheet extends ConsumerWidget {
                     const SizedBox(height: 8),
                     if (visibleDiscovered.isEmpty)
                       Text(
-                        'Поиск устройств в локальной сети…',
+                        l10n.devicesDiscovering,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: MeshPadColors.textMuted,
                             ),
@@ -205,7 +212,7 @@ class DevicesSheet extends ConsumerWidget {
                           for (final peer in visibleDiscovered)
                             _DeviceCard(
                               name: peer.displayName,
-                              subtitle: 'В локальной сети',
+                              subtitle: l10n.devicesOnLan,
                               peerId: peer.peerId,
                               icon: Icons.wifi_tethering,
                               accent: peerAccentColor(peer.peerId),
@@ -218,7 +225,7 @@ class DevicesSheet extends ConsumerWidget {
                                         ref,
                                         targetPeer: peer,
                                       ),
-                                      child: const Text('PIN'),
+                                      child: Text(l10n.devicesPinShort),
                                     ),
                               footer: compact
                                   ? Align(
@@ -229,7 +236,7 @@ class DevicesSheet extends ConsumerWidget {
                                           ref,
                                           targetPeer: peer,
                                         ),
-                                        child: const Text('PIN'),
+                                        child: Text(l10n.devicesPinShort),
                                       ),
                                     )
                                   : null,
@@ -240,7 +247,7 @@ class DevicesSheet extends ConsumerWidget {
                     OutlinedButton.icon(
                       onPressed: () => _showPinPairingDialog(context, ref),
                       icon: const Icon(Icons.pin_outlined),
-                      label: const Text('Сопряжение по PIN'),
+                      label: Text(l10n.devicesPinPairing),
                     ),
                   ],
                 ),
@@ -252,21 +259,21 @@ class DevicesSheet extends ConsumerWidget {
     );
   }
 
-  static String _localLanSubtitle(LanSyncTransport? lan) {
+  static String _localLanSubtitle(AppLocalizations l10n, LanSyncTransport? lan) {
     final port = lan?.localHttpPort;
-    if (port == null) return 'Это устройство';
+    if (port == null) return l10n.devicesThisDevice;
     final host = lan?.localLanHost;
     if (host != null && host.isNotEmpty) {
-      return 'Это устройство · LAN $host:$port';
+      return l10n.devicesThisDeviceLan(host, port);
     }
-    return 'Это устройство · порт $port';
+    return l10n.devicesThisDevicePort(port);
   }
 
-  static String _trustedLanSubtitle(Device device) {
+  static String _trustedLanSubtitle(AppLocalizations l10n, Device device) {
     if (device.hasLanEndpoint) {
-      return 'Доверенное · ${device.lanHost}:${device.lanHttpPort}';
+      return l10n.devicesTrustedLan(device.lanHost!, device.lanHttpPort!);
     }
-    return 'Доверенное · LAN неизвестен';
+    return l10n.devicesTrustedLanUnknown;
   }
 
   Future<void> _pickLocalIcon(
@@ -284,8 +291,9 @@ class DevicesSheet extends ConsumerWidget {
 
     await ref.read(settingsControllerProvider).setLocalDeviceIcon(picked);
     if (context.mounted) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Иконка обновлена')),
+        SnackBar(content: Text(l10n.devicesIconUpdated)),
       );
     }
   }
@@ -307,8 +315,9 @@ class DevicesSheet extends ConsumerWidget {
           icon: picked,
         );
     if (context.mounted) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Иконка «${device.name}» обновлена')),
+        SnackBar(content: Text(l10n.devicesIconUpdatedNamed(device.name))),
       );
     }
   }
@@ -318,18 +327,20 @@ class DevicesSheet extends ConsumerWidget {
     WidgetRef ref,
     String currentName,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final nextName = await _promptDeviceName(
       context,
-      title: 'Имя этого устройства',
+      title: l10n.devicesLocalNameTitle,
       currentName: currentName,
-      hint: 'Например: Рабочий ПК',
+      hint: l10n.devicesLocalNameHint,
+      labelText: l10n.devicesNameLabel,
     );
     if (nextName == null || nextName == currentName) return;
 
     await ref.read(settingsControllerProvider).setLocalDisplayName(nextName);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Имя изменено на «$nextName»')),
+        SnackBar(content: Text(l10n.deviceNameSaved(nextName))),
       );
     }
   }
@@ -339,11 +350,13 @@ class DevicesSheet extends ConsumerWidget {
     WidgetRef ref,
     Device device,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final nextName = await _promptDeviceName(
       context,
-      title: 'Имя устройства',
+      title: l10n.deviceNameTitle,
       currentName: device.name,
-      hint: 'Как показывать в списке',
+      hint: l10n.devicesTrustedRenameHint,
+      labelText: l10n.devicesNameLabel,
     );
     if (nextName == null || nextName == device.name) return;
 
@@ -353,7 +366,7 @@ class DevicesSheet extends ConsumerWidget {
         );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('«$nextName» переименовано')),
+        SnackBar(content: Text(l10n.devicesTrustedRenamed(nextName))),
       );
     }
   }
@@ -363,12 +376,13 @@ class DevicesSheet extends ConsumerWidget {
     required String title,
     required String currentName,
     required String hint,
+    required String labelText,
   }) async {
     final result = await showTextInputDialog(
       context,
       title: title,
       initialValue: currentName,
-      labelText: 'Имя',
+      labelText: labelText,
       hintText: hint,
       textCapitalization: TextCapitalization.sentences,
     );
@@ -381,6 +395,7 @@ class DevicesSheet extends ConsumerWidget {
     WidgetRef ref,
     Device peer,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final transport = ref.read(syncTransportProvider);
     await transport.start();
     final lan = transport.lanAccess;
@@ -401,12 +416,7 @@ class DevicesSheet extends ConsumerWidget {
       if (endpoint == null) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Устройство недоступно в сети. Проверьте Wi‑Fi и что MeshPad '
-              'открыт на обоих устройствах.',
-            ),
-          ),
+          SnackBar(content: Text(l10n.devicesPeerUnreachable)),
         );
         return;
       }
@@ -427,7 +437,7 @@ class DevicesSheet extends ConsumerWidget {
     await transport.requestSync(peerId: peer.peerId);
     final event = await completer.future.timeout(
       const Duration(seconds: 120),
-      onTimeout: () => SyncFailed(message: 'Таймаут синхронизации'),
+      onTimeout: () => SyncFailed(message: l10n.devicesSyncTimeout),
     );
     await sub.cancel();
 
@@ -435,10 +445,10 @@ class DevicesSheet extends ConsumerWidget {
 
     final message = switch (event) {
       SyncCompleted(:final noteCount) => noteCount > 0
-          ? 'Синхронизировано заметок: $noteCount'
-          : 'Синхронизация завершена',
+          ? l10n.devicesSyncNotesCount(noteCount)
+          : l10n.devicesSyncCompleted,
       SyncFailed(:final message) => message,
-      _ => 'Синхронизация завершена',
+      _ => l10n.devicesSyncCompleted,
     };
 
     if (event is SyncCompleted) {
@@ -463,14 +473,16 @@ class DevicesSheet extends ConsumerWidget {
   }
 
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
     final result = await ref.read(syncControllerProvider).runSync();
     if (!context.mounted) return;
 
     final message = switch (result.status) {
-      SyncRunStatus.noPeers => result.message ?? 'Нет устройств для синхронизации',
+      SyncRunStatus.noPeers =>
+        result.message ?? l10n.devicesNoPeersToSync,
       SyncRunStatus.completed => result.noteCount > 0
-          ? 'Синхронизировано заметок: ${result.noteCount}'
-          : 'Синхронизация завершена',
+          ? l10n.devicesSyncNotesCount(result.noteCount)
+          : l10n.devicesSyncCompleted,
       SyncRunStatus.failed =>
         result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };
@@ -493,16 +505,36 @@ class DevicesSheet extends ConsumerWidget {
           peerId: identity.peerId,
           displayName: identity.displayName,
           pin: pin,
+          signingPublicKey: identity.signingPublicKey,
+          signingKeyAlgorithm: identity.signingKeyAlgorithm,
         ),
       );
     }
 
     if (!context.mounted) return;
 
+    String? qrPayload;
+    if (lan != null) {
+      final host = lan.localLanHost;
+      final port = lan.localHttpPort;
+      if (host != null && port != null) {
+        qrPayload = PairingQrPayload(
+          host: host,
+          httpPort: port,
+          pin: pin,
+          tlsPort: lan.localTlsPort,
+        ).encode();
+      }
+    }
+    final canScanQr =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => _PinPairingDialog(
         pin: pin,
+        qrPayload: qrPayload,
+        canScanQr: canScanQr,
         lanAvailable: lan != null,
         initialPeer: targetPeer,
         onConfirm: (remotePin, targetPeer) async {
@@ -532,6 +564,8 @@ class DevicesSheet extends ConsumerWidget {
                     initiatorHttpPort: lan.localHttpPort,
                     authToken: authToken,
                     initiatorTlsCertSha256: lan.localTlsCertSha256,
+                    initiatorSigningPublicKey: identity.signingPublicKey,
+                    initiatorSigningKeyAlgorithm: identity.signingKeyAlgorithm,
                   ),
                 );
                 if (ok) {
@@ -542,6 +576,8 @@ class DevicesSheet extends ConsumerWidget {
                     lanHttpPort: endpoint.httpPort,
                     authToken: authToken,
                     tlsCertSha256: remoteTls,
+                    signingPublicKey: offer.signingPublicKey,
+                    signingKeyAlgorithm: offer.signingKeyAlgorithm,
                   );
                   ref.invalidate(trustedDevicesProvider);
                   ref
@@ -555,13 +591,9 @@ class DevicesSheet extends ConsumerWidget {
           }
 
           if (context.mounted) {
+            final snackL10n = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Для PIN-pairing оба устройства должны быть в одной Wi‑Fi '
-                  'сети и видны в «Обнаруженные».',
-                ),
-              ),
+              SnackBar(content: Text(snackL10n.devicesPairingNeedWifi)),
             );
           }
           return false;
@@ -578,6 +610,8 @@ class DevicesSheet extends ConsumerWidget {
 class _PinPairingDialog extends ConsumerStatefulWidget {
   const _PinPairingDialog({
     required this.pin,
+    this.qrPayload,
+    this.canScanQr = false,
     required this.lanAvailable,
     this.initialPeer,
     required this.onConfirm,
@@ -585,6 +619,8 @@ class _PinPairingDialog extends ConsumerStatefulWidget {
   });
 
   final String pin;
+  final String? qrPayload;
+  final bool canScanQr;
   final bool lanAvailable;
   final DiscoveredPeer? initialPeer;
   final Future<bool> Function(String remotePin, DiscoveredPeer? targetPeer)
@@ -598,6 +634,8 @@ class _PinPairingDialog extends ConsumerStatefulWidget {
 class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
   final _remotePinController = TextEditingController();
   DiscoveredPeer? _selectedPeer;
+  var _confirming = false;
+  String? _statusMessage;
 
   @override
   void initState() {
@@ -619,9 +657,87 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
     super.dispose();
   }
 
+  Future<void> _scanPairingQr() async {
+    final payload = await showPairingQrScanner(context);
+    if (payload == null || !mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _confirming = true;
+      _statusMessage = l10n.pairingScanQr;
+    });
+
+    final applied = await ref.read(discoveryServiceProvider).probePairingQr(
+          payload.encode(),
+        );
+
+    if (!mounted) return;
+
+    if (applied == null) {
+      setState(() {
+        _confirming = false;
+        _statusMessage = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.pairingQrProbeFailed)),
+      );
+      return;
+    }
+
+    final success = applied.probe;
+    final offer = success.pairingOffer;
+    if (offer != null && offer.pin != applied.payload.pin) {
+      setState(() {
+        _confirming = false;
+        _statusMessage = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.pairingQrPinMismatch)),
+      );
+      return;
+    }
+
+    _remotePinController.text = applied.payload.pin;
+    final discovered = ref.read(discoveredPeersProvider);
+    DiscoveredPeer? target;
+    for (final p in discovered) {
+      if (p.peerId == success.endpoint.peerId) {
+        target = p;
+        break;
+      }
+    }
+
+    final peer = target ??
+        DiscoveredPeer(
+          peerId: success.endpoint.peerId,
+          displayName: success.endpoint.displayName,
+          discoveredAt: DateTime.now().toUtc(),
+        );
+
+    setState(() {
+      _selectedPeer = peer;
+      _statusMessage = l10n.pairingWaitingOn(peer.displayName);
+    });
+
+    final ok = await widget.onConfirm(applied.payload.pin, peer);
+    if (!mounted) return;
+    setState(() {
+      _confirming = false;
+      _statusMessage = null;
+    });
+    if (ok) {
+      Navigator.pop(context);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.devicesPairingConfirmFailed)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 720;
+    final l10n = AppLocalizations.of(context);
     final discovered = ref.watch(discoveredPeersProvider);
     final selectedPeer = _selectedPeer ??
         (discovered.isEmpty
@@ -632,7 +748,7 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
                 : discovered.first));
 
     return AlertDialog(
-      title: const Text('PIN-pairing'),
+      title: Text(l10n.devicesPairingTitle),
       content: SingleChildScrollView(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -644,9 +760,8 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
             children: [
               Text(
                 widget.lanAvailable
-                    ? 'Покажите этот PIN на другом устройстве. '
-                        'Выберите устройство ниже для подтверждения.'
-                    : 'Покажите этот PIN на другом устройстве.',
+                    ? l10n.devicesPairingShowPinSelectPeer
+                    : l10n.devicesPairingShowPinOnly,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
@@ -658,10 +773,22 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
                     ),
                 textAlign: TextAlign.center,
               ),
+              if (widget.qrPayload != null) ...[
+                const SizedBox(height: 16),
+                PairingQrCodeView(payload: widget.qrPayload!),
+              ],
+              if (widget.canScanQr) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _confirming ? null : _scanPairingQr,
+                  icon: const Icon(Icons.qr_code_scanner_outlined),
+                  label: Text(l10n.pairingScanQr),
+                ),
+              ],
               if (widget.lanAvailable && discovered.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
-                  'Устройство в сети',
+                  l10n.devicesPairingSelectPeer,
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 8),
@@ -707,63 +834,87 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: _remotePinController,
-                decoration: const InputDecoration(
-                  labelText: 'PIN другого устройства',
-                  hintText: '000000',
+                decoration: InputDecoration(
+                  labelText: l10n.devicesRemotePinLabel,
+                  hintText: l10n.devicesRemotePinHint,
                 ),
                 keyboardType: TextInputType.number,
                 maxLength: 6,
+                enabled: !_confirming,
               ),
+              if (_statusMessage != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    if (_confirming)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    if (_confirming) const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _statusMessage!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () async {
-            await widget.onClose();
-            if (context.mounted) Navigator.pop(context);
-          },
-          child: const Text('Закрыть'),
+          onPressed: _confirming
+              ? null
+              : () async {
+                  await widget.onClose();
+                  if (context.mounted) Navigator.pop(context);
+                },
+          child: Text(l10n.close),
         ),
         FilledButton(
-          onPressed: () async {
+          onPressed: _confirming
+              ? null
+              : () async {
             final remotePin = _remotePinController.text.trim();
             if (!isValidPairingPin(remotePin)) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Введите 6-значный PIN')),
+                SnackBar(content: Text(l10n.devicesPinInvalid)),
               );
               return;
             }
 
             if (widget.lanAvailable && discovered.isNotEmpty) {
               final target = selectedPeer ?? discovered.first;
+              setState(() {
+                _confirming = true;
+                _statusMessage = l10n.pairingWaitingOn(target.displayName);
+              });
               final ok = await widget.onConfirm(remotePin, target);
               if (!context.mounted) return;
+              setState(() {
+                _confirming = false;
+                _statusMessage = null;
+              });
               if (ok) {
                 Navigator.pop(context);
                 return;
               }
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Не удалось подтвердить PIN. Проверьте устройство в сети.',
-                  ),
-                ),
+                SnackBar(content: Text(l10n.devicesPairingConfirmFailed)),
               );
               return;
             }
 
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Нет обнаруженных устройств. Дождитесь появления в списке '
-                  '«Обнаруженные» или проверьте Wi‑Fi.',
-                ),
-              ),
+              SnackBar(content: Text(l10n.devicesPairingNoDiscovered)),
             );
           },
-          child: const Text('Подтвердить'),
+          child: Text(l10n.devicesConfirm),
         ),
       ],
     );
@@ -785,12 +936,13 @@ class _LocalDeviceActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (compact) {
       return _DeviceActionsMenu(
-        items: const [
-          (value: 'icon', label: 'Иконка', icon: Icons.palette_outlined),
-          (value: 'rename', label: 'Переименовать', icon: Icons.edit_outlined),
-          (value: 'sync', label: 'Синхронизировать', icon: Icons.sync),
+        items: [
+          (value: 'icon', label: l10n.devicesActionIcon, icon: Icons.palette_outlined),
+          (value: 'rename', label: l10n.devicesActionRename, icon: Icons.edit_outlined),
+          (value: 'sync', label: l10n.devicesActionSync, icon: Icons.sync),
         ],
         onSelected: (value) {
           switch (value) {
@@ -810,17 +962,17 @@ class _LocalDeviceActions extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(Icons.palette_outlined),
-          tooltip: 'Иконка',
+          tooltip: l10n.devicesActionIcon,
           onPressed: onPickIcon,
         ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),
-          tooltip: 'Переименовать',
+          tooltip: l10n.devicesActionRename,
           onPressed: onRename,
         ),
         IconButton(
           icon: const Icon(Icons.sync),
-          tooltip: 'Синхронизировать',
+          tooltip: l10n.devicesActionSync,
           onPressed: onSync,
         ),
       ],
@@ -845,15 +997,16 @@ class _TrustedDeviceActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (compact) {
       return _DeviceActionsMenu(
-        items: const [
-          (value: 'icon', label: 'Иконка', icon: Icons.palette_outlined),
-          (value: 'rename', label: 'Переименовать', icon: Icons.edit_outlined),
-          (value: 'sync', label: 'Синхронизировать', icon: Icons.sync),
+        items: [
+          (value: 'icon', label: l10n.devicesActionIcon, icon: Icons.palette_outlined),
+          (value: 'rename', label: l10n.devicesActionRename, icon: Icons.edit_outlined),
+          (value: 'sync', label: l10n.devicesActionSync, icon: Icons.sync),
           (
             value: 'revoke',
-            label: 'Отозвать доверие',
+            label: l10n.devicesActionRevoke,
             icon: Icons.link_off_outlined,
           ),
         ],
@@ -877,22 +1030,22 @@ class _TrustedDeviceActions extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(Icons.palette_outlined),
-          tooltip: 'Иконка',
+          tooltip: l10n.devicesActionIcon,
           onPressed: onPickIcon,
         ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),
-          tooltip: 'Переименовать',
+          tooltip: l10n.devicesActionRename,
           onPressed: onRename,
         ),
         IconButton(
           icon: const Icon(Icons.sync),
-          tooltip: 'Синхронизировать',
+          tooltip: l10n.devicesActionSync,
           onPressed: onSync,
         ),
         IconButton(
           icon: const Icon(Icons.link_off_outlined),
-          tooltip: 'Отозвать доверие',
+          tooltip: l10n.devicesActionRevoke,
           onPressed: onRevoke,
         ),
       ],
@@ -911,8 +1064,9 @@ class _DeviceActionsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return PopupMenuButton<String>(
-      tooltip: 'Действия',
+      tooltip: l10n.devicesActionsTooltip,
       icon: const Icon(Icons.more_vert),
       onSelected: onSelected,
       itemBuilder: (context) => [
@@ -1022,6 +1176,138 @@ class _DeviceCard extends StatelessWidget {
         title: Text(name),
         subtitle: Text(subtitle),
         trailing: trailing,
+      ),
+    );
+  }
+}
+
+class _ManualPeerCard extends ConsumerStatefulWidget {
+  const _ManualPeerCard({required this.compact});
+
+  final bool compact;
+
+  @override
+  ConsumerState<_ManualPeerCard> createState() => _ManualPeerCardState();
+}
+
+class _ManualPeerCardState extends ConsumerState<_ManualPeerCard> {
+  final _hostController = TextEditingController();
+  final _portController = TextEditingController(text: '45838');
+  var _probing = false;
+
+  @override
+  void dispose() {
+    _hostController.dispose();
+    _portController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _probe() async {
+    final l10n = AppLocalizations.of(context);
+    setState(() => _probing = true);
+    try {
+      final port = int.tryParse(_portController.text.trim()) ?? 45838;
+      final result = await ref.read(discoveryServiceProvider).probeManualPeer(
+            host: _hostController.text,
+            httpPort: port,
+          );
+      if (!mounted) return;
+      switch (result) {
+        case ManualLanPeerProbeSuccess(:final endpoint):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.devicesManualProbeOk(endpoint.displayName)),
+            ),
+          );
+        case ManualLanPeerProbeFailure(:final error):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.message(l10n))),
+          );
+      }
+    } finally {
+      if (mounted) setState(() => _probing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.devicesManualPeerTitle,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+            const SizedBox(height: 8),
+            if (widget.compact) ...[
+              TextField(
+                controller: _hostController,
+                decoration: InputDecoration(
+                  labelText: l10n.devicesManualHostLabel,
+                  isDense: true,
+                ),
+                enabled: !_probing,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _portController,
+                decoration: InputDecoration(
+                  labelText: l10n.devicesManualPortLabel,
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.number,
+                enabled: !_probing,
+              ),
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _hostController,
+                      decoration: InputDecoration(
+                        labelText: l10n.devicesManualHostLabel,
+                        isDense: true,
+                      ),
+                      enabled: !_probing,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 100,
+                    child: TextField(
+                      controller: _portController,
+                      decoration: InputDecoration(
+                        labelText: l10n.devicesManualPortLabel,
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.number,
+                      enabled: !_probing,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonal(
+                onPressed: _probing ? null : _probe,
+                child: _probing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.devicesManualProbe),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

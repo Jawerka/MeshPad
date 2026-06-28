@@ -13,6 +13,21 @@ void main() {
     expect(parseTagsInput('a, b; c'), ['a', 'b', 'c']);
   });
 
+  test('tagAutocompleteSuggestions filters by prefix and committed', () {
+    const all = ['work', 'ideas', 'personal'];
+    final suggestions = tagAutocompleteSuggestions(
+      allTags: all,
+      text: 'wo, id',
+      cursorOffset: 'wo, id'.length,
+    );
+    expect(suggestions, ['ideas']);
+  });
+
+  test('tagTokenBeforeCursor reads partial token', () {
+    expect(tagTokenBeforeCursor('alpha, be', 9), 'be');
+    expect(committedTagsBeforeCursor('alpha, be', 9), {'alpha'});
+  });
+
   test('NoteMeta round-trips tags', () {
     final meta = NoteMeta(
       schemaVersion: 1,

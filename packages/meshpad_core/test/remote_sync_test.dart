@@ -96,7 +96,7 @@ void main() {
       ),
     );
 
-    final attachmentSource = File('${dirA.path}/payload.bin');
+    final attachmentSource = File('${dirA.path}/payload.txt');
     await attachmentSource.writeAsBytes([1, 2, 3, 4, 5]);
     await repoA.createNote(
       markdown: 'with attachment',
@@ -155,7 +155,7 @@ void main() {
       ),
     );
 
-    final attachmentSource = File('${dirA.path}/payload.bin');
+    final attachmentSource = File('${dirA.path}/payload.txt');
     await attachmentSource.writeAsBytes([9, 8, 7]);
     await repoA.createNote(
       markdown: 'needs attachment ack',
@@ -210,9 +210,9 @@ void main() {
       ),
     );
 
-    final okFile = File('${dirA.path}/ok.bin');
+    final okFile = File('${dirA.path}/ok.txt');
     await okFile.writeAsBytes([1]);
-    final badFile = File('${dirA.path}/bad.bin');
+    final badFile = File('${dirA.path}/bad.txt');
     await badFile.writeAsBytes([2]);
 
     await repoA.createNote(

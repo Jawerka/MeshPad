@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'meshpad_palette.dart';
 
-/// Design tokens from ref/chat-layout.css; colors follow [MeshPadPalette.active].
+/// Design tokens; colors follow [MeshPadPalette.active].
 abstract final class MeshPadColors {
   static MeshPadPalette _palette = MeshPadPalette.dark;
 

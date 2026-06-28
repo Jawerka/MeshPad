@@ -5,11 +5,17 @@ edition = "2021"
 description = "MeshPad libp2p native sidecar (Phase B.2)"
 publish = false
 
+[lib]
+name = "meshpad_p2p_native"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
 [[bin]]
 name = "meshpad_p2p_sidecar"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "0.22"
 axum = "0.8"
 futures = "0.3"
 serde = { version = "1", features = ["derive"] }
@@ -19,9 +25,13 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 tower-http = { version = "0.6", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+libp2p = { version = "0.54", features = ["tokio", "tcp", "noise", "yamux", "mdns", "request-response", "macros", "identify"] }
 
-# libp2p stack — wired in follow-up commits (mDNS / Noise / sync streams).
-# libp2p = { version = "0.55", features = ["mdns", "noise", "tcp", "tokio"] }
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 [profile.release]
 lto = true

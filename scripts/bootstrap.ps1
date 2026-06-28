@@ -20,7 +20,7 @@ try {
             Write-Host "Creating Flutter app in apps/meshpad ..."
             New-Item -ItemType Directory -Force -Path (Join-Path $Root "apps") | Out-Null
             & flutter create --org com.meshpad --project-name meshpad `
-                --platforms=android,windows,linux,web `
+                --platforms=android,windows,linux `
                 $AppDir
         } elseif (-not (Test-Path (Join-Path $AppDir "windows"))) {
             Write-Host "Adding platform folders to existing app ..."

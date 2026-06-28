@@ -177,10 +177,11 @@ class RemoteNotesService implements NotesService {
       _client.attachmentThumbUri(noteId, fileName);
 
   @override
-  Future<int> countActiveNotes({String? tag}) => _client.countActiveNotes();
+  Future<int> countActiveNotes({String? tag}) =>
+      _client.countActiveNotes(tag: tag);
 
   @override
-  Future<List<String>> listDistinctTags() async => const [];
+  Future<List<String>> listDistinctTags() => _client.listDistinctTags();
 
   @override
   Future<List<Note>> listNotesSlice({
@@ -189,7 +190,12 @@ class RemoteNotesService implements NotesService {
     NoteSort sort = NoteSort.createdAt,
     String? tag,
   }) =>
-      _client.listNotesSlice(offset: offset, limit: limit, sort: sort);
+      _client.listNotesSlice(
+        offset: offset,
+        limit: limit,
+        sort: sort,
+        tag: tag,
+      );
 
   @override
   Future<List<Note>> listTrash() => _client.listTrash();
@@ -249,7 +255,7 @@ class RemoteNotesService implements NotesService {
 
   @override
   Future<void> setNoteTags(String id, List<String> tags) async {
-    throw UnsupportedError('Теги недоступны в Web-клиенте');
+    await _client.setNoteTags(id, tags);
   }
 
   @override

@@ -1,0 +1,6 @@
+# Copy to key.properties (gitignored) for release signing.
+# CI uses GitHub secrets instead — see docs/DEVELOPMENT.md § Подпись Android.
+storePassword=your-store-password
+keyPassword=your-key-password
+keyAlias=meshpad
+storeFile=../meshpad-release.keystore

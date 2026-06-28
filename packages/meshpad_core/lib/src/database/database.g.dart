@@ -78,6 +78,24 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('[]'));
+  static const VerificationMeta _fsMetaModifiedAtMeta =
+      const VerificationMeta('fsMetaModifiedAt');
+  @override
+  late final GeneratedColumn<DateTime> fsMetaModifiedAt =
+      GeneratedColumn<DateTime>('fs_meta_modified_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _fsMarkdownModifiedAtMeta =
+      const VerificationMeta('fsMarkdownModifiedAt');
+  @override
+  late final GeneratedColumn<DateTime> fsMarkdownModifiedAt =
+      GeneratedColumn<DateTime>('fs_markdown_modified_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _fsAttachmentsModifiedAtMeta =
+      const VerificationMeta('fsAttachmentsModifiedAt');
+  @override
+  late final GeneratedColumn<DateTime> fsAttachmentsModifiedAt =
+      GeneratedColumn<DateTime>('fs_attachments_modified_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -89,7 +107,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
         deletedAt,
         previewSnippet,
         markdown,
-        tags
+        tags,
+        fsMetaModifiedAt,
+        fsMarkdownModifiedAt,
+        fsAttachmentsModifiedAt
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -148,6 +169,25 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
       context.handle(
           _tagsMeta, tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta));
     }
+    if (data.containsKey('fs_meta_modified_at')) {
+      context.handle(
+          _fsMetaModifiedAtMeta,
+          fsMetaModifiedAt.isAcceptableOrUnknown(
+              data['fs_meta_modified_at']!, _fsMetaModifiedAtMeta));
+    }
+    if (data.containsKey('fs_markdown_modified_at')) {
+      context.handle(
+          _fsMarkdownModifiedAtMeta,
+          fsMarkdownModifiedAt.isAcceptableOrUnknown(
+              data['fs_markdown_modified_at']!, _fsMarkdownModifiedAtMeta));
+    }
+    if (data.containsKey('fs_attachments_modified_at')) {
+      context.handle(
+          _fsAttachmentsModifiedAtMeta,
+          fsAttachmentsModifiedAt.isAcceptableOrUnknown(
+              data['fs_attachments_modified_at']!,
+              _fsAttachmentsModifiedAtMeta));
+    }
     return context;
   }
 
@@ -177,6 +217,14 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
           .read(DriftSqlType.string, data['${effectivePrefix}markdown'])!,
       tags: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tags'])!,
+      fsMetaModifiedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}fs_meta_modified_at']),
+      fsMarkdownModifiedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}fs_markdown_modified_at']),
+      fsAttachmentsModifiedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}fs_attachments_modified_at']),
     );
   }
 
@@ -197,6 +245,15 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
   final String previewSnippet;
   final String markdown;
   final String tags;
+
+  /// FS `meta.json` mtime at last successful index (PLAN §11.5.1).
+  final DateTime? fsMetaModifiedAt;
+
+  /// FS `note.md` mtime at last successful index.
+  final DateTime? fsMarkdownModifiedAt;
+
+  /// Latest mtime under `attachments/` at last index (null if none).
+  final DateTime? fsAttachmentsModifiedAt;
   const NoteRow(
       {required this.id,
       required this.title,
@@ -207,7 +264,10 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       this.deletedAt,
       required this.previewSnippet,
       required this.markdown,
-      required this.tags});
+      required this.tags,
+      this.fsMetaModifiedAt,
+      this.fsMarkdownModifiedAt,
+      this.fsAttachmentsModifiedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -223,6 +283,16 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
     map['preview_snippet'] = Variable<String>(previewSnippet);
     map['markdown'] = Variable<String>(markdown);
     map['tags'] = Variable<String>(tags);
+    if (!nullToAbsent || fsMetaModifiedAt != null) {
+      map['fs_meta_modified_at'] = Variable<DateTime>(fsMetaModifiedAt);
+    }
+    if (!nullToAbsent || fsMarkdownModifiedAt != null) {
+      map['fs_markdown_modified_at'] = Variable<DateTime>(fsMarkdownModifiedAt);
+    }
+    if (!nullToAbsent || fsAttachmentsModifiedAt != null) {
+      map['fs_attachments_modified_at'] =
+          Variable<DateTime>(fsAttachmentsModifiedAt);
+    }
     return map;
   }
 
@@ -240,6 +310,15 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       previewSnippet: Value(previewSnippet),
       markdown: Value(markdown),
       tags: Value(tags),
+      fsMetaModifiedAt: fsMetaModifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fsMetaModifiedAt),
+      fsMarkdownModifiedAt: fsMarkdownModifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fsMarkdownModifiedAt),
+      fsAttachmentsModifiedAt: fsAttachmentsModifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fsAttachmentsModifiedAt),
     );
   }
 
@@ -257,6 +336,12 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       previewSnippet: serializer.fromJson<String>(json['previewSnippet']),
       markdown: serializer.fromJson<String>(json['markdown']),
       tags: serializer.fromJson<String>(json['tags']),
+      fsMetaModifiedAt:
+          serializer.fromJson<DateTime?>(json['fsMetaModifiedAt']),
+      fsMarkdownModifiedAt:
+          serializer.fromJson<DateTime?>(json['fsMarkdownModifiedAt']),
+      fsAttachmentsModifiedAt:
+          serializer.fromJson<DateTime?>(json['fsAttachmentsModifiedAt']),
     );
   }
   @override
@@ -273,6 +358,11 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
       'previewSnippet': serializer.toJson<String>(previewSnippet),
       'markdown': serializer.toJson<String>(markdown),
       'tags': serializer.toJson<String>(tags),
+      'fsMetaModifiedAt': serializer.toJson<DateTime?>(fsMetaModifiedAt),
+      'fsMarkdownModifiedAt':
+          serializer.toJson<DateTime?>(fsMarkdownModifiedAt),
+      'fsAttachmentsModifiedAt':
+          serializer.toJson<DateTime?>(fsAttachmentsModifiedAt),
     };
   }
 
@@ -286,7 +376,10 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           Value<DateTime?> deletedAt = const Value.absent(),
           String? previewSnippet,
           String? markdown,
-          String? tags}) =>
+          String? tags,
+          Value<DateTime?> fsMetaModifiedAt = const Value.absent(),
+          Value<DateTime?> fsMarkdownModifiedAt = const Value.absent(),
+          Value<DateTime?> fsAttachmentsModifiedAt = const Value.absent()}) =>
       NoteRow(
         id: id ?? this.id,
         title: title ?? this.title,
@@ -298,6 +391,15 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
         previewSnippet: previewSnippet ?? this.previewSnippet,
         markdown: markdown ?? this.markdown,
         tags: tags ?? this.tags,
+        fsMetaModifiedAt: fsMetaModifiedAt.present
+            ? fsMetaModifiedAt.value
+            : this.fsMetaModifiedAt,
+        fsMarkdownModifiedAt: fsMarkdownModifiedAt.present
+            ? fsMarkdownModifiedAt.value
+            : this.fsMarkdownModifiedAt,
+        fsAttachmentsModifiedAt: fsAttachmentsModifiedAt.present
+            ? fsAttachmentsModifiedAt.value
+            : this.fsAttachmentsModifiedAt,
       );
   NoteRow copyWithCompanion(NotesCompanion data) {
     return NoteRow(
@@ -313,6 +415,15 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           : this.previewSnippet,
       markdown: data.markdown.present ? data.markdown.value : this.markdown,
       tags: data.tags.present ? data.tags.value : this.tags,
+      fsMetaModifiedAt: data.fsMetaModifiedAt.present
+          ? data.fsMetaModifiedAt.value
+          : this.fsMetaModifiedAt,
+      fsMarkdownModifiedAt: data.fsMarkdownModifiedAt.present
+          ? data.fsMarkdownModifiedAt.value
+          : this.fsMarkdownModifiedAt,
+      fsAttachmentsModifiedAt: data.fsAttachmentsModifiedAt.present
+          ? data.fsAttachmentsModifiedAt.value
+          : this.fsAttachmentsModifiedAt,
     );
   }
 
@@ -328,14 +439,29 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           ..write('deletedAt: $deletedAt, ')
           ..write('previewSnippet: $previewSnippet, ')
           ..write('markdown: $markdown, ')
-          ..write('tags: $tags')
+          ..write('tags: $tags, ')
+          ..write('fsMetaModifiedAt: $fsMetaModifiedAt, ')
+          ..write('fsMarkdownModifiedAt: $fsMarkdownModifiedAt, ')
+          ..write('fsAttachmentsModifiedAt: $fsAttachmentsModifiedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, author, createdAt, updatedAt,
-      deleted, deletedAt, previewSnippet, markdown, tags);
+  int get hashCode => Object.hash(
+      id,
+      title,
+      author,
+      createdAt,
+      updatedAt,
+      deleted,
+      deletedAt,
+      previewSnippet,
+      markdown,
+      tags,
+      fsMetaModifiedAt,
+      fsMarkdownModifiedAt,
+      fsAttachmentsModifiedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -349,7 +475,10 @@ class NoteRow extends DataClass implements Insertable<NoteRow> {
           other.deletedAt == this.deletedAt &&
           other.previewSnippet == this.previewSnippet &&
           other.markdown == this.markdown &&
-          other.tags == this.tags);
+          other.tags == this.tags &&
+          other.fsMetaModifiedAt == this.fsMetaModifiedAt &&
+          other.fsMarkdownModifiedAt == this.fsMarkdownModifiedAt &&
+          other.fsAttachmentsModifiedAt == this.fsAttachmentsModifiedAt);
 }
 
 class NotesCompanion extends UpdateCompanion<NoteRow> {
@@ -363,6 +492,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
   final Value<String> previewSnippet;
   final Value<String> markdown;
   final Value<String> tags;
+  final Value<DateTime?> fsMetaModifiedAt;
+  final Value<DateTime?> fsMarkdownModifiedAt;
+  final Value<DateTime?> fsAttachmentsModifiedAt;
   final Value<int> rowid;
   const NotesCompanion({
     this.id = const Value.absent(),
@@ -375,6 +507,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     this.previewSnippet = const Value.absent(),
     this.markdown = const Value.absent(),
     this.tags = const Value.absent(),
+    this.fsMetaModifiedAt = const Value.absent(),
+    this.fsMarkdownModifiedAt = const Value.absent(),
+    this.fsAttachmentsModifiedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesCompanion.insert({
@@ -388,6 +523,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     this.previewSnippet = const Value.absent(),
     this.markdown = const Value.absent(),
     this.tags = const Value.absent(),
+    this.fsMetaModifiedAt = const Value.absent(),
+    this.fsMarkdownModifiedAt = const Value.absent(),
+    this.fsAttachmentsModifiedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         createdAt = Value(createdAt),
@@ -403,6 +541,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     Expression<String>? previewSnippet,
     Expression<String>? markdown,
     Expression<String>? tags,
+    Expression<DateTime>? fsMetaModifiedAt,
+    Expression<DateTime>? fsMarkdownModifiedAt,
+    Expression<DateTime>? fsAttachmentsModifiedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -416,6 +557,11 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       if (previewSnippet != null) 'preview_snippet': previewSnippet,
       if (markdown != null) 'markdown': markdown,
       if (tags != null) 'tags': tags,
+      if (fsMetaModifiedAt != null) 'fs_meta_modified_at': fsMetaModifiedAt,
+      if (fsMarkdownModifiedAt != null)
+        'fs_markdown_modified_at': fsMarkdownModifiedAt,
+      if (fsAttachmentsModifiedAt != null)
+        'fs_attachments_modified_at': fsAttachmentsModifiedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -431,6 +577,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       Value<String>? previewSnippet,
       Value<String>? markdown,
       Value<String>? tags,
+      Value<DateTime?>? fsMetaModifiedAt,
+      Value<DateTime?>? fsMarkdownModifiedAt,
+      Value<DateTime?>? fsAttachmentsModifiedAt,
       Value<int>? rowid}) {
     return NotesCompanion(
       id: id ?? this.id,
@@ -443,6 +592,10 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
       previewSnippet: previewSnippet ?? this.previewSnippet,
       markdown: markdown ?? this.markdown,
       tags: tags ?? this.tags,
+      fsMetaModifiedAt: fsMetaModifiedAt ?? this.fsMetaModifiedAt,
+      fsMarkdownModifiedAt: fsMarkdownModifiedAt ?? this.fsMarkdownModifiedAt,
+      fsAttachmentsModifiedAt:
+          fsAttachmentsModifiedAt ?? this.fsAttachmentsModifiedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -480,6 +633,17 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
     if (tags.present) {
       map['tags'] = Variable<String>(tags.value);
     }
+    if (fsMetaModifiedAt.present) {
+      map['fs_meta_modified_at'] = Variable<DateTime>(fsMetaModifiedAt.value);
+    }
+    if (fsMarkdownModifiedAt.present) {
+      map['fs_markdown_modified_at'] =
+          Variable<DateTime>(fsMarkdownModifiedAt.value);
+    }
+    if (fsAttachmentsModifiedAt.present) {
+      map['fs_attachments_modified_at'] =
+          Variable<DateTime>(fsAttachmentsModifiedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -499,6 +663,9 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
           ..write('previewSnippet: $previewSnippet, ')
           ..write('markdown: $markdown, ')
           ..write('tags: $tags, ')
+          ..write('fsMetaModifiedAt: $fsMetaModifiedAt, ')
+          ..write('fsMarkdownModifiedAt: $fsMarkdownModifiedAt, ')
+          ..write('fsAttachmentsModifiedAt: $fsAttachmentsModifiedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1553,6 +1720,9 @@ typedef $$NotesTableCreateCompanionBuilder = NotesCompanion Function({
   Value<String> previewSnippet,
   Value<String> markdown,
   Value<String> tags,
+  Value<DateTime?> fsMetaModifiedAt,
+  Value<DateTime?> fsMarkdownModifiedAt,
+  Value<DateTime?> fsAttachmentsModifiedAt,
   Value<int> rowid,
 });
 typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
@@ -1566,6 +1736,9 @@ typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
   Value<String> previewSnippet,
   Value<String> markdown,
   Value<String> tags,
+  Value<DateTime?> fsMetaModifiedAt,
+  Value<DateTime?> fsMarkdownModifiedAt,
+  Value<DateTime?> fsAttachmentsModifiedAt,
   Value<int> rowid,
 });
 
@@ -1608,6 +1781,18 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<String> get tags => $composableBuilder(
       column: $table.tags, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fsMetaModifiedAt => $composableBuilder(
+      column: $table.fsMetaModifiedAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fsMarkdownModifiedAt => $composableBuilder(
+      column: $table.fsMarkdownModifiedAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fsAttachmentsModifiedAt => $composableBuilder(
+      column: $table.fsAttachmentsModifiedAt,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$NotesTableOrderingComposer
@@ -1649,6 +1834,18 @@ class $$NotesTableOrderingComposer
 
   ColumnOrderings<String> get tags => $composableBuilder(
       column: $table.tags, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fsMetaModifiedAt => $composableBuilder(
+      column: $table.fsMetaModifiedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fsMarkdownModifiedAt => $composableBuilder(
+      column: $table.fsMarkdownModifiedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fsAttachmentsModifiedAt => $composableBuilder(
+      column: $table.fsAttachmentsModifiedAt,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$NotesTableAnnotationComposer
@@ -1689,6 +1886,15 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fsMetaModifiedAt => $composableBuilder(
+      column: $table.fsMetaModifiedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fsMarkdownModifiedAt => $composableBuilder(
+      column: $table.fsMarkdownModifiedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fsAttachmentsModifiedAt => $composableBuilder(
+      column: $table.fsAttachmentsModifiedAt, builder: (column) => column);
 }
 
 class $$NotesTableTableManager extends RootTableManager<
@@ -1724,6 +1930,9 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<String> previewSnippet = const Value.absent(),
             Value<String> markdown = const Value.absent(),
             Value<String> tags = const Value.absent(),
+            Value<DateTime?> fsMetaModifiedAt = const Value.absent(),
+            Value<DateTime?> fsMarkdownModifiedAt = const Value.absent(),
+            Value<DateTime?> fsAttachmentsModifiedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               NotesCompanion(
@@ -1737,6 +1946,9 @@ class $$NotesTableTableManager extends RootTableManager<
             previewSnippet: previewSnippet,
             markdown: markdown,
             tags: tags,
+            fsMetaModifiedAt: fsMetaModifiedAt,
+            fsMarkdownModifiedAt: fsMarkdownModifiedAt,
+            fsAttachmentsModifiedAt: fsAttachmentsModifiedAt,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -1750,6 +1962,9 @@ class $$NotesTableTableManager extends RootTableManager<
             Value<String> previewSnippet = const Value.absent(),
             Value<String> markdown = const Value.absent(),
             Value<String> tags = const Value.absent(),
+            Value<DateTime?> fsMetaModifiedAt = const Value.absent(),
+            Value<DateTime?> fsMarkdownModifiedAt = const Value.absent(),
+            Value<DateTime?> fsAttachmentsModifiedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               NotesCompanion.insert(
@@ -1763,6 +1978,9 @@ class $$NotesTableTableManager extends RootTableManager<
             previewSnippet: previewSnippet,
             markdown: markdown,
             tags: tags,
+            fsMetaModifiedAt: fsMetaModifiedAt,
+            fsMarkdownModifiedAt: fsMarkdownModifiedAt,
+            fsAttachmentsModifiedAt: fsAttachmentsModifiedAt,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

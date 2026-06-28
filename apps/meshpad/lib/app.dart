@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
@@ -83,7 +84,7 @@ class _MeshPadAppState extends ConsumerState<MeshPadApp>
     );
     final isDark = overlayBrightness == Brightness.dark;
 
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -117,6 +118,11 @@ class _MeshPadAppState extends ConsumerState<MeshPadApp>
 
 Future<void> bootstrapMeshPadApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    await initializeDateFormatting('ru');
+    await initializeDateFormatting('en');
+    return;
+  }
   if (Platform.isAndroid) {
     await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -138,6 +144,8 @@ Future<void> bootstrapMeshPadApp() async {
     settings.dataDir ?? await settingsStore.defaultDataDir(),
   );
   MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
+  SyncClockMonitor.onAnomaly =
+      (message) => MeshPadLog.warn('sync', message);
   await BackgroundSyncRegistrar.applySettings(settings);
   await initializeDateFormatting('ru');
   await initializeDateFormatting('en');

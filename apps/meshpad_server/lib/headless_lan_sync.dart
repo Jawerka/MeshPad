@@ -47,6 +47,8 @@ class HeadlessLanSyncService {
           lanHttpPort: port,
           authToken: confirm.authToken,
           tlsCertSha256: confirm.initiatorTlsCertSha256,
+          signingPublicKey: confirm.initiatorSigningPublicKey,
+          signingKeyAlgorithm: confirm.initiatorSigningKeyAlgorithm,
         );
       },
     );

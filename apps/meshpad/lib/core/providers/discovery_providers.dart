@@ -40,10 +40,7 @@ class DiscoveryService {
 
   bool get _supported =>
       !kIsWeb &&
-      (Platform.isWindows ||
-          Platform.isLinux ||
-          Platform.isMacOS ||
-          Platform.isAndroid);
+      (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
 
   Future<void> start() => ensureRunning();
 
@@ -54,6 +51,49 @@ class DiscoveryService {
     final transport = _ref.read(syncTransportProvider);
     _syncKnownPeers(transport);
     await transport.lanAccess?.refreshDiscovery();
+  }
+
+  /// Decodes a pairing QR and probes the host (PLAN §11.4.3).
+  Future<({PairingQrPayload payload, ManualLanPeerProbeSuccess probe})?>
+      probePairingQr(String raw) async {
+    final payload = PairingQrPayload.tryDecode(raw);
+    if (payload == null) return null;
+
+    final result = await probeManualPeer(
+      host: payload.host,
+      httpPort: payload.httpPort,
+    );
+    if (result is ManualLanPeerProbeSuccess) {
+      return (payload: payload, probe: result);
+    }
+    return null;
+  }
+
+  /// Manual IP:port probe (PLAN §11.4.2); adds peer to discovery list on success.
+  Future<ManualLanPeerProbeResult> probeManualPeer({
+    required String host,
+    required int httpPort,
+  }) async {
+    if (!_supported) {
+      return const ManualLanPeerProbeFailure(
+        ManualLanPeerProbeError.webUnsupported,
+      );
+    }
+
+    final result = await probeManualLanPeer(host: host, httpPort: httpPort);
+    if (result is ManualLanPeerProbeSuccess) {
+      final transport = _ref.read(syncTransportProvider);
+      await transport.start();
+      transport.lanAccess?.rememberEndpoint(result.endpoint);
+      _ref.read(discoveredPeersProvider.notifier).upsert(
+            DiscoveredPeer(
+              peerId: result.endpoint.peerId,
+              displayName: result.endpoint.displayName,
+              discoveredAt: DateTime.now().toUtc(),
+            ),
+          );
+    }
+    return result;
   }
 
   /// Stops the current transport before [syncTransportProvider] is recreated.

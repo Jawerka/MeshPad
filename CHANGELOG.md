@@ -4,17 +4,26 @@
 
 ### Added
 
-- GitHub Actions workflow **Build Release** (`.github/workflows/build-release.yml`): release APK + Windows x64 zip; GitHub Release on tag `v*`
+- **MeshPad 1.0 (ADR 0003):** production sync = LAN only; Git sync (desktop); payload encryption; network-aware discovery
+- **GitHub OAuth:** Device Flow для Git sync — [docs/GIT_SYNC.md](docs/GIT_SYNC.md)
+- **UI:** заголовок заметки по дате/времени; «Скопировать всё» (desktop)
 
 ### Changed
 
-- Hide libp2p transport toggle in settings until Rust push/pull (B.2); saved `sync_transport: libp2p` runs as LAN; dev override `--dart-define=MESHPAD_SYNC_TRANSPORT=libp2p` unchanged
+- Документация актуализирована под 1.0; libp2p помечен archived
+- `sync_transport: libp2p` мигрирует в `lan` при загрузке настроек
+- Бенчмарк reconcile 1000 notes — opt-in (`dart test --tags benchmark`)
+
+### Removed
+
+- **CI/release:** Rust libp2p FFI jobs и native FFI в release pipelines
+- HTML-референс `ref/` (устаревший прототип UI)
 
 ---
 
 ## [0.2.0] — Post-MVP (2026-05)
 
-Расширение после MVP 0.1.0. См. [PLAN.md §12](PLAN.md#12-post-mvp--план-развития) и §6 «Итог разработки».
+Расширение после MVP 0.1.0.
 
 ### Added
 
@@ -44,14 +53,14 @@
 
 ### Notes
 
-- App version **0.2.0**; planned roadmap phases A–E delivered except full libp2p push/pull (see PLAN §13 backlog)
+- App version **0.2.0**; post-MVP phases A–E delivered; libp2p archived in 1.0 (ADR 0003)
 - CI: `melos run check` (analyze + unit + flutter tests)
 
 ---
 
 ## [0.1.0] — MVP (2026-05)
 
-Первый рабочий релиз. См. [PLAN.md §5](PLAN.md#5-реализованное-mvp-010) — источник истины по поведению.
+Первый рабочий релиз.
 
 ### Суть MVP
 
@@ -86,7 +95,6 @@ Local-first Markdown-лента, вложения с превью (images/video/
 ### Documentation
 
 - PLAN, ARCHITECTURE, DEVELOPMENT aligned with implemented MVP
-- Post-MVP roadmap (Phases A–E) in PLAN §12
 
 ---
 

@@ -16,7 +16,7 @@ const videoPosterTimeFraction = 1 / 3;
 
 bool useVideoPosterInFeed() =>
     !kIsWeb &&
-    (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+    (Platform.isWindows || Platform.isLinux);
 
 class VideoAttachmentPreview extends StatelessWidget {
   const VideoAttachmentPreview({

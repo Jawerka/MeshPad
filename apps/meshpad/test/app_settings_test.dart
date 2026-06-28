@@ -26,6 +26,15 @@ void main() {
     expect(restored.localeMode, AppLocaleMode.en);
   });
 
+  test('AppSettings serializes thumb_cache_max_mb', () {
+    const settings = AppSettings(thumbCacheMaxMb: 512);
+    final json = settings.toJson(defaultDataDir: '/data');
+    expect(json['thumb_cache_max_mb'], 512);
+
+    final restored = AppSettings.fromJson(json, defaultDataDir: '/data');
+    expect(restored.thumbCacheMaxMb, 512);
+  });
+
   test('appLocaleModeFromWire defaults to ru', () {
     expect(appLocaleModeFromWire(null), AppLocaleMode.ru);
     expect(appLocaleModeFromWire('system'), AppLocaleMode.system);

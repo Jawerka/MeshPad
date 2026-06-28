@@ -1,6 +1,8 @@
-/// Default version manifest for update checks (PLAN §12).
-/// Replace with your release URL when publishing builds.
+/// App semver for UI and update checks (PLAN §11.0.2).
+///
+/// Must match `version:` in [apps/meshpad/pubspec.yaml] (see `app_version_test.dart`).
+/// Release: `.\scripts\read-app-version.ps1` → tag `v<version>`.
 const kAppVersion = '0.2.0';
 
 const kVersionManifestUrl =
-    'https://raw.githubusercontent.com/meshpad/meshpad/main/version.json';
+    'https://raw.githubusercontent.com/Jawerka/MeshPad/main/version.json';

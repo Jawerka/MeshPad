@@ -33,41 +33,83 @@ class MeshPadApiClient {
     }
   }
 
-  Future<List<Note>> listNotes({NoteSort sort = NoteSort.createdAt}) async {
-    final sortParam =
-        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
+  Future<List<Note>> listNotes({
+    NoteSort sort = NoteSort.createdAt,
+    String? tag,
+  }) async {
     final response = await _get(
       '/api/notes',
-      query: {'sort': sortParam},
+      query: _notesListQuery(sort: sort, tag: tag),
     );
     _ensureOk(response);
     return notesFromApiList(response.body);
   }
 
-  Future<int> countActiveNotes() async {
-    final response = await _get('/api/notes/count');
+  /// Notes changed on or after [since] (PLAN §11.6.2 SSE reconnect catch-up).
+  Future<List<Note>> listNotesUpdatedSince(
+    DateTime since, {
+    NoteSort sort = NoteSort.updatedAt,
+    String? tag,
+  }) async {
+    final response = await _get(
+      '/api/notes',
+      query: {
+        ..._notesListQuery(sort: sort, tag: tag),
+        'since': since.toUtc().toIso8601String(),
+      },
+    );
+    _ensureOk(response);
+    return notesFromApiList(response.body);
+  }
+
+  Future<int> countActiveNotes({String? tag}) async {
+    final response = await _get(
+      '/api/notes/count',
+      query: tag == null || tag.isEmpty ? null : {'tag': tag},
+    );
     _ensureOk(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return json['count'] as int? ?? 0;
+  }
+
+  Future<List<String>> listDistinctTags() async {
+    final response = await _get('/api/tags');
+    _ensureOk(response);
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw const FormatException('Expected JSON array of tags');
+    }
+    return [for (final item in decoded) '$item'];
   }
 
   Future<List<Note>> listNotesSlice({
     required int offset,
     int limit = 40,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) async {
-    final sortParam =
-        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
     final response = await _get(
       '/api/notes',
       query: {
-        'sort': sortParam,
+        ..._notesListQuery(sort: sort, tag: tag),
         'offset': '$offset',
         'limit': '$limit',
       },
     );
     _ensureOk(response);
     return notesFromApiList(response.body);
+  }
+
+  Map<String, String> _notesListQuery({
+    required NoteSort sort,
+    String? tag,
+  }) {
+    final sortParam =
+        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
+    return {
+      'sort': sortParam,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+    };
   }
 
   Future<List<Note>> listTrash() async {
@@ -95,6 +137,7 @@ class MeshPadApiClient {
     String title = '',
     required String markdown,
     String? author,
+    List<String> tags = const [],
   }) async {
     final response = await _post(
       '/api/notes',
@@ -102,6 +145,7 @@ class MeshPadApiClient {
         'title': title,
         'markdown': markdown,
         if (author != null) 'author': author,
+        if (tags.isNotEmpty) 'tags': tags,
       },
     );
     if (response.statusCode != 201) {
@@ -114,17 +158,22 @@ class MeshPadApiClient {
     String id, {
     String? title,
     String? markdown,
+    List<String>? tags,
   }) async {
     final response = await _put(
       '/api/notes/$id',
       body: {
         if (title != null) 'title': title,
         if (markdown != null) 'markdown': markdown,
+        if (tags != null) 'tags': tags,
       },
     );
     _ensureOk(response);
     return noteFromApiBody(response.body);
   }
+
+  Future<Note> setNoteTags(String id, List<String> tags) =>
+      updateNote(id, tags: tags);
 
   Future<void> deleteNote(String id) async {
     final response = await _delete('/api/notes/$id');
@@ -163,10 +212,13 @@ class MeshPadApiClient {
   }
 
   /// SSE stream of feed changes (`GET /api/events`).
-  Stream<MeshPadApiEvent> watchNoteEvents() async* {
+  Stream<MeshPadApiEvent> watchNoteEvents({String? lastEventId}) async* {
     final request = http.Request('GET', _uri('/api/events'));
     request.headers.addAll(_authHeaders);
     request.headers['Accept'] = 'text/event-stream';
+    if (lastEventId != null && lastEventId.trim().isNotEmpty) {
+      request.headers['Last-Event-ID'] = lastEventId.trim();
+    }
     final response = await _http.send(request);
     yield* meshPadEventsFromResponse(response);
   }

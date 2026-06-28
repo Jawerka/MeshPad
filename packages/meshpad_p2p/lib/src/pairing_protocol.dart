@@ -14,12 +14,16 @@ class PinPairingOffer {
     required this.displayName,
     required this.pin,
     required this.expiresAt,
+    this.signingPublicKey,
+    this.signingKeyAlgorithm,
   });
 
   final String peerId;
   final String displayName;
   final String pin;
   final DateTime expiresAt;
+  final String? signingPublicKey;
+  final String? signingKeyAlgorithm;
 
   bool get isExpired => DateTime.now().toUtc().isAfter(expiresAt);
 
@@ -28,6 +32,9 @@ class PinPairingOffer {
         'display_name': displayName,
         'pin': pin,
         'expires_at': expiresAt.toIso8601String(),
+        if (signingPublicKey != null) 'signing_public_key': signingPublicKey,
+        if (signingKeyAlgorithm != null)
+          'signing_key_algorithm': signingKeyAlgorithm,
       };
 
   factory PinPairingOffer.fromJson(Map<String, dynamic> json) {
@@ -36,6 +43,8 @@ class PinPairingOffer {
       displayName: json['display_name'] as String? ?? 'Устройство',
       pin: json['pin'] as String,
       expiresAt: DateTime.parse(json['expires_at'] as String).toUtc(),
+      signingPublicKey: json['signing_public_key'] as String?,
+      signingKeyAlgorithm: json['signing_key_algorithm'] as String?,
     );
   }
 }
@@ -50,6 +59,8 @@ class PinPairingConfirm {
     this.initiatorHttpPort,
     this.authToken,
     this.initiatorTlsCertSha256,
+    this.initiatorSigningPublicKey,
+    this.initiatorSigningKeyAlgorithm,
   });
 
   final String peerId;
@@ -60,6 +71,8 @@ class PinPairingConfirm {
   final int? initiatorHttpPort;
   final String? authToken;
   final String? initiatorTlsCertSha256;
+  final String? initiatorSigningPublicKey;
+  final String? initiatorSigningKeyAlgorithm;
 
   Map<String, dynamic> toJson() => {
         'peer_id': peerId,
@@ -73,6 +86,10 @@ class PinPairingConfirm {
         if (authToken != null) 'auth_token': authToken,
         if (initiatorTlsCertSha256 != null)
           'initiator_tls_cert_sha256': initiatorTlsCertSha256,
+        if (initiatorSigningPublicKey != null)
+          'initiator_signing_public_key': initiatorSigningPublicKey,
+        if (initiatorSigningKeyAlgorithm != null)
+          'initiator_signing_key_algorithm': initiatorSigningKeyAlgorithm,
       };
 
   factory PinPairingConfirm.fromJson(Map<String, dynamic> json) {
@@ -85,6 +102,10 @@ class PinPairingConfirm {
       initiatorHttpPort: json['initiator_http_port'] as int?,
       authToken: json['auth_token'] as String?,
       initiatorTlsCertSha256: json['initiator_tls_cert_sha256'] as String?,
+      initiatorSigningPublicKey:
+          json['initiator_signing_public_key'] as String?,
+      initiatorSigningKeyAlgorithm:
+          json['initiator_signing_key_algorithm'] as String?,
     );
   }
 }
@@ -103,6 +124,8 @@ PinPairingOffer createPairingOffer({
   required String displayName,
   required String pin,
   DateTime? expiresAt,
+  String? signingPublicKey,
+  String? signingKeyAlgorithm,
 }) {
   final now = DateTime.now().toUtc();
   return PinPairingOffer(
@@ -110,6 +133,8 @@ PinPairingOffer createPairingOffer({
     displayName: displayName,
     pin: pin,
     expiresAt: expiresAt ?? now.add(pairingOfferTtl),
+    signingPublicKey: signingPublicKey,
+    signingKeyAlgorithm: signingKeyAlgorithm,
   );
 }
 

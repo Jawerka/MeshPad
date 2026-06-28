@@ -41,7 +41,14 @@ Future<BackgroundSyncPassResult> runBackgroundSyncPass({
       database: db,
     );
 
+    final reconcileStopwatch = Stopwatch()..start();
     final indexed = await repo.reconcileFromFilesystem();
+    reconcileStopwatch.stop();
+    MeshPadLog.metric(
+      'reconcile_duration_ms',
+      '${reconcileStopwatch.elapsedMilliseconds}',
+    );
+    MeshPadLog.metric('reconcile_notes', '$indexed');
     final purged = await repo.purgeExpiredTrash();
     final trusted = await deviceStore.listTrustedDevices();
 

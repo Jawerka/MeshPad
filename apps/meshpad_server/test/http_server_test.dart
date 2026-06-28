@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_server/api_key_auth.dart';
+import 'package:meshpad_server/api_rate_limit.dart';
 import 'package:meshpad_server/meshpad_server.dart';
 import 'package:meshpad_server/note_change_hub.dart';
 import 'package:shelf/shelf.dart';
@@ -107,7 +108,7 @@ void main() {
     final upload = await router.call(
       Request(
         'PUT',
-        Uri.parse('http://localhost/api/notes/$id/attachments/photo.bin'),
+        Uri.parse('http://localhost/api/notes/$id/attachments/photo.png'),
         body: payload,
         headers: {'Content-Type': 'application/octet-stream'},
       ),
@@ -116,7 +117,7 @@ void main() {
 
     final note = await repo.getNote(id);
     expect(note?.attachments.length, 1);
-    expect(note?.attachments.first.name, 'photo.bin');
+    expect(note?.attachments.first.name, 'photo.png');
     expect(
       await repo.attachmentMatches(id, note!.attachments.first),
       isTrue,
@@ -190,6 +191,136 @@ void main() {
     expect(events.any((e) => e.type == 'note_created'), isTrue);
     await sub.cancel();
     hub.dispose();
+  });
+
+  test('GET /api/notes?since= filters by updated_at', () async {
+    final router = server().buildRouter();
+
+    final create = await router.call(
+      Request(
+        'POST',
+        Uri.parse('http://localhost/api/notes'),
+        body: '{"markdown":"old"}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    expect(create.statusCode, 201);
+    final id = RegExp(r'"id":"([^"]+)"')
+        .firstMatch(await create.readAsString())!
+        .group(1)!;
+
+    final beforeUpdate = DateTime.now().toUtc();
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    final update = await router.call(
+      Request(
+        'PUT',
+        Uri.parse('http://localhost/api/notes/$id'),
+        body: '{"markdown":"new"}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    expect(update.statusCode, 200);
+
+    final since = beforeUpdate.toIso8601String();
+    final filtered = await router.call(
+      Request(
+        'GET',
+        Uri.parse('http://localhost/api/notes?since=$since'),
+      ),
+    );
+    expect(filtered.statusCode, 200);
+    final body = await filtered.readAsString();
+    expect(body, contains(id));
+
+    final none = await router.call(
+      Request(
+        'GET',
+        Uri.parse(
+          'http://localhost/api/notes?since=${DateTime.now().toUtc().add(const Duration(hours: 1)).toIso8601String()}',
+        ),
+      ),
+    );
+    expect(none.statusCode, 200);
+    expect(await none.readAsString(), '[]');
+  });
+
+  test('GET /api/events replays after Last-Event-ID', () async {
+    final hub = NoteChangeHub();
+    final router = MeshPadHttpServer(
+      repository: repo,
+      defaultAuthor: 'test',
+      changeHub: hub,
+    ).buildRouter();
+
+    hub.noteCreated('first');
+    hub.noteCreated('second');
+
+    final response = await router.call(
+      Request(
+        'GET',
+        Uri.parse('http://localhost/api/events'),
+        headers: {'Last-Event-ID': '1'},
+      ),
+    );
+    expect(response.statusCode, 200);
+
+    final buffer = StringBuffer();
+    await for (final chunk in response.read()) {
+      buffer.write(utf8.decode(chunk));
+      if (buffer.toString().contains('id: 2')) break;
+    }
+    final body = buffer.toString();
+    expect(body, contains('id: 2'));
+    expect(body, contains('note_created'));
+    hub.dispose();
+  });
+
+  test('tags in CRUD and filter by ?tag=', () async {
+    final router = server().buildRouter();
+
+    final create = await router.call(
+      Request(
+        'POST',
+        Uri.parse('http://localhost/api/notes'),
+        body: '{"markdown":"tagged","tags":["Work","work"]}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    expect(create.statusCode, 201);
+    final body = await create.readAsString();
+    expect(body, contains('"tags":["work"]'));
+
+    final id = RegExp(r'"id":"([^"]+)"').firstMatch(body)!.group(1)!;
+
+    final tagsList = await router.call(
+      Request('GET', Uri.parse('http://localhost/api/tags')),
+    );
+    expect(tagsList.statusCode, 200);
+    expect(await tagsList.readAsString(), contains('work'));
+
+    final filtered = await router.call(
+      Request('GET', Uri.parse('http://localhost/api/notes?tag=work')),
+    );
+    expect(filtered.statusCode, 200);
+    expect(await filtered.readAsString(), contains(id));
+
+    final count = await router.call(
+      Request('GET', Uri.parse('http://localhost/api/notes/count?tag=work')),
+    );
+    expect(count.statusCode, 200);
+    expect(await count.readAsString(), contains('"count":1'));
+
+    final update = await router.call(
+      Request(
+        'PUT',
+        Uri.parse('http://localhost/api/notes/$id'),
+        body: '{"tags":["ideas"]}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    expect(update.statusCode, 200);
+    expect(await update.readAsString(), contains('"ideas"'));
   });
 
   test('GET /api/events returns SSE content type', () async {
@@ -271,5 +402,63 @@ void main() {
       ),
     );
     expect(allowed.statusCode, 200);
+  });
+
+  test('rejects disallowed attachment upload', () async {
+    final router = server().buildRouter();
+    final created = await router.call(
+      Request(
+        'POST',
+        Uri.parse('http://localhost/api/notes'),
+        body: '{"markdown":"x"}',
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    final id =
+        (jsonDecode(await created.readAsString()) as Map)['id'] as String;
+
+    final upload = await router.call(
+      Request(
+        'PUT',
+        Uri.parse('http://localhost/api/notes/$id/attachments/evil.exe'),
+        body: [1, 2, 3],
+        headers: {'Content-Type': 'application/octet-stream'},
+      ),
+    );
+    expect(upload.statusCode, 400);
+    final body = jsonDecode(await upload.readAsString()) as Map;
+    expect(body['error'], 'disallowed_type');
+  });
+
+  test('rate limit returns 429', () async {
+    final limiter = ApiRateLimiter(maxPerMinute: 2);
+    final handler = Pipeline()
+        .addMiddleware(apiRateLimitMiddleware(limiter: limiter))
+        .addHandler(server().buildRouter().call);
+
+    expect(
+      (await handler.call(
+        Request('GET', Uri.parse('http://localhost/api/notes/count')),
+      )).statusCode,
+      200,
+    );
+    expect(
+      (await handler.call(
+        Request('GET', Uri.parse('http://localhost/api/notes/count')),
+      )).statusCode,
+      200,
+    );
+    expect(
+      (await handler.call(
+        Request('GET', Uri.parse('http://localhost/api/notes/count')),
+      )).statusCode,
+      429,
+    );
+    expect(
+      (await handler.call(
+        Request('GET', Uri.parse('http://localhost/api/health')),
+      )).statusCode,
+      200,
+    );
   });
 }

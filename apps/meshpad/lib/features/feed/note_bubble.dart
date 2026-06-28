@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
@@ -11,6 +13,8 @@ import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import 'attachment_grid.dart';
 import 'feed_screen.dart';
+import 'note_conflict_sheet.dart';
+import 'note_history_sheet.dart';
 import 'note_tags_editor.dart';
 
 class NoteBubble extends ConsumerStatefulWidget {
@@ -72,6 +76,9 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     final dataDir = ref.watch(dataDirProvider).valueOrNull;
     final compact = isCompactFeedLayout(context);
     final isWeb = ref.watch(isWebClientProvider);
+    final conflictsAsync = ref.watch(noteConflictCopiesProvider(note.id));
+    final hasConflicts =
+        conflictsAsync.maybeWhen(data: (c) => c.isNotEmpty, orElse: () => false);
     final metaStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: MeshPadColors.textMuted,
           fontFeatures: const [FontFeature.tabularFigures()],
@@ -119,13 +126,35 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
       }
     }
 
+    final headline = displayNoteTitle(
+      title: note.title,
+      markdown: note.markdown,
+      createdAt: note.createdAt,
+    );
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
     return Card(
       margin: compact ? EdgeInsets.zero : null,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: MeshPadColors.border.withValues(alpha: 0.6)),
+      ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              headline,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -170,6 +199,19 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                         await ref
                             .read(notesListProvider.notifier)
                             .restoreNote(note.id);
+                      case 'conflicts':
+                        await showNoteConflictSheet(context, ref, note);
+                      case 'history':
+                        await showNoteHistorySheet(context, ref, note);
+                      case 'copy':
+                        final text = _copyAllText(note);
+                        await Clipboard.setData(ClipboardData(text: text));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(AppLocalizations.of(context).noteMenuCopyAll),
+                          ),
+                        );
                     }
                   },
                   itemBuilder: (context) {
@@ -183,14 +225,29 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                       ];
                     }
                     return [
+                      if (hasConflicts)
+                        PopupMenuItem(
+                          value: 'conflicts',
+                          child: Text(l10n.noteMenuConflicts),
+                        ),
                       PopupMenuItem(
                         value: 'edit',
                         child: Text(l10n.noteMenuEdit),
                       ),
+                      if (isDesktop)
+                        PopupMenuItem(
+                          value: 'copy',
+                          child: Text(l10n.noteMenuCopyAll),
+                        ),
                       if (!isWeb)
                         PopupMenuItem(
                           value: 'tags',
                           child: Text(l10n.noteMenuTags),
+                        ),
+                      if (!isWeb)
+                        PopupMenuItem(
+                          value: 'history',
+                          child: Text(l10n.noteMenuHistory),
                         ),
                       PopupMenuItem(
                         value: 'delete',
@@ -228,6 +285,15 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                             },
                     ),
                 ],
+              ),
+            ],
+            if (hasConflicts) ...[
+              const SizedBox(height: 8),
+              ActionChip(
+                avatar: const Icon(Icons.warning_amber, size: 18),
+                label: Text(AppLocalizations.of(context).noteConflictBadge),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showNoteConflictSheet(context, ref, note),
               ),
             ],
             const SizedBox(height: 8),
@@ -284,6 +350,17 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
         ),
       ),
     );
+  }
+
+  String _copyAllText(Note note) {
+    final title = displayNoteTitle(
+      title: note.title,
+      markdown: note.markdown,
+      createdAt: note.createdAt,
+    );
+    final body = note.markdown.trim();
+    if (body.isEmpty) return title;
+    return '$title\n\n$body';
   }
 
   Widget _buildMarkdownBody(

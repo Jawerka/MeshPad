@@ -46,5 +46,14 @@ lcov.info
 target/
 **/generated/
 
+# Bundled libp2p FFI artifacts (built via scripts/build-native-ffi.*)
+apps/meshpad/windows/runner/native/*.dll
+apps/meshpad/linux/runner/native/*.so
+apps/meshpad/linux/runner/native/*.dylib
+apps/meshpad/android/app/src/main/jniLibs/**/libmeshpad_p2p_native.so
+
 # Web server runtime (Linux headless)
 var/
+
+# Downloaded VS bootstrapper (scripts/install-vs-atl.ps1)
+tools/*.exe

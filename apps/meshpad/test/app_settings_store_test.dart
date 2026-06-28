@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,25 @@ void main() {
     expect(await store.isUsingCustomDataDir(), isTrue);
   });
 
+  test('saveSettings persists auto backup options', () async {
+    final lastAt = DateTime.utc(2026, 6, 1, 8);
+    await store.saveSettings(
+      AppSettings(
+        dataDir: await store.defaultDataDir(),
+        autoBackupEnabled: true,
+        autoBackupIntervalHours: 48,
+        autoBackupDirectory: p.join(tempDir.path, 'backups'),
+        autoBackupLastAt: lastAt,
+      ),
+    );
+
+    final loaded = await store.loadSettings();
+    expect(loaded.autoBackupEnabled, isTrue);
+    expect(loaded.autoBackupIntervalHours, 48);
+    expect(loaded.autoBackupDirectory, p.join(tempDir.path, 'backups'));
+    expect(loaded.autoBackupLastAt, lastAt);
+  });
+
   test('saveSettings persists auto sync options', () async {
     await store.saveSettings(
       AppSettings(
@@ -68,5 +88,23 @@ void main() {
     expect(AppSettings.clampInterval(1), 5);
     expect(AppSettings.clampInterval(200), 120);
     expect(AppSettings.clampInterval(15), 15);
+  });
+
+  test('loadSettings migrates sync_transport libp2p to lan', () async {
+    final file = File(p.join(tempDir.path, 'app_settings.json'));
+    await file.writeAsString('''
+{
+  "sync_transport": "libp2p",
+  "auto_sync_enabled": true,
+  "auto_sync_interval_minutes": 15
+}
+''');
+
+    final loaded = await store.loadSettings();
+    expect(loaded.syncTransportKind, SyncTransportKind.lan);
+
+    final persisted =
+        jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(persisted['sync_transport'], 'lan');
   });
 }

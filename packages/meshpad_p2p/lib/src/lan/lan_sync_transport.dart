@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 
 
@@ -21,6 +22,7 @@ import 'lan_discovery.dart';
 import 'lan_peer_server.dart';
 
 import 'lan_sync_codec.dart';
+import 'lan_sync_wire_bytes.dart';
 
 import 'lan_tls_identity.dart';
 
@@ -564,6 +566,8 @@ class LanSyncTransport implements SyncTransport {
 
 
 
+    LanSyncWireBytes.beginSession();
+    final syncStopwatch = Stopwatch()..start();
     try {
 
       final engine = await _getEngine();
@@ -578,6 +582,10 @@ class LanSyncTransport implements SyncTransport {
           result.failedPushNoteIds,
         );
       }
+
+      syncStopwatch.stop();
+      MeshPadLog.metric('sync_duration_ms', '${syncStopwatch.elapsedMilliseconds}');
+      MeshPadLog.metric('sync_bytes', '${LanSyncWireBytes.sessionTotal}');
 
       MeshPadLog.sync(
 
@@ -653,18 +661,20 @@ class LanSyncTransport implements SyncTransport {
 
     final tlsCertSha256 = await _tlsCertFor(peerId);
 
+    Uint8List? signingPrivateKey;
+    final loader = getDeviceStore;
+    if (loader != null && identity.signingPublicKey != null) {
+      final store = await loader();
+      signingPrivateKey = await store.readSigningPrivateKey();
+    }
+
     return HttpRemoteSyncGateway(
-
       endpoint: endpoint,
-
       callerPeerId: identity.peerId,
-
       authToken: authToken,
-
       tlsCertSha256: tlsCertSha256,
-
+      signingPrivateKey: signingPrivateKey,
     );
-
   }
 
 
@@ -702,15 +712,12 @@ class LanSyncTransport implements SyncTransport {
 
 
     _identity = LocalDeviceIdentity(
-
       peerId: current.peerId,
-
       displayName: trimmed,
-
       icon: current.icon,
-
       createdAt: current.createdAt,
-
+      signingPublicKey: current.signingPublicKey,
+      signingKeyAlgorithm: current.signingKeyAlgorithm,
     );
 
 

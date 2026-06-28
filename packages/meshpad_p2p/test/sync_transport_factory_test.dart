@@ -17,18 +17,13 @@ void main() {
       expect(transport, isA<LanSyncTransport>());
     });
 
-    test('libp2p kind returns Libp2pSyncTransport with LAN fallback', () {
+    test('libp2p kind maps to LanSyncTransport (ADR 0003)', () {
       final transport = createSyncTransport(
         kind: SyncTransportKind.libp2p,
         getEngine: getEngine,
         getIdentity: getIdentity,
       );
-      expect(transport, isA<Libp2pSyncTransport>());
-      expect(transport.lanAccess, isA<LanSyncTransport>());
-      expect(
-        (transport as Libp2pSyncTransport).lanFallback,
-        same(transport.lanAccess),
-      );
+      expect(transport, isA<LanSyncTransport>());
     });
   });
 
@@ -36,7 +31,7 @@ void main() {
     test('round-trip', () {
       expect(syncTransportKindFromWire(null), SyncTransportKind.lan);
       expect(syncTransportKindFromWire('lan'), SyncTransportKind.lan);
-      expect(syncTransportKindFromWire('libp2p'), SyncTransportKind.libp2p);
+      expect(syncTransportKindFromWire('libp2p'), SyncTransportKind.lan);
       expect(syncTransportKindToWire(SyncTransportKind.lan), 'lan');
       expect(syncTransportKindToWire(SyncTransportKind.libp2p), 'libp2p');
     });

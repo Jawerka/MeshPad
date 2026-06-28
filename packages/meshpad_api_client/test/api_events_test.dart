@@ -17,6 +17,20 @@ void main() {
       expect(events.single.noteId, 'abc');
     });
 
+    test('parses id field before data', () async {
+      final events = await parseSseEventStream(
+        Stream.fromIterable([
+          'id: 42',
+          'data: {"type":"note_updated","note_id":"n1"}',
+          '',
+        ]),
+      ).toList();
+
+      expect(events.single.id, 42);
+      expect(events.single.type, 'note_updated');
+      expect(events.single.noteId, 'n1');
+    });
+
     test('ignores comment lines', () async {
       final events = await parseSseEventStream(
         Stream.fromIterable([

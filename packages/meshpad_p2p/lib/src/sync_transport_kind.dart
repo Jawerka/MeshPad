@@ -3,12 +3,13 @@ enum SyncTransportKind {
   /// Interim LAN HTTP + mDNS/UDP (MVP default).
   lan,
 
-  /// Native libp2p when available; until B.2 ships uses [LanSyncTransport] fallback.
+  /// @deprecated libp2p removed from production (ADR 0003). Maps to [lan].
   libp2p,
 }
 
 SyncTransportKind syncTransportKindFromWire(String? raw) {
-  return raw == 'libp2p' ? SyncTransportKind.libp2p : SyncTransportKind.lan;
+  if (raw == 'libp2p') return SyncTransportKind.lan;
+  return SyncTransportKind.lan;
 }
 
 String syncTransportKindToWire(SyncTransportKind kind) =>

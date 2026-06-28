@@ -34,4 +34,17 @@ void main() {
       'custom',
     );
   });
+
+  test('defaultTitleFromCreatedAt formats local date time', () {
+    final title = defaultTitleFromCreatedAt(DateTime.utc(2026, 6, 1, 9, 5));
+    expect(title, matches(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'));
+  });
+
+  test('displayNoteTitle falls back to createdAt', () {
+    final at = DateTime.utc(2026, 6, 1, 12, 0);
+    expect(
+      displayNoteTitle(title: '', markdown: '', createdAt: at),
+      defaultTitleFromCreatedAt(at),
+    );
+  });
 }

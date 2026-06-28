@@ -4,6 +4,7 @@ import '../models/note_head.dart';
 import '../models/note_meta.dart';
 import '../models/sync_event.dart';
 import '../repositories/note_repository.dart';
+import 'catalog_delta.dart';
 import '../sync/lww_merge.dart';
 import 'remote_note_snapshot.dart';
 
@@ -65,25 +66,28 @@ class SyncEngine {
   }
 
   Future<int> pullFrom(SyncPeer peer) async {
-    final heads = await peer.fetchCatalog();
+    final remoteHeads = await peer.fetchCatalog();
+    final localById = {
+      for (final head in await notes.catalogHeads()) head.id: head,
+    };
     var applied = 0;
 
-    for (final head in heads) {
-      final local = await notes.getNote(head.id);
-      final localUpdated =
-          local?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-
-      final needsUpdate = local == null ||
-          head.updatedAt.isAfter(localUpdated) ||
-          (head.updatedAt == localUpdated && head.deleted != local.deleted);
-
-      if (!needsUpdate) continue;
+    for (final head in remoteHeads) {
+      if (!noteHeadNeedsRemotePull(
+        localHead: localById[head.id],
+        remoteHead: head,
+      )) {
+        continue;
+      }
 
       final snapshot = await peer.fetchNote(head.id);
       if (snapshot == null) continue;
 
       final result = await applyRemote(snapshot);
-      if (result == NoteApplyResult.applied) applied++;
+      if (result == NoteApplyResult.applied ||
+          result == NoteApplyResult.conflictCopyCreated) {
+        applied++;
+      }
     }
 
     return applied;

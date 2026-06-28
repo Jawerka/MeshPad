@@ -55,6 +55,7 @@ class LanSyncCoordinator {
       );
     }
 
+    final batchStopwatch = Stopwatch()..start();
     try {
       await transport.start();
 
@@ -150,6 +151,8 @@ class LanSyncCoordinator {
         total: peers.length,
       );
 
+      batchStopwatch.stop();
+      MeshPadLog.metric('sync_duration_ms', '${batchStopwatch.elapsedMilliseconds}');
       MeshPadLog.sync('sync batch completed totalNotes=$total');
       return LanSyncRunResult(LanSyncRunStatus.completed, noteCount: total);
     } catch (e) {

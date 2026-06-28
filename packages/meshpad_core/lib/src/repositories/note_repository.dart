@@ -15,12 +15,20 @@ import '../models/sync_event.dart';
 import '../note_text.dart';
 import '../storage/attachment_storage.dart';
 import '../storage/attachment_thumbnails.dart';
+import '../storage/note_fs_signatures.dart';
+import '../storage/thumb_cache_eviction.dart';
+import 'reconcile_background.dart';
 import '../errors/meshpad_exception.dart';
 import '../storage/meshpad_paths.dart';
 import '../sync/attachment_upload.dart' as attachment_upload;
 import '../sync/attachment_upload.dart'
     show AttachmentUploadResult, AttachmentUploadStatus;
 import '../storage/note_folder_repository.dart';
+import '../storage/note_history_store.dart';
+import '../storage/note_operation_journal.dart';
+import '../sync/sync_clock.dart';
+import '../storage/note_conflict_copy.dart';
+import '../sync/conflict_resolver.dart';
 import '../sync/lww_merge.dart';
 import '../sync/remote_note_snapshot.dart';
 
@@ -32,18 +40,52 @@ class NoteRepository {
     required MeshPadDatabase db,
     required this.defaultAuthor,
     Uuid? uuid,
+    NoteOperationJournal? operationJournal,
+    NoteHistoryStore? historyStore,
   })  : _paths = paths,
         _fs = fs,
         _db = db,
-        _uuid = uuid ?? const Uuid();
+        _uuid = uuid ?? const Uuid(),
+        _operations = operationJournal ?? NoteOperationJournal(paths: paths),
+        _history = historyStore ?? NoteHistoryStore(paths: paths);
 
   final MeshPadPaths _paths;
   final NoteFolderRepository _fs;
   final MeshPadDatabase _db;
   final Uuid _uuid;
+  final NoteOperationJournal _operations;
+  final NoteHistoryStore _history;
   final String defaultAuthor;
 
   MeshPadPaths get paths => _paths;
+
+  /// Revision numbers with FS snapshots under `history/<rev>/` (PLAN §7.2).
+  Future<List<int>> listNoteHistoryRevisions(String noteId) =>
+      _history.listRevisions(noteId);
+
+  /// Reads a stored revision (`meta.json` + `note.md` only).
+  Future<NoteFolder?> readNoteHistoryRevision(String noteId, int revision) =>
+      _history.readRevision(noteId, revision);
+
+  /// Restores title/markdown/tags from a history snapshot (PLAN §7.4, local only).
+  Future<Note> restoreNoteHistoryRevision(String noteId, int revision) async {
+    final folder = await _history.readRevision(noteId, revision);
+    if (folder == null) {
+      throw StateError('History revision $revision not found for $noteId');
+    }
+    final existing = await getNote(noteId);
+    if (existing == null) {
+      throw NoteNotFoundException(noteId);
+    }
+    final restored = existing.copyWith(
+      title: folder.meta.title,
+      markdown: folder.markdown,
+      tags: folder.meta.tags,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist(restored, operation: NoteOperationType.editNote);
+    return (await getNote(noteId)) ?? restored;
+  }
 
   Future<Note> createNote({
     String title = '',
@@ -59,10 +101,13 @@ class NoteRepository {
       markdown: markdown,
       explicitTitle: title.isEmpty ? null : title,
     );
+    final finalTitle = resolvedTitle.isEmpty
+        ? defaultTitleFromCreatedAt(now)
+        : resolvedTitle;
     final meta = NoteMeta(
       schemaVersion: NoteMeta.currentSchemaVersion,
       id: id,
-      title: resolvedTitle,
+      title: finalTitle,
       createdAt: now,
       updatedAt: now,
       author: author ?? defaultAuthor,
@@ -99,6 +144,12 @@ class NoteRepository {
       );
     }
     await _indexNote(note);
+    await _logOperation(
+      NoteOperationType.createNote,
+      noteId: note.id,
+      device: note.author,
+      revision: note.revision,
+    );
     await _enqueue(SyncEvent.opUpsert, id);
     return note;
   }
@@ -126,14 +177,48 @@ class NoteRepository {
     return Note.fromMeta(meta: folder.meta, markdown: folder.markdown);
   }
 
+  /// Active notes with [updatedAt] >= [since] (PLAN §11.6.2 Web catch-up).
+  Future<List<Note>> listNotesUpdatedSince(
+    DateTime since, {
+    NoteSort sort = NoteSort.updatedAt,
+    String? tag,
+  }) async {
+    final normalizedTag = tag == null ? null : normalizeTag(tag);
+    final query = _db.select(_db.notes)
+      ..where((t) {
+        var expr =
+            t.deleted.equals(false) & t.updatedAt.isBiggerOrEqualValue(since);
+        if (normalizedTag != null) {
+          expr = expr & t.tags.like('%"$normalizedTag"%');
+        }
+        return expr;
+      });
+    switch (sort) {
+      case NoteSort.createdAt:
+        query.orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+      case NoteSort.updatedAt:
+        query.orderBy([(t) => OrderingTerm.asc(t.updatedAt)]);
+    }
+    return _notesFromRows(await query.get());
+  }
+
   Future<List<Note>> listNotes({
     bool includeDeleted = false,
     NoteSort sort = NoteSort.createdAt,
+    String? tag,
   }) async {
+    final normalizedTag = tag == null ? null : normalizeTag(tag);
     final query = _db.select(_db.notes);
-    if (!includeDeleted) {
-      query.where((t) => t.deleted.equals(false));
-    }
+    query.where((t) {
+      if (includeDeleted && normalizedTag == null) return const Constant(true);
+      var expr = includeDeleted
+          ? const Constant(true)
+          : t.deleted.equals(false);
+      if (normalizedTag != null) {
+        expr = expr & t.tags.like('%"$normalizedTag"%');
+      }
+      return expr;
+    });
     switch (sort) {
       case NoteSort.createdAt:
         query.orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
@@ -204,7 +289,7 @@ class NoteRepository {
       tags: normalizeTags(tags),
       updatedAt: DateTime.now().toUtc(),
     );
-    await _persist(updated);
+    await _persist(updated, operation: NoteOperationType.editNote);
     return updated;
   }
 
@@ -251,7 +336,7 @@ class NoteRepository {
       attachments: [...existing.attachments, attachment],
       updatedAt: DateTime.now().toUtc(),
     );
-    await _persist(updated);
+    await _persist(updated, operation: NoteOperationType.editNote);
     return updated;
   }
 
@@ -280,7 +365,7 @@ class NoteRepository {
       attachments: [...existing.attachments, attachment],
       updatedAt: DateTime.now().toUtc(),
     );
-    await _persist(updated);
+    await _persist(updated, operation: NoteOperationType.editNote);
     return updated;
   }
 
@@ -430,44 +515,80 @@ class NoteRepository {
     String remoteMarkdown,
   ) async {
     final local = await getNote(remoteMeta.id);
-    final localMeta = local?.toMeta();
-    final merged = mergeNoteMeta(localMeta, remoteMeta);
-    if (merged == null) return NoteApplyResult.unchanged;
+    inspectRemoteNoteTimestamp(
+      noteId: remoteMeta.id,
+      remoteUpdatedAt: remoteMeta.updatedAt,
+      localUpdatedAt: local?.updatedAt,
+    );
 
-    final remoteWins = local == null ||
-        remoteMeta.updatedAt.isAfter(local.updatedAt) ||
-        (remoteMeta.updatedAt == local.updatedAt && merged == remoteMeta);
-
-    if (local != null && !remoteWins) {
-      return NoteApplyResult.skippedLocalNewer;
+    if (local == null) {
+      final note = Note.fromMeta(meta: remoteMeta, markdown: remoteMarkdown);
+      await _persist(note, enqueueOutbox: false);
+      return NoteApplyResult.applied;
     }
 
-    final markdown = remoteMarkdown;
-    final unchanged = local != null &&
-        local.deleted == merged.deleted &&
-        local.title == merged.title &&
-        local.markdown == markdown &&
-        local.updatedAt == merged.updatedAt &&
-        _attachmentsMatch(local.attachments, merged.attachments);
-    if (unchanged) return NoteApplyResult.unchanged;
+    final outcome = resolveNoteConflict(
+      local: local.toMeta(),
+      remote: remoteMeta,
+      localMarkdown: local.markdown,
+      remoteMarkdown: remoteMarkdown,
+    );
 
-    final note = Note.fromMeta(meta: merged, markdown: markdown);
-    await _persist(note, enqueueOutbox: false);
-    return NoteApplyResult.applied;
+    switch (outcome) {
+      case MergeOutcome.unchanged:
+        return NoteApplyResult.unchanged;
+      case MergeOutcome.appliedLocal:
+        return NoteApplyResult.skippedLocalNewer;
+      case MergeOutcome.createdConflictCopy:
+        await NoteConflictCopyStore(noteDir: _paths.noteDir(local.id)).write(
+          noteId: local.id,
+          remoteMeta: remoteMeta,
+          remoteMarkdown: remoteMarkdown,
+        );
+        return NoteApplyResult.conflictCopyCreated;
+      case MergeOutcome.appliedRemote:
+        final merged = mergeNoteMeta(local.toMeta(), remoteMeta)!;
+        final note = Note.fromMeta(meta: merged, markdown: remoteMarkdown);
+        await _persist(note, enqueueOutbox: false);
+        return NoteApplyResult.applied;
+    }
   }
 
-  bool _attachmentsMatch(List<AttachmentMeta> a, List<AttachmentMeta> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final left = a[i];
-      final right = b[i];
-      if (left.name != right.name ||
-          left.size != right.size ||
-          left.sha256 != right.sha256) {
-        return false;
-      }
-    }
-    return true;
+  Future<List<NoteConflictCopy>> listConflictCopies(String noteId) =>
+      NoteConflictCopyStore(noteDir: _paths.noteDir(noteId)).list();
+
+  Future<({String title, String markdown})?> readConflictCopy(
+    String noteId,
+    String fileName,
+  ) async {
+    final parsed =
+        await NoteConflictCopyStore(noteDir: _paths.noteDir(noteId)).read(
+      fileName,
+    );
+    if (parsed == null) return null;
+    return (title: parsed.title, markdown: parsed.markdown);
+  }
+
+  /// Replaces the note with a conflict copy and removes conflict files.
+  Future<void> applyConflictCopy(String noteId, String fileName) async {
+    final store = NoteConflictCopyStore(noteDir: _paths.noteDir(noteId));
+    final parsed = await store.read(fileName);
+    if (parsed == null) return;
+
+    final existing = await getNote(noteId);
+    if (existing == null) return;
+
+    final updated = existing.copyWith(
+      title: parsed.title.isNotEmpty ? parsed.title : existing.title,
+      markdown: parsed.markdown,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await _persist(updated, operation: NoteOperationType.editNote);
+    await store.deleteAll();
+  }
+
+  Future<void> dismissConflictCopies(String noteId) async {
+    await NoteConflictCopyStore(noteDir: _paths.noteDir(noteId)).deleteAll();
   }
 
   Future<Note> updateNote(
@@ -492,8 +613,11 @@ class NoteRepository {
       markdown: markdown ?? existing.markdown,
       updatedAt: DateTime.now().toUtc(),
     );
-    await _persist(updated);
-    return updated;
+    await _persist(
+      updated,
+      operation: NoteOperationType.editNote,
+    );
+    return (await getNote(id)) ?? updated;
   }
 
   Future<void> deleteNote(String id) async {
@@ -502,7 +626,10 @@ class NoteRepository {
 
     final now = DateTime.now().toUtc();
     final deleted = existing.copyWith(deleted: true, deletedAt: now, updatedAt: now);
-    await _persist(deleted);
+    await _persist(
+      deleted,
+      operation: NoteOperationType.deleteNote,
+    );
     await _enqueue(SyncEvent.opDelete, id);
   }
 
@@ -516,7 +643,10 @@ class NoteRepository {
       deletedAt: null,
       updatedAt: now,
     );
-    await _persist(restored);
+    await _persist(
+      restored,
+      operation: NoteOperationType.restoreNote,
+    );
     await _enqueue(SyncEvent.opUpsert, id);
   }
 
@@ -536,11 +666,54 @@ class NoteRepository {
   }
 
   /// Rebuild Drift index from file system (FS wins).
-  Future<int> reconcileFromFilesystem() async {
+  ///
+  /// When [thumbCacheMaxMb] is set, evicts oldest `.thumbs/` files over the budget
+  /// after rebuilding missing previews (PLAN §11.5.4).
+  Future<int> reconcileFromFilesystem({
+    int? thumbCacheMaxMb,
+    int isolateNoteThreshold = reconcileIsolateNoteThreshold,
+  }) async {
     await purgeExpiredTrash();
-    final ids = await _fs.listNoteIds(includeDeleted: true);
+
+    final dirIds = await _fs.listNoteDirectoryIds();
+    if (dirIds.length > isolateNoteThreshold) {
+      return runReconcileInIsolate(
+        dataDir: _paths.root,
+        defaultAuthor: defaultAuthor,
+        thumbCacheMaxMb: thumbCacheMaxMb,
+      );
+    }
+
+    final dirIdSet = dirIds.toSet();
+
+    for (final id in await _db.listAllNoteIds()) {
+      if (!dirIdSet.contains(id)) {
+        await _db.deleteNoteRow(id);
+      }
+    }
+
     var count = 0;
-    for (final id in ids) {
+    for (final id in dirIds) {
+      final signatures = await readNoteFsSignatures(_paths, id);
+      if (signatures == null) continue;
+
+      final cached = await _db.getNoteFsSignatures(id);
+      if (cached != null &&
+          cached.meta != null &&
+          cached.md != null &&
+          signatures.matches(
+            NoteFsSignatures(
+              metaModifiedAt: cached.meta!,
+              markdownModifiedAt: cached.md!,
+              attachmentsModifiedAt: cached.attachments,
+            ),
+          )) {
+        final meta = await _fs.readMeta(id);
+        if (meta != null && await _driftIndexMatchesMeta(id, meta)) {
+          continue;
+        }
+      }
+
       final folder = await _fs.read(id);
       if (folder == null) continue;
       var meta = folder.meta;
@@ -562,10 +735,16 @@ class NoteRepository {
         );
       }
       final note = Note.fromMeta(meta: meta, markdown: folder.markdown);
-      await _indexNote(note);
+      await _indexNote(note, fsSignatures: signatures);
       count++;
     }
     await rebuildMissingImageThumbnails(_paths);
+    if (thumbCacheMaxMb != null && thumbCacheMaxMb > 0) {
+      await evictThumbCache(
+        notesRoot: _paths.notesRoot,
+        maxBytes: thumbCacheMaxMb * 1024 * 1024,
+      );
+    }
     return count;
   }
 
@@ -593,26 +772,90 @@ class NoteRepository {
     return rebuilt;
   }
 
+  static bool _sameUtcInstant(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    // Drift/SQLite stores datetimes at second precision; meta.json keeps full ISO.
+    return a.toUtc().millisecondsSinceEpoch ~/ 1000 ==
+        b.toUtc().millisecondsSinceEpoch ~/ 1000;
+  }
+
+  Future<bool> _driftIndexMatchesMeta(String id, NoteMeta meta) async {
+    final row = await (_db.select(_db.notes)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    if (row == null) return false;
+    return _sameUtcInstant(row.updatedAt, meta.updatedAt) &&
+        row.deleted == meta.deleted &&
+        _sameUtcInstant(row.deletedAt, meta.deletedAt);
+  }
+
   Future<void> _purgeNote(String id) async {
+    await _logOperation(
+      NoteOperationType.purgeNote,
+      noteId: id,
+      device: defaultAuthor,
+    );
     await _fs.deleteNoteFolder(id);
     await _db.deleteNoteRow(id);
     await _enqueue(SyncEvent.opPurge, id);
   }
 
-  Future<void> _persist(Note note, {bool enqueueOutbox = true}) async {
+  Future<void> _logOperation(
+    NoteOperationType type, {
+    required String noteId,
+    required String device,
+    int? revision,
+    bool? deleted,
+  }) {
+    return _operations.record(
+      type: type,
+      noteId: noteId,
+      device: device,
+      revision: revision,
+      deleted: deleted,
+    );
+  }
+
+  Future<void> _persist(
+    Note note, {
+    bool enqueueOutbox = true,
+    NoteOperationType? operation,
+  }) async {
+    var meta = note.toMeta();
+    if (enqueueOutbox) {
+      meta = meta.copyWith(revision: meta.revision + 1);
+    }
     final folder = NoteFolder(
       path: _paths.noteDir(note.id),
-      meta: note.toMeta(),
+      meta: meta,
       markdown: note.markdown,
     );
     await _fs.write(folder);
-    await _indexNote(note);
+    final indexed = enqueueOutbox
+        ? note.copyWith(revision: meta.revision)
+        : note;
+    await _indexNote(indexed);
     if (enqueueOutbox) {
+      if (operation != null) {
+        await _logOperation(
+          operation,
+          noteId: note.id,
+          device: note.author,
+          revision: indexed.revision,
+          deleted: note.deleted,
+        );
+        await _history.maybeSnapshot(indexed);
+      }
       await _enqueue(SyncEvent.opUpsert, note.id);
     }
   }
 
-  Future<void> _indexNote(Note note) async {
+  Future<void> _indexNote(
+    Note note, {
+    NoteFsSignatures? fsSignatures,
+  }) async {
+    final signatures =
+        fsSignatures ?? await readNoteFsSignatures(_paths, note.id);
     await _db.upsertNoteRow(
       id: note.id,
       title: note.title,
@@ -624,6 +867,10 @@ class NoteRepository {
       previewSnippet: previewSnippetFromMarkdown(note.markdown),
       markdown: note.markdown,
       tags: note.tags,
+      fsMetaModifiedAt: signatures?.normalized().metaModifiedAt,
+      fsMarkdownModifiedAt: signatures?.normalized().markdownModifiedAt,
+      fsAttachmentsModifiedAt:
+          signatures?.normalized().attachmentsModifiedAt,
     );
     await _db.replaceAttachments(
       note.id,
@@ -698,6 +945,8 @@ NoteRepository createNoteRepository({
   required String dataDir,
   required String defaultAuthor,
   MeshPadDatabase? database,
+  NoteOperationJournal? operationJournal,
+  NoteHistoryStore? historyStore,
 }) {
   final paths = MeshPadPaths(dataDir);
   final fs = NoteFolderRepository(notesRoot: paths.notesRoot);
@@ -707,5 +956,7 @@ NoteRepository createNoteRepository({
     fs: fs,
     db: db,
     defaultAuthor: defaultAuthor,
+    operationJournal: operationJournal,
+    historyStore: historyStore,
   );
 }

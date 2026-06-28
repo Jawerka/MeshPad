@@ -71,20 +71,180 @@
   "syncTransportLan": "LAN (HTTP)",
   "syncTransportLibp2p": "libp2p (exp.)",
   "syncTransportLanHint": "mDNS + HTTP/HTTPS between trusted devices",
-  "syncTransportLibp2pHint": "Sidecar on :45839; sync still uses LAN fallback",
+  "syncTransportLibp2pHint": "Experimental: localhost sidecar (:45839) wire sync, then LAN fallback",
   "exportNotes": "Export notes",
   "exportNotesSubtitle": "Zip archive of notes/ without sync keys",
   "importNotes": "Import notes",
   "importNotesSubtitle": "Merge by modification date (LWW)",
+  "autoBackup": "Scheduled backup",
+  "autoBackupOff": "Off",
+  "autoBackupEveryHours": "Every {hours} h",
+  "@autoBackupEveryHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "autoBackupNeedDirectory": "Choose a folder for zip archives",
+  "autoBackupDirectory": "Backup folder",
+  "autoBackupDirectoryNone": "Not selected",
+  "autoBackupPickDirectoryTitle": "MeshPad backup folder",
+  "autoBackupLastRun": "Last backup: {when}",
+  "@autoBackupLastRun": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "autoBackupNever": "No backup yet",
+  "autoBackupNow": "Back up now",
+  "autoBackupNowSubtitle": "Export notes/ to zip in the backup folder",
+  "autoBackupDone": "Backup saved ({count} notes)",
+  "@autoBackupDone": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "hoursShort": "{hours} h",
+  "@hoursShort": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
   "verifyData": "Verify data",
-  "verifyDataSubtitle": "Rebuild index from files and missing thumbnails",
+  "verifyDataSubtitle": "Rebuild index from files, missing thumbnails, and evict cache over limit",
+  "thumbCacheSection": "Thumbnail cache",
+  "thumbCacheLimit": "Max cache size: {mb} MB",
+  "@thumbCacheLimit": {
+    "placeholders": {
+      "mb": { "type": "int" }
+    }
+  },
+  "thumbCacheMb": "{mb} MB",
+  "@thumbCacheMb": {
+    "placeholders": {
+      "mb": { "type": "int" }
+    }
+  },
   "about": "About",
   "aboutWeb": "MeshPad Web · {version}",
   "aboutNative": "MeshPad {version} · local-first Markdown",
   "checkUpdates": "Check for updates",
+  "updateDownloadInstall": "Download and install",
+  "updateDownloading": "Downloading update…",
+  "updateDownloadPercent": "{percent}%",
+  "@updateDownloadPercent": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "updateDownloadFailed": "Download failed: {error}",
+  "@updateDownloadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "updateInstallFailed": "Could not open the installer",
   "footerWeb": "Web client connects to the headless server (meshpad_server).",
   "footerNative": "Local-first Markdown. Device sync over LAN (HTTP).",
   "devicesDiscoveryHint": "Discovery on the local network (mDNS/UDP)",
+  "devicesManualPeerTitle": "Manual address",
+  "devicesManualHostLabel": "IP or hostname",
+  "devicesManualPortLabel": "HTTP port",
+  "devicesManualProbe": "Check",
+  "devicesManualProbeOk": "Found: {name}",
+  "@devicesManualProbeOk": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pairingWaitingOn": "Waiting for confirmation on {device}…",
+  "@pairingWaitingOn": {
+    "placeholders": {
+      "device": { "type": "String" }
+    }
+  },
+  "pairingQrHostHint": "Scan this QR on the other device (MeshPad mobile)",
+  "pairingScanQr": "Scan QR",
+  "pairingQrScanHint": "Point the camera at the pairing QR on the host device",
+  "pairingQrInvalid": "Invalid pairing QR code",
+  "pairingQrPinMismatch": "PIN in QR does not match the device offer",
+  "pairingQrProbeFailed": "Could not reach the device from QR. Check Wi‑Fi.",
+  "devicesSheetTitle": "Devices",
+  "devicesTrustedSection": "Trusted",
+  "devicesDiscoveredSection": "Discovered",
+  "devicesTrustedEmpty": "No trusted devices yet.\nAdd one via PIN pairing.",
+  "devicesDiscovering": "Searching for devices on the local network…",
+  "devicesOnLan": "On local network",
+  "devicesPinPairing": "PIN pairing",
+  "devicesPinShort": "PIN",
+  "devicesThisDevice": "This device",
+  "devicesThisDeviceLan": "This device · LAN {host}:{port}",
+  "@devicesThisDeviceLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesThisDevicePort": "This device · port {port}",
+  "@devicesThisDevicePort": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "devicesTrustedLan": "Trusted · {host}:{port}",
+  "@devicesTrustedLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesTrustedLanUnknown": "Trusted · LAN unknown",
+  "devicesIconUpdated": "Icon updated",
+  "devicesIconUpdatedNamed": "Icon for «{name}» updated",
+  "@devicesIconUpdatedNamed": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "devicesLocalNameTitle": "This device name",
+  "devicesLocalNameHint": "e.g. Work PC",
+  "devicesTrustedRenameHint": "Display name in the list",
+  "devicesNameLabel": "Name",
+  "devicesTrustedRenamed": "Renamed to «{name}»",
+  "@devicesTrustedRenamed": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "devicesPeerUnreachable": "Device is not reachable. Check Wi‑Fi and that MeshPad is open on both devices.",
+  "devicesSyncTimeout": "Sync timed out",
+  "devicesSyncNotesCount": "Synced notes: {count}",
+  "@devicesSyncNotesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "devicesSyncCompleted": "Sync completed",
+  "devicesNoPeersToSync": "No devices to sync with",
+  "devicesPairingTitle": "PIN pairing",
+  "devicesPairingShowPinSelectPeer": "Show this PIN on the other device. Select a device below to confirm.",
+  "devicesPairingShowPinOnly": "Show this PIN on the other device.",
+  "devicesPairingSelectPeer": "Device on network",
+  "devicesRemotePinLabel": "Other device's PIN",
+  "devicesRemotePinHint": "000000",
+  "devicesPairingConfirmFailed": "Could not confirm PIN. Check that the device is on the network.",
+  "devicesPairingNoDiscovered": "No discovered devices. Wait for the list to populate or check Wi‑Fi.",
+  "devicesPairingNeedWifi": "For PIN pairing both devices must be on the same Wi‑Fi and visible under Discovered.",
+  "devicesPinInvalid": "Enter a 6-digit PIN",
+  "devicesActionIcon": "Icon",
+  "devicesActionRename": "Rename",
+  "devicesActionSync": "Sync",
+  "devicesActionRevoke": "Revoke trust",
+  "devicesActionsTooltip": "Actions",
+  "devicesManualErrorEmptyHost": "Enter an IP address or hostname",
+  "devicesManualErrorInvalidPort": "Invalid port",
+  "devicesManualErrorUnreachable": "Device unreachable. Check IP, port, and Wi‑Fi.",
+  "devicesWebUnsupported": "Not available in the Web client",
+  "devicesConfirm": "Confirm",
   "filterAllTags": "All",
   "noteTagsTitle": "Note tags",
   "noteTagsHint": "work, ideas (comma-separated)",
@@ -93,5 +253,31 @@
   "noteMenuTags": "Tags",
   "noteMenuTrash": "Move to trash",
   "noteMenuRestore": "Restore",
+  "noteMenuConflicts": "Conflicting versions",
+  "noteConflictBadge": "Conflict",
+  "noteConflictTitle": "Conflicting versions",
+  "noteConflictBody": "Another device edited this note at the same time. Your version is kept; the remote copy is saved separately.",
+  "noteConflictUntitled": "Untitled",
+  "noteConflictPreview": "Remote version",
+  "noteConflictClose": "Close",
+  "noteConflictUseRemote": "Use this version",
+  "noteConflictKeepMine": "Keep my version",
+  "noteMenuHistory": "History",
+  "noteMenuCopyAll": "Copy all",
+  "noteHistoryTitle": "Version history",
+  "noteHistoryBody": "Snapshots are saved every 10 local edits (text only; attachments are not rolled back).",
+  "noteHistoryEmpty": "No snapshots yet. Keep editing — the first snapshot appears at revision 10.",
+  "noteHistoryRevision": "Revision {revision}",
+  "@noteHistoryRevision": {
+    "placeholders": {
+      "revision": {
+        "type": "int"
+      }
+    }
+  },
+  "noteHistoryCurrentRevision": "Matches current revision",
+  "noteHistoryDiffLegend": "Diff (− current, + snapshot):",
+  "noteHistoryRestore": "Restore",
+  "noteHistoryClose": "Close",
   "emptyNotePlaceholder": "_Empty note_"
 }

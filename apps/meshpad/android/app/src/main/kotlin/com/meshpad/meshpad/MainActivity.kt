@@ -36,6 +36,20 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.meshpad/wifi",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getCurrentSsid" -> {
+                    val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                    val info = wifi?.connectionInfo
+                    result.success(info?.ssid)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         EventChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             eventChannelName,

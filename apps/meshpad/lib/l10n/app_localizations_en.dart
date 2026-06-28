@@ -259,7 +259,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncTransportLibp2pHint =>
-      'Sidecar on :45839; sync still uses LAN fallback';
+      'Experimental: localhost sidecar (:45839) wire sync, then LAN fallback';
 
   @override
   String get exportNotes => 'Export notes';
@@ -274,11 +274,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNotesSubtitle => 'Merge by modification date (LWW)';
 
   @override
+  String get autoBackup => 'Scheduled backup';
+
+  @override
+  String get autoBackupOff => 'Off';
+
+  @override
+  String autoBackupEveryHours(int hours) {
+    return 'Every $hours h';
+  }
+
+  @override
+  String get autoBackupNeedDirectory => 'Choose a folder for zip archives';
+
+  @override
+  String get autoBackupDirectory => 'Backup folder';
+
+  @override
+  String get autoBackupDirectoryNone => 'Not selected';
+
+  @override
+  String get autoBackupPickDirectoryTitle => 'MeshPad backup folder';
+
+  @override
+  String autoBackupLastRun(String when) {
+    return 'Last backup: $when';
+  }
+
+  @override
+  String get autoBackupNever => 'No backup yet';
+
+  @override
+  String get autoBackupNow => 'Back up now';
+
+  @override
+  String get autoBackupNowSubtitle =>
+      'Export notes/ to zip in the backup folder';
+
+  @override
+  String autoBackupDone(int count) {
+    return 'Backup saved ($count notes)';
+  }
+
+  @override
+  String hoursShort(int hours) {
+    return '$hours h';
+  }
+
+  @override
   String get verifyData => 'Verify data';
 
   @override
   String get verifyDataSubtitle =>
-      'Rebuild index from files and missing thumbnails';
+      'Rebuild index from files, missing thumbnails, and evict cache over limit';
+
+  @override
+  String get thumbCacheSection => 'Thumbnail cache';
+
+  @override
+  String thumbCacheLimit(int mb) {
+    return 'Max cache size: $mb MB';
+  }
+
+  @override
+  String thumbCacheMb(int mb) {
+    return '$mb MB';
+  }
 
   @override
   String get about => 'About';
@@ -297,6 +358,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get checkUpdates => 'Check for updates';
 
   @override
+  String get updateDownloadInstall => 'Download and install';
+
+  @override
+  String get updateDownloading => 'Downloading update…';
+
+  @override
+  String updateDownloadPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String updateDownloadFailed(String error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String get updateInstallFailed => 'Could not open the installer';
+
+  @override
   String get footerWeb =>
       'Web client connects to the headless server (meshpad_server).';
 
@@ -307,6 +387,205 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get devicesDiscoveryHint =>
       'Discovery on the local network (mDNS/UDP)';
+
+  @override
+  String get devicesManualPeerTitle => 'Manual address';
+
+  @override
+  String get devicesManualHostLabel => 'IP or hostname';
+
+  @override
+  String get devicesManualPortLabel => 'HTTP port';
+
+  @override
+  String get devicesManualProbe => 'Check';
+
+  @override
+  String devicesManualProbeOk(String name) {
+    return 'Found: $name';
+  }
+
+  @override
+  String pairingWaitingOn(String device) {
+    return 'Waiting for confirmation on $device…';
+  }
+
+  @override
+  String get pairingQrHostHint =>
+      'Scan this QR on the other device (MeshPad mobile)';
+
+  @override
+  String get pairingScanQr => 'Scan QR';
+
+  @override
+  String get pairingQrScanHint =>
+      'Point the camera at the pairing QR on the host device';
+
+  @override
+  String get pairingQrInvalid => 'Invalid pairing QR code';
+
+  @override
+  String get pairingQrPinMismatch =>
+      'PIN in QR does not match the device offer';
+
+  @override
+  String get pairingQrProbeFailed =>
+      'Could not reach the device from QR. Check Wi‑Fi.';
+
+  @override
+  String get devicesSheetTitle => 'Devices';
+
+  @override
+  String get devicesTrustedSection => 'Trusted';
+
+  @override
+  String get devicesDiscoveredSection => 'Discovered';
+
+  @override
+  String get devicesTrustedEmpty =>
+      'No trusted devices yet.\nAdd one via PIN pairing.';
+
+  @override
+  String get devicesDiscovering =>
+      'Searching for devices on the local network…';
+
+  @override
+  String get devicesOnLan => 'On local network';
+
+  @override
+  String get devicesPinPairing => 'PIN pairing';
+
+  @override
+  String get devicesPinShort => 'PIN';
+
+  @override
+  String get devicesThisDevice => 'This device';
+
+  @override
+  String devicesThisDeviceLan(String host, int port) {
+    return 'This device · LAN $host:$port';
+  }
+
+  @override
+  String devicesThisDevicePort(int port) {
+    return 'This device · port $port';
+  }
+
+  @override
+  String devicesTrustedLan(String host, int port) {
+    return 'Trusted · $host:$port';
+  }
+
+  @override
+  String get devicesTrustedLanUnknown => 'Trusted · LAN unknown';
+
+  @override
+  String get devicesIconUpdated => 'Icon updated';
+
+  @override
+  String devicesIconUpdatedNamed(String name) {
+    return 'Icon for «$name» updated';
+  }
+
+  @override
+  String get devicesLocalNameTitle => 'This device name';
+
+  @override
+  String get devicesLocalNameHint => 'e.g. Work PC';
+
+  @override
+  String get devicesTrustedRenameHint => 'Display name in the list';
+
+  @override
+  String get devicesNameLabel => 'Name';
+
+  @override
+  String devicesTrustedRenamed(String name) {
+    return 'Renamed to «$name»';
+  }
+
+  @override
+  String get devicesPeerUnreachable =>
+      'Device is not reachable. Check Wi‑Fi and that MeshPad is open on both devices.';
+
+  @override
+  String get devicesSyncTimeout => 'Sync timed out';
+
+  @override
+  String devicesSyncNotesCount(int count) {
+    return 'Synced notes: $count';
+  }
+
+  @override
+  String get devicesSyncCompleted => 'Sync completed';
+
+  @override
+  String get devicesNoPeersToSync => 'No devices to sync with';
+
+  @override
+  String get devicesPairingTitle => 'PIN pairing';
+
+  @override
+  String get devicesPairingShowPinSelectPeer =>
+      'Show this PIN on the other device. Select a device below to confirm.';
+
+  @override
+  String get devicesPairingShowPinOnly => 'Show this PIN on the other device.';
+
+  @override
+  String get devicesPairingSelectPeer => 'Device on network';
+
+  @override
+  String get devicesRemotePinLabel => 'Other device\'s PIN';
+
+  @override
+  String get devicesRemotePinHint => '000000';
+
+  @override
+  String get devicesPairingConfirmFailed =>
+      'Could not confirm PIN. Check that the device is on the network.';
+
+  @override
+  String get devicesPairingNoDiscovered =>
+      'No discovered devices. Wait for the list to populate or check Wi‑Fi.';
+
+  @override
+  String get devicesPairingNeedWifi =>
+      'For PIN pairing both devices must be on the same Wi‑Fi and visible under Discovered.';
+
+  @override
+  String get devicesPinInvalid => 'Enter a 6-digit PIN';
+
+  @override
+  String get devicesActionIcon => 'Icon';
+
+  @override
+  String get devicesActionRename => 'Rename';
+
+  @override
+  String get devicesActionSync => 'Sync';
+
+  @override
+  String get devicesActionRevoke => 'Revoke trust';
+
+  @override
+  String get devicesActionsTooltip => 'Actions';
+
+  @override
+  String get devicesManualErrorEmptyHost => 'Enter an IP address or hostname';
+
+  @override
+  String get devicesManualErrorInvalidPort => 'Invalid port';
+
+  @override
+  String get devicesManualErrorUnreachable =>
+      'Device unreachable. Check IP, port, and Wi‑Fi.';
+
+  @override
+  String get devicesWebUnsupported => 'Not available in the Web client';
+
+  @override
+  String get devicesConfirm => 'Confirm';
 
   @override
   String get filterAllTags => 'All';
@@ -331,6 +610,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noteMenuRestore => 'Restore';
+
+  @override
+  String get noteMenuConflicts => 'Conflicting versions';
+
+  @override
+  String get noteConflictBadge => 'Conflict';
+
+  @override
+  String get noteConflictTitle => 'Conflicting versions';
+
+  @override
+  String get noteConflictBody =>
+      'Another device edited this note at the same time. Your version is kept; the remote copy is saved separately.';
+
+  @override
+  String get noteConflictUntitled => 'Untitled';
+
+  @override
+  String get noteConflictPreview => 'Remote version';
+
+  @override
+  String get noteConflictClose => 'Close';
+
+  @override
+  String get noteConflictUseRemote => 'Use this version';
+
+  @override
+  String get noteConflictKeepMine => 'Keep my version';
+
+  @override
+  String get noteMenuHistory => 'History';
+
+  @override
+  String get noteMenuCopyAll => 'Copy all';
+
+  @override
+  String get noteHistoryTitle => 'Version history';
+
+  @override
+  String get noteHistoryBody =>
+      'Snapshots are saved every 10 local edits (text only; attachments are not rolled back).';
+
+  @override
+  String get noteHistoryEmpty =>
+      'No snapshots yet. Keep editing — the first snapshot appears at revision 10.';
+
+  @override
+  String noteHistoryRevision(int revision) {
+    return 'Revision $revision';
+  }
+
+  @override
+  String get noteHistoryCurrentRevision => 'Matches current revision';
+
+  @override
+  String get noteHistoryDiffLegend => 'Diff (− current, + snapshot):';
+
+  @override
+  String get noteHistoryRestore => 'Restore';
+
+  @override
+  String get noteHistoryClose => 'Close';
 
   @override
   String get emptyNotePlaceholder => '_Empty note_';

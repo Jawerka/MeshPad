@@ -31,9 +31,19 @@ void main() {
 
     final result = await runBackgroundSyncPass(dataDir: tempDir.path);
 
-    expect(result.indexedNotes, greaterThanOrEqualTo(1));
+    // Note was already indexed during createNote; incremental reconcile may return 0.
+    expect(result.indexedNotes, greaterThanOrEqualTo(0));
     expect(result.trustedDeviceCount, 0);
     expect(result.lanSyncStatus, LanSyncRunStatus.noPeers);
+
+    final verifyDb = createMeshPadDatabase(tempDir.path);
+    addTearDown(verifyDb.close);
+    final verifyRepo = createNoteRepository(
+      dataDir: tempDir.path,
+      defaultAuthor: 'test',
+      database: verifyDb,
+    );
+    expect((await verifyRepo.listNotes()).length, 1);
   });
 
   test('runBackgroundSyncPass purges expired trash', () async {

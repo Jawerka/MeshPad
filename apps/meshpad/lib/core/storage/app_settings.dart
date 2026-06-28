@@ -52,10 +52,24 @@ class AppSettings {
     this.syncTransportKind = SyncTransportKind.lan,
     this.themeMode = AppThemeMode.dark,
     this.localeMode = AppLocaleMode.ru,
+    this.thumbCacheMaxMb = defaultThumbCacheMaxMb,
+    this.autoBackupEnabled = false,
+    this.autoBackupIntervalHours = defaultAutoBackupIntervalHours,
+    this.autoBackupDirectory,
+    this.autoBackupLastAt,
+    this.allowedWifiSsids = const [],
+    this.syncOnlyOnAllowedWifi = false,
+    this.gitSyncEnabled = false,
+    this.gitRepoUrl,
+    this.gitPullIntervalMinutes = 5,
+    this.githubOAuthClientId,
   });
 
   static const minAutoSyncIntervalMinutes = 5;
   static const maxAutoSyncIntervalMinutes = 120;
+  static const defaultAutoBackupIntervalHours = 24;
+  static const minAutoBackupIntervalHours = 6;
+  static const maxAutoBackupIntervalHours = 168;
 
   final String? dataDir;
   final bool autoSyncEnabled;
@@ -64,6 +78,17 @@ class AppSettings {
   final SyncTransportKind syncTransportKind;
   final AppThemeMode themeMode;
   final AppLocaleMode localeMode;
+  final int thumbCacheMaxMb;
+  final bool autoBackupEnabled;
+  final int autoBackupIntervalHours;
+  final String? autoBackupDirectory;
+  final DateTime? autoBackupLastAt;
+  final List<String> allowedWifiSsids;
+  final bool syncOnlyOnAllowedWifi;
+  final bool gitSyncEnabled;
+  final String? gitRepoUrl;
+  final int gitPullIntervalMinutes;
+  final String? githubOAuthClientId;
 
   AppSettings copyWith({
     String? dataDir,
@@ -74,6 +99,21 @@ class AppSettings {
     SyncTransportKind? syncTransportKind,
     AppThemeMode? themeMode,
     AppLocaleMode? localeMode,
+    int? thumbCacheMaxMb,
+    bool? autoBackupEnabled,
+    int? autoBackupIntervalHours,
+    String? autoBackupDirectory,
+    bool clearAutoBackupDirectory = false,
+    DateTime? autoBackupLastAt,
+    bool clearAutoBackupLastAt = false,
+    List<String>? allowedWifiSsids,
+    bool? syncOnlyOnAllowedWifi,
+    bool? gitSyncEnabled,
+    String? gitRepoUrl,
+    bool clearGitRepoUrl = false,
+    int? gitPullIntervalMinutes,
+    String? githubOAuthClientId,
+    bool clearGithubOAuthClientId = false,
   }) {
     return AppSettings(
       dataDir: clearDataDir ? null : (dataDir ?? this.dataDir),
@@ -84,6 +124,27 @@ class AppSettings {
       syncTransportKind: syncTransportKind ?? this.syncTransportKind,
       themeMode: themeMode ?? this.themeMode,
       localeMode: localeMode ?? this.localeMode,
+      thumbCacheMaxMb: thumbCacheMaxMb ?? this.thumbCacheMaxMb,
+      autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
+      autoBackupIntervalHours: autoBackupIntervalHours != null
+          ? _clampBackupIntervalHours(autoBackupIntervalHours)
+          : this.autoBackupIntervalHours,
+      autoBackupDirectory: clearAutoBackupDirectory
+          ? null
+          : (autoBackupDirectory ?? this.autoBackupDirectory),
+      autoBackupLastAt: clearAutoBackupLastAt
+          ? null
+          : (autoBackupLastAt ?? this.autoBackupLastAt),
+      allowedWifiSsids: allowedWifiSsids ?? this.allowedWifiSsids,
+      syncOnlyOnAllowedWifi:
+          syncOnlyOnAllowedWifi ?? this.syncOnlyOnAllowedWifi,
+      gitSyncEnabled: gitSyncEnabled ?? this.gitSyncEnabled,
+      gitRepoUrl: clearGitRepoUrl ? null : (gitRepoUrl ?? this.gitRepoUrl),
+      gitPullIntervalMinutes:
+          gitPullIntervalMinutes ?? this.gitPullIntervalMinutes,
+      githubOAuthClientId: clearGithubOAuthClientId
+          ? null
+          : (githubOAuthClientId ?? this.githubOAuthClientId),
     );
   }
 
@@ -107,6 +168,23 @@ class AppSettings {
       ),
       themeMode: appThemeModeFromWire(json['theme_mode'] as String?),
       localeMode: appLocaleModeFromWire(json['locale_mode'] as String?),
+      thumbCacheMaxMb: clampThumbCacheMaxMb(
+        _parseThumbCacheMaxMb(json['thumb_cache_max_mb']),
+      ),
+      autoBackupEnabled: json['auto_backup_enabled'] as bool? ?? false,
+      autoBackupIntervalHours: _clampBackupIntervalHours(
+        _parseBackupIntervalHours(json['auto_backup_interval_hours']),
+      ),
+      autoBackupDirectory: _parseOptionalString(json['auto_backup_directory']),
+      autoBackupLastAt: _parseOptionalDate(json['auto_backup_last_at']),
+      allowedWifiSsids: _parseStringList(json['allowed_wifi_ssids']),
+      syncOnlyOnAllowedWifi: json['sync_only_on_allowed_wifi'] as bool? ?? false,
+      gitSyncEnabled: json['git_sync_enabled'] as bool? ?? false,
+      gitRepoUrl: _parseOptionalString(json['git_repo_url']),
+      gitPullIntervalMinutes: _clampGitPullInterval(
+        _parseGitPullMinutes(json['git_pull_interval_minutes']),
+      ),
+      githubOAuthClientId: _parseOptionalString(json['github_oauth_client_id']),
     );
   }
 
@@ -118,6 +196,22 @@ class AppSettings {
       'sync_transport': syncTransportKindToWire(syncTransportKind),
       'theme_mode': appThemeModeToWire(themeMode),
       'locale_mode': appLocaleModeToWire(localeMode),
+      'thumb_cache_max_mb': thumbCacheMaxMb,
+      'auto_backup_enabled': autoBackupEnabled,
+      'auto_backup_interval_hours': autoBackupIntervalHours,
+      if (autoBackupDirectory != null && autoBackupDirectory!.isNotEmpty)
+        'auto_backup_directory': autoBackupDirectory,
+      if (autoBackupLastAt != null)
+        'auto_backup_last_at': autoBackupLastAt!.toUtc().toIso8601String(),
+      if (allowedWifiSsids.isNotEmpty) 'allowed_wifi_ssids': allowedWifiSsids,
+      if (syncOnlyOnAllowedWifi) 'sync_only_on_allowed_wifi': true,
+      if (gitSyncEnabled) 'git_sync_enabled': true,
+      if (gitRepoUrl != null && gitRepoUrl!.isNotEmpty)
+        'git_repo_url': gitRepoUrl,
+      if (gitPullIntervalMinutes != 5)
+        'git_pull_interval_minutes': gitPullIntervalMinutes,
+      if (githubOAuthClientId != null && githubOAuthClientId!.isNotEmpty)
+        'github_oauth_client_id': githubOAuthClientId,
     };
     if (dataDir != null && dataDir!.trim().isNotEmpty) {
       final normalizedDefault = defaultDataDir.replaceAll('\\', '/');
@@ -144,4 +238,44 @@ class AppSettings {
   static NoteSort _parseFeedSort(String? raw) {
     return raw == 'updated_at' ? NoteSort.updatedAt : NoteSort.createdAt;
   }
+
+  static int _parseThumbCacheMaxMb(dynamic raw) {
+    if (raw is int) return raw;
+    return int.tryParse('$raw') ?? defaultThumbCacheMaxMb;
+  }
+
+  static int _parseBackupIntervalHours(dynamic raw) {
+    if (raw is int) return raw;
+    return int.tryParse('$raw') ?? defaultAutoBackupIntervalHours;
+  }
+
+  static int _clampBackupIntervalHours(int hours) =>
+      hours.clamp(minAutoBackupIntervalHours, maxAutoBackupIntervalHours);
+
+  static String? _parseOptionalString(dynamic raw) {
+    if (raw is! String) return null;
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static DateTime? _parseOptionalDate(dynamic raw) {
+    if (raw is! String || raw.trim().isEmpty) return null;
+    try {
+      return DateTime.parse(raw).toUtc();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static List<String> _parseStringList(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw.map((e) => '$e'.trim()).where((s) => s.isNotEmpty).toList();
+  }
+
+  static int _parseGitPullMinutes(dynamic raw) {
+    if (raw is int) return raw;
+    return int.tryParse('$raw') ?? 5;
+  }
+
+  static int _clampGitPullInterval(int minutes) => minutes.clamp(1, 120);
 }

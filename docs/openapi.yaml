@@ -1,0 +1,590 @@
+openapi: 3.0.3
+info:
+  title: MeshPad Headless API
+  description: |
+    HTTP API for [meshpad_server](../apps/meshpad_server) (Web / thin clients).
+
+    - **Auth:** optional `X-MeshPad-Api-Key` on all `/api/*` except `/api/health`.
+      Also accepted as `Authorization: Bearer <key>`.
+    - **CORS:** enabled for browser clients (`Access-Control-Allow-Origin: *`).
+    - **LAN sync** uses `/meshpad/p2p/*` — see [SYNC_WIRE.md](SYNC_WIRE.md), not this spec.
+
+    Implementation reference: `apps/meshpad_server/lib/meshpad_server.dart`,
+    Dart client: `packages/meshpad_api_client`.
+  version: 0.3.0
+
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local dev (default Web client base URL)
+  - url: http://{host}:{port}
+    description: Custom host
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8787"
+
+tags:
+  - name: health
+    description: Service status (no API key required)
+  - name: notes
+    description: Note CRUD and listing
+  - name: tags
+    description: Tag index
+  - name: attachments
+    description: Binary attachments
+  - name: trash
+    description: Deleted notes
+  - name: search
+    description: Full-text search
+  - name: events
+    description: Server-Sent Events feed updates
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Health check
+      security: []
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/notes:
+    get:
+      tags: [notes]
+      summary: List active notes
+      operationId: listNotes
+      parameters:
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/tag"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+          description: Pagination offset (use with `limit`)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          description: Page size (default 40 when offset > 0)
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: |
+            ISO-8601 UTC timestamp. Return notes with `updated_at` ≥ since
+            (SSE reconnect catch-up, PLAN §11.6.2).
+      responses:
+        "200":
+          description: Array of notes (includes `markdown`)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [notes]
+      summary: Create note
+      operationId: createNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteCreateRequest"
+      responses:
+        "201":
+          description: Created note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/notes/count:
+    get:
+      tags: [notes]
+      summary: Count active notes
+      operationId: countNotes
+      parameters:
+        - $ref: "#/components/parameters/tag"
+      responses:
+        "200":
+          description: Note count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountResponse"
+
+  /api/notes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/noteId"
+    get:
+      tags: [notes]
+      summary: Get note by id
+      operationId: getNote
+      responses:
+        "200":
+          description: Full note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [notes]
+      summary: Update note
+      operationId: updateNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteUpdateRequest"
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [notes]
+      summary: Move note to trash
+      operationId: deleteNote
+      responses:
+        "200":
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteStatusResponse"
+
+  /api/notes/{id}/restore:
+    parameters:
+      - $ref: "#/components/parameters/noteId"
+    post:
+      tags: [notes]
+      summary: Restore note from trash
+      operationId: restoreNote
+      responses:
+        "200":
+          description: Restored note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/tags:
+    get:
+      tags: [tags]
+      summary: List distinct tags
+      operationId: listTags
+      description: Unique normalized tags from active (non-deleted) notes.
+      responses:
+        "200":
+          description: Sorted tag names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["ideas", "work"]
+
+  /api/trash:
+    get:
+      tags: [trash]
+      summary: List trashed notes
+      operationId: listTrash
+      responses:
+        "200":
+          description: Deleted notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+
+  /api/search:
+    get:
+      tags: [search]
+      summary: Full-text search
+      operationId: searchNotes
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query (empty returns `[]`)
+      responses:
+        "200":
+          description: Search hits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchHit"
+
+  /api/events:
+    get:
+      tags: [events]
+      summary: Subscribe to feed changes (SSE)
+      operationId: streamEvents
+      description: |
+        Server-Sent Events stream. Each event has:
+        - `id: <monotonic-int>` — use as `Last-Event-ID` on reconnect
+        - `data: {"type":"...","note_id":"..."}` — JSON payload
+
+        Event types: `note_created`, `note_updated`, `note_deleted`,
+        `note_restored`, `note_attachment`, `feed_changed`.
+
+        Server replays up to 500 buffered events after reconnect.
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          schema:
+            type: string
+          description: Last received SSE `id` for replay
+      responses:
+        "200":
+          description: SSE stream (long-lived)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    : connected
+
+                    id: 1
+                    data: {"type":"note_created","note_id":"550e8400-e29b-41d4-a716-446655440000"}
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notes/{noteId}/attachments/{fileName}:
+    parameters:
+      - $ref: "#/components/parameters/noteIdPath"
+      - $ref: "#/components/parameters/fileName"
+    get:
+      tags: [attachments]
+      summary: Download attachment
+      operationId: getAttachment
+      responses:
+        "200":
+          description: Raw file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Note or attachment not found
+    put:
+      tags: [attachments]
+      summary: Upload or replace attachment
+      operationId: putAttachment
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Note after upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/notes/{noteId}/attachments/{fileName}/thumb:
+    parameters:
+      - $ref: "#/components/parameters/noteIdPath"
+      - $ref: "#/components/parameters/fileName"
+    get:
+      tags: [attachments]
+      summary: JPEG thumbnail for image attachment
+      operationId: getAttachmentThumb
+      description: On-demand preview (max width ~240px). Non-images return 404.
+      responses:
+        "200":
+          description: JPEG bytes
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Thumbnail unavailable
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-MeshPad-Api-Key
+      description: |
+        Optional when server started without `--api-key` / `MESHPAD_API_KEY`.
+        `Authorization: Bearer <key>` is also accepted.
+
+  parameters:
+    noteId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    noteIdPath:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    fileName:
+      name: fileName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: URL-encoded attachment file name
+    sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [created_at, updated_at]
+        default: created_at
+    tag:
+      name: tag
+      in: query
+      schema:
+        type: string
+      description: Filter by normalized tag (lowercase, max 32 chars)
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, auth]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: meshpad_server
+        auth:
+          type: string
+          enum: [none, api_key]
+          description: Whether API key auth is enabled
+
+    CountResponse:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+
+    DeleteStatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: deleted
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - unauthorized
+            - note_not_found
+            - note_deleted
+            - markdown_required
+            - invalid_json
+            - invalid since (ISO-8601 expected)
+            - empty_body
+
+    AttachmentMeta:
+      type: object
+      required: [name, size]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+        mime:
+          type: string
+          nullable: true
+        sha256:
+          type: string
+          nullable: true
+
+    Note:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - created_at
+        - updated_at
+        - deleted
+        - tags
+        - preview
+        - attachments
+        - markdown
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        author:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted:
+          type: boolean
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          description: Normalized lowercase tags (max 20 per note)
+        preview:
+          type: string
+          description: First non-empty line of markdown (≤120 chars)
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttachmentMeta"
+        markdown:
+          type: string
+
+    NoteCreateRequest:
+      type: object
+      required: [markdown]
+      properties:
+        title:
+          type: string
+          default: ""
+        markdown:
+          type: string
+        author:
+          type: string
+          description: Defaults to server `defaultAuthor`
+        tags:
+          type: array
+          items:
+            type: string
+
+    NoteUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        markdown:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          description: Replaces all tags when present
+
+    SearchHit:
+      type: object
+      required: [snippet, note]
+      properties:
+        snippet:
+          type: string
+        note:
+          $ref: "#/components/schemas/Note"
+
+    SseEventData:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum:
+            - note_created
+            - note_updated
+            - note_deleted
+            - note_restored
+            - note_attachment
+            - feed_changed
+        note_id:
+          type: string
+          format: uuid
+          nullable: true
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: unauthorized

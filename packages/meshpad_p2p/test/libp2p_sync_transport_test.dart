@@ -16,7 +16,7 @@ class _FakeNativeApi implements Libp2pNativeApi {
   Stream<Libp2pNativeEvent> get events => _events.stream;
 
   @override
-  Future<void> requestSync({String? peerId}) async {
+  Future<void> requestSync({String? peerId, String? remoteWireBase}) async {
     syncCalls++;
     lastSyncPeerId = peerId;
   }

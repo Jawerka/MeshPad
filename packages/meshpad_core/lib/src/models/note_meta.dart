@@ -13,9 +13,11 @@ class NoteMeta {
     this.deletedAt,
     this.attachments = const [],
     this.tags = const [],
+    this.revision = 0,
+    this.vectorClock = const {},
   });
 
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
 
   final int schemaVersion;
   final String id;
@@ -28,6 +30,12 @@ class NoteMeta {
   final List<AttachmentMeta> attachments;
   final List<String> tags;
 
+  /// Monotonic local edit counter (PLAN §11.3.2).
+  final int revision;
+
+  /// Optional per-device counters for future merge (PLAN §11.3.3).
+  final Map<String, int> vectorClock;
+
   Map<String, dynamic> toJson() => {
         'schema_version': schemaVersion,
         'id': id,
@@ -39,6 +47,8 @@ class NoteMeta {
         'deleted_at': deletedAt?.toUtc().toIso8601String(),
         'attachments': attachments.map((a) => a.toJson()).toList(),
         if (tags.isNotEmpty) 'tags': normalizeTags(tags),
+        if (revision > 0) 'revision': revision,
+        if (vectorClock.isNotEmpty) 'vector_clock': vectorClock,
       };
 
   factory NoteMeta.fromJson(Map<String, dynamic> json) {
@@ -59,8 +69,44 @@ class NoteMeta {
       tags: normalizeTags(
         (json['tags'] as List<dynamic>? ?? []).map((e) => '$e'),
       ),
+      revision: json['revision'] as int? ?? 0,
+      vectorClock: _parseVectorClock(json['vector_clock']),
     );
   }
+
+  NoteMeta copyWith({
+    String? title,
+    DateTime? updatedAt,
+    bool? deleted,
+    DateTime? deletedAt,
+    List<AttachmentMeta>? attachments,
+    List<String>? tags,
+    int? revision,
+    Map<String, int>? vectorClock,
+    bool clearDeletedAt = false,
+  }) {
+    return NoteMeta(
+      schemaVersion: schemaVersion,
+      id: id,
+      title: title ?? this.title,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      author: author,
+      deleted: deleted ?? this.deleted,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      attachments: attachments ?? this.attachments,
+      tags: tags ?? this.tags,
+      revision: revision ?? this.revision,
+      vectorClock: vectorClock ?? this.vectorClock,
+    );
+  }
+}
+
+Map<String, int> _parseVectorClock(Object? raw) {
+  if (raw is! Map) return const {};
+  return raw.map(
+    (key, value) => MapEntry('$key', value is int ? value : int.tryParse('$value') ?? 0),
+  );
 }
 
 class AttachmentMeta {

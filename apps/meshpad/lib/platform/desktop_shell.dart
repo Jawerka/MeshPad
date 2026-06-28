@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// Desktop tray + minimize-to-tray (Windows/Linux/macOS).
+/// Desktop tray + minimize-to-tray (Windows/Linux).
 class DesktopShell with TrayListener, WindowListener {
   DesktopShell._();
   static final DesktopShell instance = DesktopShell._();
@@ -17,7 +17,7 @@ class DesktopShell with TrayListener, WindowListener {
 
   static bool get isSupported =>
       !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+      (Platform.isWindows || Platform.isLinux);
 
   Future<void> init() async {
     if (!isSupported) return;

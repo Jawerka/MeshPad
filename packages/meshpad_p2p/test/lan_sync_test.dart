@@ -70,10 +70,12 @@ Future<({
   );
 
   final serverA = LanPeerServer(
+    preferredPort: 0,
     getEngine: () async => engineA,
     lookupTrustedPeer: storeA.trustedRecordFor,
   );
   final serverB = LanPeerServer(
+    preferredPort: 0,
     getEngine: () async => engineB,
     lookupTrustedPeer: storeB.trustedRecordFor,
   );
@@ -114,7 +116,7 @@ void main() {
     await harness.repoA.createNote(markdown: 'from A');
     await harness.repoB.createNote(markdown: 'from B');
 
-    final attachmentSource = File('${harness.dirA.path}/photo.bin');
+    final attachmentSource = File('${harness.dirA.path}/photo.png');
     await attachmentSource.writeAsBytes(List<int>.generate(128, (i) => i % 256));
     final noteWithFile = await harness.repoA.createNote(
       markdown: 'note with file',
@@ -263,6 +265,7 @@ void main() {
     );
 
     final server = LanPeerServer(
+      preferredPort: 0,
       getEngine: () async => engine,
       lookupTrustedPeer: (_) async => null,
     );
@@ -325,6 +328,7 @@ void main() {
 
     final limiter = PairingConfirmRateLimiter(maxAttempts: 2);
     final server = LanPeerServer(
+      preferredPort: 0,
       getEngine: () async => engine,
       pairingRateLimiter: limiter,
     );
@@ -370,7 +374,7 @@ void main() {
     });
 
     final largeBytes = List<int>.generate(300 * 1024, (i) => i % 251);
-    final attachmentSource = File('${harness.dirA.path}/large.bin');
+    final attachmentSource = File('${harness.dirA.path}/large.png');
     await attachmentSource.writeAsBytes(largeBytes);
     final noteWithFile = await harness.repoA.createNote(
       markdown: 'large attachment',

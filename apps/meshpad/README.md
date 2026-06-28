@@ -1,6 +1,6 @@
 # meshpad (Flutter app)
 
-Точка входа UI. Зависит от `meshpad_core`, `meshpad_p2p`, `meshpad_api_client` (Web).
+Точка входа UI. Зависит от `meshpad_core`, `meshpad_p2p`.
 
 ## Запуск
 
@@ -10,20 +10,21 @@ flutter run -d windows
 flutter test
 ```
 
-Из корня monorepo: `.\scripts\run.ps1`
+Из корня monorepo: `.\dev.ps1` или `.\scripts\run.ps1`
 
-## Режимы
+## Платформы
 
 | Платформа | Режим |
 |-----------|--------|
-| Windows / Linux / Android | Local-first + LAN sync |
-| Web (`kIsWeb`) | Thin client → `meshpad_server` API |
+| Windows / Linux / Android | Local-first + LAN sync (+ Git на desktop) |
+
+Web-режим (`kIsWeb`) и `meshpad_api_client` остаются в репозитории для разработки, но **не** входят в поддерживаемые платформы — см. [docs/PLATFORMS.md](../../docs/PLATFORMS.md).
 
 ## Ключевые экраны
 
 - **Лента** — `lib/features/feed/`
-- **Шапка** — sync, поиск, устройства, настройки, корзина (`feed_screen.dart`)
-- **Устройства** — PIN-pairing, mDNS discovery (`devices_sheet.dart`)
-- **Настройки** — путь данных, автосинхронизация, rebuild index (`settings_sheet.dart`)
+- **Шапка** — sync, Git, поиск, устройства, настройки, корзина
+- **Устройства** — PIN-pairing, mDNS discovery
+- **Настройки** — данные, Git sync, автосинхронизация
 
-Подробности UX и архитектуры — [PLAN.md](../../PLAN.md), [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
+Подробности — [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).

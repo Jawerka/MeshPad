@@ -4,6 +4,6 @@ import 'dart:io';
 ///
 /// Android logs `reusePort not supported` and discovery bind can fail.
 bool get lanDatagramReusePort {
-  if (Platform.isAndroid || Platform.isIOS) return false;
-  return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  if (Platform.isAndroid) return false;
+  return Platform.isWindows || Platform.isLinux;
 }

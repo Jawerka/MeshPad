@@ -155,7 +155,9 @@ class LanPeerEndpoint {
 
 String noteApplyResultWire(NoteApplyResult result) => switch (result) {
       NoteApplyResult.applied => 'applied',
-      NoteApplyResult.skippedLocalNewer => 'skipped_local_newer',
+      NoteApplyResult.skippedLocalNewer ||
+      NoteApplyResult.conflictCopyCreated =>
+        'skipped_local_newer',
       NoteApplyResult.unchanged => 'unchanged',
     };
 

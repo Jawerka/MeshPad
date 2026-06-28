@@ -1,0 +1,3 @@
+tags:
+  benchmark:
+    skip: "Opt-in: dart test --tags benchmark"

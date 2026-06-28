@@ -4,7 +4,12 @@ import 'package:meshpad_core/meshpad_core.dart';
 Future<LanSyncAuthFailure?> validateLanSyncAuth({
   required String? callerPeerId,
   required String? authToken,
+  required String method,
+  required String path,
+  required String? timestampHeader,
+  required String? signatureHeader,
   required Future<TrustedDeviceRecord?> Function(String peerId) lookupTrusted,
+  DateTime? nowUtc,
 }) async {
   if (callerPeerId == null || callerPeerId.trim().isEmpty) {
     return LanSyncAuthFailure.unauthorized;
@@ -18,6 +23,28 @@ Future<LanSyncAuthFailure?> validateLanSyncAuth({
   final expected = record.authToken;
   if (expected != null) {
     if (authToken == null || authToken != expected) {
+      return LanSyncAuthFailure.unauthorized;
+    }
+  }
+
+  final peerSigningKey = record.signingPublicKey;
+  if (peerSigningKey != null && peerSigningKey.isNotEmpty) {
+    if (timestampHeader == null ||
+        timestampHeader.isEmpty ||
+        signatureHeader == null ||
+        signatureHeader.isEmpty) {
+      return LanSyncAuthFailure.unauthorized;
+    }
+    final ok = await verifySyncRequestSignature(
+      peerId: callerPeerId,
+      publicKeyBase64: peerSigningKey,
+      timestampIso: timestampHeader,
+      method: method,
+      path: path,
+      signatureBase64: signatureHeader,
+      nowUtc: nowUtc,
+    );
+    if (!ok) {
       return LanSyncAuthFailure.unauthorized;
     }
   }

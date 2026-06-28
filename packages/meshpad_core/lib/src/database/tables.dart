@@ -13,6 +13,15 @@ class Notes extends Table {
   TextColumn get markdown => text().withDefault(const Constant(''))();
   TextColumn get tags => text().withDefault(const Constant('[]'))();
 
+  /// FS `meta.json` mtime at last successful index (PLAN §11.5.1).
+  DateTimeColumn get fsMetaModifiedAt => dateTime().nullable()();
+
+  /// FS `note.md` mtime at last successful index.
+  DateTimeColumn get fsMarkdownModifiedAt => dateTime().nullable()();
+
+  /// Latest mtime under `attachments/` at last index (null if none).
+  DateTimeColumn get fsAttachmentsModifiedAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

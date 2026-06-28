@@ -18,6 +18,7 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('meshpad_tls_srv_');
     final identity = await LanTlsIdentity.loadOrCreate(dir);
     final server = LanPeerServer(
+      preferredPort: 0,
       getEngine: () async => throw UnimplementedError(),
       tlsIdentity: identity,
     );

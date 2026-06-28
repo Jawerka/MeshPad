@@ -100,17 +100,3 @@ void main() {
     expect((await repoB.getNote(note.id))?.markdown, 'from A');
   });
 }
-
-extension on NoteMeta {
-  NoteMeta copyWith({DateTime? updatedAt}) => NoteMeta(
-        schemaVersion: schemaVersion,
-        id: id,
-        title: title,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        author: author,
-        deleted: deleted,
-        deletedAt: deletedAt,
-        attachments: attachments,
-      );
-}

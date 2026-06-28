@@ -54,6 +54,19 @@ jobs:
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses || true
 
+      - name: Configure Android release signing
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > apps/meshpad/android/meshpad-release.keystore
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../meshpad-release.keystore\n' \
+            "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
+            > apps/meshpad/android/key.properties
+
       - name: Build release APK
         run: flutter build apk --release
         working-directory: ${{ env.FLUTTER_APP }}
@@ -106,22 +119,30 @@ jobs:
         run: flutter build windows --release
         working-directory: ${{ env.FLUTTER_APP }}
 
-      - name: Package Windows release (exe + runtime)
+      - name: Package Windows release (zip + Inno Setup installer)
         shell: pwsh
         run: |
+          $version = "${{ steps.version.outputs.version }}"
           $releaseDir = Join-Path $env:FLUTTER_APP "build/windows/x64/runner/Release"
-          $zipName = "meshpad-${{ steps.version.outputs.version }}-windows-x64.zip"
           if (-not (Test-Path $releaseDir)) {
             throw "Release folder not found: $releaseDir"
           }
+          $zipName = "meshpad-$version-windows-x64.zip"
           Compress-Archive -Path $releaseDir -DestinationPath $zipName -Force
           Write-Host "Created $zipName"
+          choco install innosetup -y --no-progress
+          & .\scripts\package-windows-installer.ps1 `
+            -Version $version `
+            -ReleaseDir $releaseDir `
+            -OutputDir $PWD
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: meshpad-windows
-          path: meshpad-*-windows-x64.zip
+          path: |
+            meshpad-*-windows-x64.zip
+            meshpad-*-windows-x64-setup.exe
           retention-days: 90
 
   publish-release:
@@ -135,8 +156,24 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Write version manifest for in-app updates
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          REPO="${GITHUB_REPOSITORY}"
+          cat > version.json <<EOF
+          {
+            "latest_version": "${VERSION}",
+            "download_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}.apk",
+            "windows_download_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}-windows-x64.zip",
+            "windows_installer_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}-windows-x64-setup.exe"
+          }
+          EOF
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/**/*
+          files: |
+            dist/**/*
+            version.json

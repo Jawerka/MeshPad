@@ -39,6 +39,10 @@ class AttachmentUploadOffsetException extends MeshPadException {
   final int expectedOffset;
 }
 
+class AttachmentUploadRejectedException extends MeshPadException {
+  const AttachmentUploadRejectedException(super.code, super.message);
+}
+
 String meshPadExceptionUserMessage(Object error) {
   if (error is MeshPadException) return error.message;
   final text = error.toString();

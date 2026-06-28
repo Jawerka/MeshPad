@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import 'notes_providers.dart';
+import 'network_sync_coordinator.dart';
 import 'sync_providers.dart';
 
 final syncLoopProvider = Provider<SyncLoopController>((ref) {
@@ -46,6 +47,10 @@ class SyncLoopController {
 
     final settings = await _ref.read(appSettingsStoreProvider).loadSettings();
     if (!settings.autoSyncEnabled) return;
+
+    final allowed =
+        await _ref.read(networkSyncCoordinatorProvider).isSyncAllowed();
+    if (!allowed) return;
 
     final trusted = await _ref.read(trustedDevicesProvider.future);
     if (trusted.isEmpty) return;

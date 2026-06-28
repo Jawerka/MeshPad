@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'note_change_hub.dart';
 import 'api_key_auth.dart';
+import 'api_rate_limit.dart';
 
 /// Headless HTTP API for Web client / LAN (Sprint 5, ARCHITECTURE.md).
 class MeshPadHttpServer {
@@ -47,6 +48,7 @@ class MeshPadHttpServer {
     router.get('/api/notes/<noteId>/attachments/<fileName>/thumb', _getAttachmentThumb);
     router.get('/api/notes/<noteId>/attachments/<fileName>', _getAttachment);
     router.put('/api/notes/<noteId>/attachments/<fileName>', _putAttachment);
+    router.get('/api/tags', _listTags);
     router.get('/api/trash', _listTrash);
     router.get('/api/search', _searchNotes);
     router.get('/api/events', _streamEvents);
@@ -55,10 +57,20 @@ class MeshPadHttpServer {
   }
 
   Response _streamEvents(Request request) {
+    final lastHeader =
+        request.headers['last-event-id'] ?? request.headers['Last-Event-ID'];
+    final lastEventId = int.tryParse(lastHeader?.trim() ?? '');
+
     Stream<List<int>> body() async* {
       yield utf8.encode(': connected\n\n');
+      for (final event in changeHub.eventsAfter(lastEventId)) {
+        yield _sseChunk(event);
+      }
+      var cursor = lastEventId ?? 0;
       await for (final event in changeHub.stream) {
-        yield utf8.encode('data: ${jsonEncode(event.toJson())}\n\n');
+        if (event.id <= cursor) continue;
+        cursor = event.id;
+        yield _sseChunk(event);
       }
     }
 
@@ -74,9 +86,36 @@ class MeshPadHttpServer {
     );
   }
 
+  List<int> _sseChunk(NoteChangeEvent event) {
+    return utf8.encode(
+      'id: ${event.id}\ndata: ${jsonEncode(event.toJson())}\n\n',
+    );
+  }
+
   Future<Response> _listNotes(Request request) async {
     final sort = _parseNoteSort(request.url.queryParameters['sort']);
     final params = request.url.queryParameters;
+    final tag = _tagFromQuery(params);
+    final sinceRaw = params['since']?.trim();
+    if (sinceRaw != null && sinceRaw.isNotEmpty) {
+      try {
+        final since = DateTime.parse(sinceRaw).toUtc();
+        final notes = await repository.listNotesUpdatedSince(
+          since,
+          sort: sort,
+          tag: tag,
+        );
+        final body = notes.map(_noteJson).toList();
+        return Response.ok(jsonEncode(body), headers: _jsonHeaders);
+      } on FormatException {
+        return Response(
+          400,
+          body: '{"error":"invalid since (ISO-8601 expected)"}',
+          headers: _jsonHeaders,
+        );
+      }
+    }
+
     final offset = int.tryParse(params['offset'] ?? '') ?? 0;
     final limitRaw = int.tryParse(params['limit'] ?? '') ?? 0;
 
@@ -86,19 +125,26 @@ class MeshPadHttpServer {
         offset: offset,
         limit: limit,
         sort: sort,
+        tag: tag,
       );
       final body = notes.map(_noteJson).toList();
       return Response.ok(jsonEncode(body), headers: _jsonHeaders);
     }
 
-    final notes = await repository.listNotes(sort: sort);
+    final notes = await repository.listNotes(sort: sort, tag: tag);
     final body = notes.map(_noteJson).toList();
     return Response.ok(jsonEncode(body), headers: _jsonHeaders);
   }
 
   Future<Response> _countNotes(Request request) async {
-    final count = await repository.countActiveNotes();
+    final tag = _tagFromQuery(request.url.queryParameters);
+    final count = await repository.countActiveNotes(tag: tag);
     return Response.ok(jsonEncode({'count': count}), headers: _jsonHeaders);
+  }
+
+  Future<Response> _listTags(Request request) async {
+    final tags = await repository.listDistinctTags();
+    return Response.ok(jsonEncode(tags), headers: _jsonHeaders);
   }
 
   NoteSort _parseNoteSort(String? raw) {
@@ -157,11 +203,15 @@ class MeshPadHttpServer {
         );
       }
 
-      final note = await repository.createNote(
+      var note = await repository.createNote(
         title: payload['title'] as String? ?? '',
         markdown: markdown,
         author: payload['author'] as String? ?? defaultAuthor,
       );
+      final tags = _tagsFromPayload(payload);
+      if (tags != null) {
+        note = await repository.setNoteTags(note.id, tags);
+      }
 
       changeHub.noteCreated(note.id);
 
@@ -183,11 +233,15 @@ class MeshPadHttpServer {
     try {
       final payload =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final note = await repository.updateNote(
+      var note = await repository.updateNote(
         id,
         title: payload['title'] as String?,
         markdown: payload['markdown'] as String?,
       );
+      final tags = _tagsFromPayload(payload);
+      if (tags != null) {
+        note = await repository.setNoteTags(id, tags);
+      }
       changeHub.noteUpdated(note.id);
       return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
     } on StateError {
@@ -329,6 +383,8 @@ class MeshPadHttpServer {
       );
       changeHub.attachmentAdded(note.id);
       return Response.ok(jsonEncode(_noteJson(note)), headers: _jsonHeaders);
+    } on AttachmentUploadRejectedException catch (e) {
+      return _attachmentRejectedResponse(e);
     } on NoteNotFoundException {
       return Response.notFound(
         jsonEncode({'error': 'note_not_found'}),
@@ -343,6 +399,22 @@ class MeshPadHttpServer {
     }
   }
 
+  String? _tagFromQuery(Map<String, String> params) {
+    final raw = params['tag']?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    return normalizeTag(raw);
+  }
+
+  List<String>? _tagsFromPayload(Map<String, dynamic> payload) {
+    if (!payload.containsKey('tags')) return null;
+    final raw = payload['tags'];
+    if (raw == null) return const [];
+    if (raw is! List) {
+      throw const FormatException('tags must be a JSON array');
+    }
+    return normalizeTags(raw.map((e) => '$e'));
+  }
+
   Map<String, dynamic> _noteSummaryJson(Note note) => {
         'id': note.id,
         'title': note.title,
@@ -351,6 +423,7 @@ class MeshPadHttpServer {
         'updated_at': note.updatedAt.toIso8601String(),
         'deleted': note.deleted,
         'deleted_at': note.deletedAt?.toIso8601String(),
+        'tags': note.tags,
         'preview': _preview(note.markdown),
         'attachments': [
           for (final a in note.attachments)
@@ -379,14 +452,28 @@ class MeshPadHttpServer {
   static const _jsonHeaders = {
     'content-type': 'application/json; charset=utf-8',
   };
+
+  static Response _attachmentRejectedResponse(
+    AttachmentUploadRejectedException error,
+  ) {
+    final status = switch (error.code) {
+      'too_large' => 413,
+      _ => 400,
+    };
+    return Response(
+      status,
+      body: jsonEncode({'error': error.code, 'message': error.message}),
+      headers: _jsonHeaders,
+    );
+  }
 }
 
 Middleware corsHeaders() {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers':
-        'Origin, Content-Type, Accept, Authorization, X-MeshPad-Api-Key',
+        'Access-Control-Allow-Headers':
+        'Origin, Content-Type, Accept, Authorization, X-MeshPad-Api-Key, Last-Event-ID',
   };
 
   return (Handler inner) {
@@ -406,7 +493,9 @@ Future<HttpServer> serveMeshPadHttp({
   required int port,
   ApiKeyAuth? apiKeyAuth,
 }) {
-  var pipeline = Pipeline().addMiddleware(corsHeaders());
+  var pipeline = Pipeline()
+      .addMiddleware(corsHeaders())
+      .addMiddleware(apiRateLimitMiddleware());
   if (apiKeyAuth != null && apiKeyAuth.isEnabled) {
     pipeline = pipeline.addMiddleware(apiKeyAuthMiddleware(apiKeyAuth));
   }

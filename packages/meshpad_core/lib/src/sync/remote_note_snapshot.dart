@@ -11,4 +11,9 @@ class RemoteNoteSnapshot {
   final String markdown;
 }
 
-enum NoteApplyResult { applied, skippedLocalNewer, unchanged }
+enum NoteApplyResult {
+  applied,
+  skippedLocalNewer,
+  unchanged,
+  conflictCopyCreated,
+}

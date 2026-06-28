@@ -82,10 +82,24 @@ class UdpLanDiscovery implements LanDiscovery {
     _announceTimer = Timer.periodic(announceInterval, (_) => sendAnnounce());
   }
 
+  /// Exposed for tests (PLAN §11.4.1).
+  static const refreshAttempts = 3;
+
+  static const _refreshAttempts = refreshAttempts;
+
   @override
   Future<void> refresh() async {
     _broadcastTargets = await computeBroadcastTargets();
-    _sendAnnounce?.call();
+    for (var attempt = 0; attempt < _refreshAttempts; attempt++) {
+      if (attempt > 0) {
+        final delayMs = 300 * (1 << (attempt - 1));
+        MeshPadLog.discovery(
+          'UDP announce retry $attempt/${_refreshAttempts - 1} in ${delayMs}ms',
+        );
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
+      }
+      _sendAnnounce?.call();
+    }
   }
 
   @override

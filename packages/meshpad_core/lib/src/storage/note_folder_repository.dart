@@ -14,6 +14,15 @@ class NoteFolderRepository {
 
   String notePath(String id) => p.join(notesRoot, id);
 
+  /// Reads only `meta.json` (cheap check when FS mtimes are unchanged).
+  Future<NoteMeta?> readMeta(String id) async {
+    final metaFile = File(p.join(notePath(id), 'meta.json'));
+    if (!await metaFile.exists()) return null;
+    return NoteMeta.fromJson(
+      jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>,
+    );
+  }
+
   Future<NoteFolder?> read(String id) async {
     final dir = Directory(notePath(id));
     if (!await dir.exists()) return null;
@@ -48,6 +57,20 @@ class NoteFolderRepository {
     if (await dir.exists()) {
       await dir.delete(recursive: true);
     }
+  }
+
+  /// Directory names under [notesRoot] without reading note bodies.
+  Future<List<String>> listNoteDirectoryIds() async {
+    final root = Directory(notesRoot);
+    if (!await root.exists()) return [];
+
+    final ids = <String>[];
+    await for (final entity in root.list()) {
+      if (entity is Directory) {
+        ids.add(p.basename(entity.path));
+      }
+    }
+    return ids;
   }
 
   Future<List<String>> listNoteIds({bool includeDeleted = false}) async {

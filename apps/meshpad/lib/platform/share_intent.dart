@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// Payload from Android/iOS share intent (Sprint 5).
+/// Payload from Android share intent (Sprint 5).
 class SharePayload {
   const SharePayload({
     required this.type,

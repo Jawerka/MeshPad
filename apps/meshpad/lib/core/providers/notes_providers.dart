@@ -32,6 +32,9 @@ final appSettingsStoreProvider = Provider<AppSettingsStore>((ref) {
 });
 
 final appSettingsProvider = FutureProvider<AppSettings>((ref) async {
+  if (ref.watch(isWebClientProvider)) {
+    return ref.watch(webApiSettingsStoreProvider).loadAppSettings();
+  }
   final store = ref.watch(appSettingsStoreProvider);
   return store.loadSettings();
 });
@@ -60,8 +63,25 @@ final noteRepositoryProvider = FutureProvider<NoteRepository>((ref) async {
     defaultAuthor: _defaultAuthor,
     database: db,
   );
-  await repo.reconcileFromFilesystem();
+  final settings = await ref.read(appSettingsStoreProvider).loadSettings();
+  await repo.reconcileFromFilesystem(
+    thumbCacheMaxMb: settings.thumbCacheMaxMb,
+  );
   return repo;
+});
+
+final noteConflictCopiesProvider =
+    FutureProvider.family<List<NoteConflictCopy>, String>((ref, noteId) async {
+  if (ref.watch(isWebClientProvider)) return const [];
+  final repo = await ref.watch(noteRepositoryProvider.future);
+  return repo.listConflictCopies(noteId);
+});
+
+final noteHistoryRevisionsProvider =
+    FutureProvider.family<List<int>, String>((ref, noteId) async {
+  if (ref.watch(isWebClientProvider)) return const [];
+  final repo = await ref.watch(noteRepositoryProvider.future);
+  return repo.listNoteHistoryRevisions(noteId);
 });
 
 final notesServiceProvider = FutureProvider<NotesService>((ref) async {

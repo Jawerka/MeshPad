@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../models/attachment_copy_progress.dart';
 import '../models/note_meta.dart';
 import '../errors/meshpad_exception.dart';
+import '../security/attachment_upload_policy.dart';
 import 'attachment_thumbnails.dart';
 
 /// MIME guess from file extension (MVP — no magic bytes).
@@ -168,6 +169,11 @@ Future<AttachmentMeta> createAttachmentFromBytes({
   int fileIndex = 1,
   int fileCount = 1,
 }) async {
+  validateAttachmentUpload(
+    fileName: preferredName,
+    byteLength: bytes.length,
+  );
+
   await Directory(attachmentsDir).create(recursive: true);
 
   final safeName = _uniqueName(attachmentsDir, preferredName);
@@ -216,6 +222,11 @@ Future<AttachmentMeta> writeAttachmentBytes({
   required AttachmentMeta meta,
   required List<int> bytes,
 }) async {
+  validateAttachmentUpload(
+    fileName: meta.name,
+    byteLength: bytes.length,
+  );
+
   if (bytes.length != meta.size) {
     throw StateError(
       'Attachment size mismatch for ${meta.name}: expected ${meta.size}, got ${bytes.length}',

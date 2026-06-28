@@ -54,7 +54,9 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
     final notifier = ref.read(notesListProvider.notifier);
 
     if (payload.isText && payload.text != null && payload.text!.trim().isNotEmpty) {
-      await notifier.createNote(markdown: payload.text!.trim());
+      final raw = payload.text!.trim();
+      final markdown = _markdownFromSharedText(raw);
+      await notifier.createNote(markdown: markdown);
       _showSnack('Заметка создана из текста');
       return;
     }
@@ -68,6 +70,14 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
       );
       _showSnack('Заметка создана из файла');
     }
+  }
+
+  String _markdownFromSharedText(String raw) {
+    final uri = Uri.tryParse(raw);
+    if (uri != null && uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return '[$raw]($raw)';
+    }
+    return raw;
   }
 
   void _showSnack(String message) {

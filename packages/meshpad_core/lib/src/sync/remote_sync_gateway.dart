@@ -1,5 +1,6 @@
 import '../models/note_head.dart';
 import '../models/note_meta.dart';
+import 'catalog_delta.dart';
 import 'remote_note_snapshot.dart';
 import 'sync_ack.dart';
 import 'sync_engine.dart';
@@ -42,19 +43,25 @@ extension SyncEngineRemote on SyncEngine {
   }
 
   Future<int> pullFromRemote(RemoteSyncGateway remote) async {
-    final heads = await remote.fetchCatalog();
+    final stats = await pullFromRemoteWithStats(remote);
+    return stats.applied;
+  }
+
+  /// Delta pull stats (catalog compare without redundant note GETs).
+  Future<CatalogPullStats> pullFromRemoteWithStats(
+    RemoteSyncGateway remote,
+  ) async {
+    final remoteHeads = await remote.fetchCatalog();
+    final localHeads = await notes.catalogHeads();
+    final localById = {for (final head in localHeads) head.id: head};
     var applied = 0;
+    var bodiesFetched = 0;
+    var bodiesSkipped = 0;
 
-    for (final head in heads) {
-      final local = await notes.getNote(head.id);
-      final localUpdated =
-          local?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-
-      final needsUpdate = local == null ||
-          head.updatedAt.isAfter(localUpdated) ||
-          (head.updatedAt == localUpdated && head.deleted != local.deleted);
-
-      if (!needsUpdate) {
+    for (final head in remoteHeads) {
+      final localHead = localById[head.id];
+      if (!noteHeadNeedsRemotePull(localHead: localHead, remoteHead: head)) {
+        bodiesSkipped++;
         final note = await notes.getNote(head.id);
         if (note != null) {
           await syncAttachmentsFrom(remote, note.toMeta());
@@ -62,15 +69,24 @@ extension SyncEngineRemote on SyncEngine {
         continue;
       }
 
+      bodiesFetched++;
       final snapshot = await remote.fetchNote(head.id);
       if (snapshot == null) continue;
 
       final result = await applyRemote(snapshot);
-      if (result == NoteApplyResult.applied) applied++;
+      if (result == NoteApplyResult.applied ||
+          result == NoteApplyResult.conflictCopyCreated) {
+        applied++;
+      }
       await syncAttachmentsFrom(remote, snapshot.meta);
     }
 
-    return applied;
+    return CatalogPullStats(
+      catalogSize: remoteHeads.length,
+      bodiesFetched: bodiesFetched,
+      bodiesSkipped: bodiesSkipped,
+      applied: applied,
+    );
   }
 
   Future<PushToRemoteResult> pushToRemote(RemoteSyncGateway remote) async {
@@ -134,6 +150,26 @@ extension SyncEngineRemote on SyncEngine {
 List<NoteHead> noteHeadsFromJsonList(List<dynamic> list) => [
       for (final item in list) NoteHead.fromJson(item as Map<String, dynamic>),
     ];
+
+/// Safe catalog decode for fuzzing and tolerant gateways.
+List<NoteHead>? tryParseCatalogJson(Object? decoded) {
+  if (decoded is! List) return null;
+  try {
+    return noteHeadsFromJsonList(decoded);
+  } on Object {
+    return null;
+  }
+}
+
+/// Safe snapshot decode; returns null on invalid shape.
+RemoteNoteSnapshot? tryParseRemoteSnapshotJson(Object? decoded) {
+  if (decoded is! Map<String, dynamic>) return null;
+  try {
+    return remoteSnapshotFromJson(decoded);
+  } on Object {
+    return null;
+  }
+}
 
 Map<String, dynamic> remoteSnapshotToJson(RemoteNoteSnapshot snapshot) => {
       'meta': snapshot.meta.toJson(),

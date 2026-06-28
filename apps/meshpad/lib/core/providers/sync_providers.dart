@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
-import '../constants/feature_flags.dart';
 import '../platform/default_device_display_name.dart';
+import '../storage/secure_device_signing_key_store.dart';
+import '../storage/secure_peer_auth_token_store.dart';
 import '../sync/local_author_labels.dart';
 import 'notes_providers.dart';
 import 'sync_activity_provider.dart';
@@ -17,7 +18,17 @@ final deviceStoreProvider = FutureProvider<DeviceIdentityStore>((ref) async {
     throw UnsupportedError('Device store unavailable on Web');
   }
   final dataDir = await ref.watch(dataDirProvider.future);
-  return DeviceIdentityStore(paths: MeshPadPaths(dataDir!));
+  final paths = MeshPadPaths(dataDir!);
+  final tokenStore = SecurePeerAuthTokenStore();
+  await migrateEmbeddedAuthTokensToStore(
+    paths: paths,
+    tokenStore: tokenStore,
+  );
+  return DeviceIdentityStore(
+    paths: paths,
+    authTokens: tokenStore,
+    signingKeys: SecureDeviceSigningKeyStore(),
+  );
 });
 
 final localIdentityProvider = FutureProvider<LocalDeviceIdentity>((ref) async {
@@ -49,19 +60,7 @@ final lanSyncCoordinatorProvider = FutureProvider<LanSyncCoordinator>((ref) asyn
 });
 
 final syncTransportKindProvider = Provider<SyncTransportKind>((ref) {
-  const fromEnv = String.fromEnvironment('MESHPAD_SYNC_TRANSPORT');
-  if (fromEnv == 'libp2p') return SyncTransportKind.libp2p;
-
-  final settings = ref.watch(appSettingsProvider);
-  final fromSettings = settings.maybeWhen(
-    data: (s) => s.syncTransportKind,
-    orElse: () => SyncTransportKind.lan,
-  );
-  if (!MeshPadFeatureFlags.libp2pTransportSettingVisible &&
-      fromSettings == SyncTransportKind.libp2p) {
-    return SyncTransportKind.lan;
-  }
-  return fromSettings;
+  return SyncTransportKind.lan;
 });
 
 final syncTransportProvider = Provider<SyncTransport>((ref) {
@@ -71,10 +70,7 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
     return transport;
   }
 
-  const kind = String.fromEnvironment('MESHPAD_SYNC_TRANSPORT');
-  final transportKind = kind == 'libp2p'
-      ? SyncTransportKind.libp2p
-      : ref.watch(syncTransportKindProvider);
+  final transportKind = SyncTransportKind.lan;
 
   final engineFuture = ref.watch(syncEngineProvider.future);
   final identityFuture = ref.watch(localIdentityProvider.future);
@@ -99,6 +95,8 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
         lanHttpPort: port,
         authToken: confirm.authToken,
         tlsCertSha256: confirm.initiatorTlsCertSha256,
+        signingPublicKey: confirm.initiatorSigningPublicKey,
+        signingKeyAlgorithm: confirm.initiatorSigningKeyAlgorithm,
       );
       ref.invalidate(trustedDevicesProvider);
     },
@@ -188,13 +186,6 @@ class SyncController {
     try {
       final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
       final transport = _ref.read(syncTransportProvider);
-      final lan = transport.lanAccess;
-      if (lan == null) {
-        return const SyncRunResult(
-          SyncRunStatus.failed,
-          message: 'LAN transport недоступен',
-        );
-      }
 
       final trusted = await _ref.read(trustedDevicesProvider.future);
       final peers = excludePeerId == null
@@ -214,7 +205,15 @@ class SyncController {
         localAuthorLabels: localAuthorLabels(identity.displayName),
       );
 
-      final result = await coordinator.syncTrustedPeers(
+      final LanSyncRunResult result;
+      final lan = transport.lanAccess;
+      if (lan == null) {
+        return const SyncRunResult(
+          SyncRunStatus.failed,
+          message: 'LAN transport недоступен',
+        );
+      }
+      result = await coordinator.syncTrustedPeers(
         transport: lan,
         repository: repo,
         trusted: trusted,

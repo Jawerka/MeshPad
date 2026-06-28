@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_api_client/meshpad_api_client.dart';
 
 import 'notes_providers.dart';
 
-/// Keeps Web feed in sync via SSE (`GET /api/events`, PLAN §12 D.1).
+/// Keeps Web feed in sync via SSE (`GET /api/events`, PLAN §11.6.1–6.2).
 final webFeedEventsProvider = Provider<WebFeedEventsListener>((ref) {
   if (!ref.watch(isWebClientProvider)) {
     return WebFeedEventsListener.noop();
@@ -29,6 +30,8 @@ class WebFeedEventsListener {
   Timer? _debounce;
   var _running = false;
   var _generation = 0;
+  String? _lastEventId;
+  var _reconnectCount = 0;
 
   Future<void> start() async {
     if (_ref == null || _running) return;
@@ -41,6 +44,8 @@ class WebFeedEventsListener {
     if (ref == null) return;
 
     final generation = ++_generation;
+    var backoffAttempt = 0;
+
     while (_running && generation == _generation) {
       try {
         final baseUrl = await ref.read(webApiBaseUrlProvider.future);
@@ -49,16 +54,45 @@ class WebFeedEventsListener {
         _client = MeshPadApiClient(baseUrl: baseUrl, apiKey: apiKey);
         await _client!.checkHealth();
 
-        await for (final _ in _client!.watchNoteEvents()) {
+        if (_reconnectCount > 0) {
+          await _catchUpFeed(ref);
+        }
+        _reconnectCount++;
+
+        backoffAttempt = 0;
+        await for (final event in _client!.watchNoteEvents(
+          lastEventId: _lastEventId,
+        )) {
           if (!_running || generation != _generation) break;
+          if (event.id != null) {
+            _lastEventId = '${event.id}';
+          }
           _scheduleReload(ref);
         }
       } catch (_) {
-        // Reconnect after backoff.
+        // Reconnect with exponential backoff.
       }
 
       if (!_running || generation != _generation) break;
-      await Future<void>.delayed(const Duration(seconds: 5));
+      backoffAttempt++;
+      final seconds = math.min(60, 1 << math.min(backoffAttempt - 1, 6));
+      await Future<void>.delayed(Duration(seconds: seconds));
+    }
+  }
+
+  Future<void> _catchUpFeed(Ref ref) async {
+    final client = _client;
+    if (client != null && _lastEventId != null) {
+      try {
+        final since = DateTime.now().toUtc().subtract(const Duration(minutes: 5));
+        await client.listNotesUpdatedSince(since);
+      } catch (_) {
+        // Fall back to full reload.
+      }
+    }
+    await ref.read(notesListProvider.notifier).reload();
+    if (ref.read(feedSearchQueryProvider).trim().isNotEmpty) {
+      ref.invalidate(searchResultsProvider);
     }
   }
 

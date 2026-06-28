@@ -259,7 +259,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get syncTransportLibp2pHint =>
-      'Sidecar на :45839; sync пока через LAN fallback';
+      'Эксперимент: sidecar (:45839), wire sync, затем LAN fallback';
 
   @override
   String get exportNotes => 'Экспорт заметок';
@@ -274,11 +274,71 @@ class AppLocalizationsRu extends AppLocalizations {
   String get importNotesSubtitle => 'Объединение по дате изменения (LWW)';
 
   @override
+  String get autoBackup => 'Автобэкап';
+
+  @override
+  String get autoBackupOff => 'Выключен';
+
+  @override
+  String autoBackupEveryHours(int hours) {
+    return 'Каждые $hours ч';
+  }
+
+  @override
+  String get autoBackupNeedDirectory => 'Укажите папку для zip-архивов';
+
+  @override
+  String get autoBackupDirectory => 'Папка бэкапа';
+
+  @override
+  String get autoBackupDirectoryNone => 'Не выбрана';
+
+  @override
+  String get autoBackupPickDirectoryTitle => 'Папка для бэкапов MeshPad';
+
+  @override
+  String autoBackupLastRun(String when) {
+    return 'Последний бэкап: $when';
+  }
+
+  @override
+  String get autoBackupNever => 'Бэкапов ещё не было';
+
+  @override
+  String get autoBackupNow => 'Сделать бэкап сейчас';
+
+  @override
+  String get autoBackupNowSubtitle => 'Экспорт notes/ в zip в папку бэкапа';
+
+  @override
+  String autoBackupDone(int count) {
+    return 'Бэкап сохранён ($count заметок)';
+  }
+
+  @override
+  String hoursShort(int hours) {
+    return '$hours ч';
+  }
+
+  @override
   String get verifyData => 'Проверить данные';
 
   @override
   String get verifyDataSubtitle =>
-      'Пересобрать индекс из файлов и создать отсутствующие превью';
+      'Пересобрать индекс, создать превью и очистить кэш сверх лимита';
+
+  @override
+  String get thumbCacheSection => 'Кэш превью';
+
+  @override
+  String thumbCacheLimit(int mb) {
+    return 'Лимит кэша: $mb МБ';
+  }
+
+  @override
+  String thumbCacheMb(int mb) {
+    return '$mb МБ';
+  }
 
   @override
   String get about => 'О приложении';
@@ -297,6 +357,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get checkUpdates => 'Проверить обновления';
 
   @override
+  String get updateDownloadInstall => 'Скачать и установить';
+
+  @override
+  String get updateDownloading => 'Скачивание обновления…';
+
+  @override
+  String updateDownloadPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String updateDownloadFailed(String error) {
+    return 'Не удалось скачать: $error';
+  }
+
+  @override
+  String get updateInstallFailed => 'Не удалось открыть установщик';
+
+  @override
   String get footerWeb =>
       'Web-клиент подключается к headless-серверу (meshpad_server).';
 
@@ -307,6 +386,205 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get devicesDiscoveryHint =>
       'Поиск устройств в локальной сети (mDNS/UDP)';
+
+  @override
+  String get devicesManualPeerTitle => 'Адрес вручную';
+
+  @override
+  String get devicesManualHostLabel => 'IP или имя хоста';
+
+  @override
+  String get devicesManualPortLabel => 'HTTP порт';
+
+  @override
+  String get devicesManualProbe => 'Проверить';
+
+  @override
+  String devicesManualProbeOk(String name) {
+    return 'Найдено: $name';
+  }
+
+  @override
+  String pairingWaitingOn(String device) {
+    return 'Ожидание подтверждения на $device…';
+  }
+
+  @override
+  String get pairingQrHostHint =>
+      'Отсканируйте QR на другом устройстве (MeshPad на телефоне)';
+
+  @override
+  String get pairingScanQr => 'Сканировать QR';
+
+  @override
+  String get pairingQrScanHint =>
+      'Наведите камеру на QR с экрана устройства-хоста';
+
+  @override
+  String get pairingQrInvalid => 'Некорректный QR для pairing';
+
+  @override
+  String get pairingQrPinMismatch =>
+      'PIN в QR не совпадает с предложением устройства';
+
+  @override
+  String get pairingQrProbeFailed =>
+      'Не удалось подключиться по QR. Проверьте Wi‑Fi.';
+
+  @override
+  String get devicesSheetTitle => 'Устройства';
+
+  @override
+  String get devicesTrustedSection => 'Доверенные';
+
+  @override
+  String get devicesDiscoveredSection => 'Обнаруженные';
+
+  @override
+  String get devicesTrustedEmpty =>
+      'Нет доверенных устройств.\nДобавьте через PIN-pairing.';
+
+  @override
+  String get devicesDiscovering => 'Поиск устройств в локальной сети…';
+
+  @override
+  String get devicesOnLan => 'В локальной сети';
+
+  @override
+  String get devicesPinPairing => 'Сопряжение по PIN';
+
+  @override
+  String get devicesPinShort => 'PIN';
+
+  @override
+  String get devicesThisDevice => 'Это устройство';
+
+  @override
+  String devicesThisDeviceLan(String host, int port) {
+    return 'Это устройство · LAN $host:$port';
+  }
+
+  @override
+  String devicesThisDevicePort(int port) {
+    return 'Это устройство · порт $port';
+  }
+
+  @override
+  String devicesTrustedLan(String host, int port) {
+    return 'Доверенное · $host:$port';
+  }
+
+  @override
+  String get devicesTrustedLanUnknown => 'Доверенное · LAN неизвестен';
+
+  @override
+  String get devicesIconUpdated => 'Иконка обновлена';
+
+  @override
+  String devicesIconUpdatedNamed(String name) {
+    return 'Иконка «$name» обновлена';
+  }
+
+  @override
+  String get devicesLocalNameTitle => 'Имя этого устройства';
+
+  @override
+  String get devicesLocalNameHint => 'Например: Рабочий ПК';
+
+  @override
+  String get devicesTrustedRenameHint => 'Как показывать в списке';
+
+  @override
+  String get devicesNameLabel => 'Имя';
+
+  @override
+  String devicesTrustedRenamed(String name) {
+    return '«$name» переименовано';
+  }
+
+  @override
+  String get devicesPeerUnreachable =>
+      'Устройство недоступно в сети. Проверьте Wi‑Fi и что MeshPad открыт на обоих устройствах.';
+
+  @override
+  String get devicesSyncTimeout => 'Таймаут синхронизации';
+
+  @override
+  String devicesSyncNotesCount(int count) {
+    return 'Синхронизировано заметок: $count';
+  }
+
+  @override
+  String get devicesSyncCompleted => 'Синхронизация завершена';
+
+  @override
+  String get devicesNoPeersToSync => 'Нет устройств для синхронизации';
+
+  @override
+  String get devicesPairingTitle => 'PIN-pairing';
+
+  @override
+  String get devicesPairingShowPinSelectPeer =>
+      'Покажите этот PIN на другом устройстве. Выберите устройство ниже для подтверждения.';
+
+  @override
+  String get devicesPairingShowPinOnly =>
+      'Покажите этот PIN на другом устройстве.';
+
+  @override
+  String get devicesPairingSelectPeer => 'Устройство в сети';
+
+  @override
+  String get devicesRemotePinLabel => 'PIN другого устройства';
+
+  @override
+  String get devicesRemotePinHint => '000000';
+
+  @override
+  String get devicesPairingConfirmFailed =>
+      'Не удалось подтвердить PIN. Проверьте устройство в сети.';
+
+  @override
+  String get devicesPairingNoDiscovered =>
+      'Нет обнаруженных устройств. Дождитесь появления в списке «Обнаруженные» или проверьте Wi‑Fi.';
+
+  @override
+  String get devicesPairingNeedWifi =>
+      'Для PIN-pairing оба устройства должны быть в одной Wi‑Fi сети и видны в «Обнаруженные».';
+
+  @override
+  String get devicesPinInvalid => 'Введите 6-значный PIN';
+
+  @override
+  String get devicesActionIcon => 'Иконка';
+
+  @override
+  String get devicesActionRename => 'Переименовать';
+
+  @override
+  String get devicesActionSync => 'Синхронизировать';
+
+  @override
+  String get devicesActionRevoke => 'Отозвать доверие';
+
+  @override
+  String get devicesActionsTooltip => 'Действия';
+
+  @override
+  String get devicesManualErrorEmptyHost => 'Укажите IP или имя хоста';
+
+  @override
+  String get devicesManualErrorInvalidPort => 'Некорректный порт';
+
+  @override
+  String get devicesManualErrorUnreachable =>
+      'Устройство недоступно. Проверьте IP, порт и Wi‑Fi.';
+
+  @override
+  String get devicesWebUnsupported => 'Недоступно в Web-клиенте';
+
+  @override
+  String get devicesConfirm => 'Подтвердить';
 
   @override
   String get filterAllTags => 'Все';
@@ -331,6 +609,68 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noteMenuRestore => 'Восстановить';
+
+  @override
+  String get noteMenuConflicts => 'Конфликт версий';
+
+  @override
+  String get noteConflictBadge => 'Конфликт';
+
+  @override
+  String get noteConflictTitle => 'Конфликт версий';
+
+  @override
+  String get noteConflictBody =>
+      'Другое устройство изменило заметку одновременно. Ваша версия сохранена; копия с устройства лежит отдельно.';
+
+  @override
+  String get noteConflictUntitled => 'Без названия';
+
+  @override
+  String get noteConflictPreview => 'Версия с устройства';
+
+  @override
+  String get noteConflictClose => 'Закрыть';
+
+  @override
+  String get noteConflictUseRemote => 'Применить эту версию';
+
+  @override
+  String get noteConflictKeepMine => 'Оставить мою версию';
+
+  @override
+  String get noteMenuHistory => 'История';
+
+  @override
+  String get noteMenuCopyAll => 'Скопировать всё';
+
+  @override
+  String get noteHistoryTitle => 'История версий';
+
+  @override
+  String get noteHistoryBody =>
+      'Снимки сохраняются каждые 10 локальных правок (только текст; вложения не откатываются).';
+
+  @override
+  String get noteHistoryEmpty =>
+      'Снимков пока нет. Продолжайте редактировать — первый снимок появится на ревизии 10.';
+
+  @override
+  String noteHistoryRevision(int revision) {
+    return 'Ревизия $revision';
+  }
+
+  @override
+  String get noteHistoryCurrentRevision => 'Совпадает с текущей ревизией';
+
+  @override
+  String get noteHistoryDiffLegend => 'Различия (− сейчас, + снимок):';
+
+  @override
+  String get noteHistoryRestore => 'Восстановить';
+
+  @override
+  String get noteHistoryClose => 'Закрыть';
 
   @override
   String get emptyNotePlaceholder => '_Пустая заметка_';

@@ -13,6 +13,7 @@ class Note {
     this.deletedAt,
     this.attachments = const [],
     this.tags = const [],
+    this.revision = 0,
   });
 
   final String id;
@@ -25,6 +26,7 @@ class Note {
   final DateTime? deletedAt;
   final List<AttachmentMeta> attachments;
   final List<String> tags;
+  final int revision;
 
   factory Note.fromMeta({
     required NoteMeta meta,
@@ -41,6 +43,7 @@ class Note {
       deletedAt: meta.deletedAt,
       attachments: meta.attachments,
       tags: meta.tags,
+      revision: meta.revision,
     );
   }
 
@@ -55,6 +58,7 @@ class Note {
         deletedAt: deletedAt,
         attachments: attachments,
         tags: tags,
+        revision: revision,
       );
 
   Note copyWith({
@@ -65,6 +69,7 @@ class Note {
     DateTime? deletedAt,
     List<AttachmentMeta>? attachments,
     List<String>? tags,
+    int? revision,
   }) {
     return Note(
       id: id,
@@ -77,6 +82,7 @@ class Note {
       deletedAt: deletedAt ?? this.deletedAt,
       attachments: attachments ?? this.attachments,
       tags: tags ?? this.tags,
+      revision: revision ?? this.revision,
     );
   }
 }

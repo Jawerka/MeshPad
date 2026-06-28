@@ -527,7 +527,7 @@ abstract class AppLocalizations {
   /// No description provided for @syncTransportLibp2pHint.
   ///
   /// In ru, this message translates to:
-  /// **'Sidecar на :45839; sync пока через LAN fallback'**
+  /// **'Эксперимент: sidecar (:45839), wire sync, затем LAN fallback'**
   String get syncTransportLibp2pHint;
 
   /// No description provided for @exportNotes.
@@ -554,6 +554,84 @@ abstract class AppLocalizations {
   /// **'Объединение по дате изменения (LWW)'**
   String get importNotesSubtitle;
 
+  /// No description provided for @autoBackup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Автобэкап'**
+  String get autoBackup;
+
+  /// No description provided for @autoBackupOff.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выключен'**
+  String get autoBackupOff;
+
+  /// No description provided for @autoBackupEveryHours.
+  ///
+  /// In ru, this message translates to:
+  /// **'Каждые {hours} ч'**
+  String autoBackupEveryHours(int hours);
+
+  /// No description provided for @autoBackupNeedDirectory.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите папку для zip-архивов'**
+  String get autoBackupNeedDirectory;
+
+  /// No description provided for @autoBackupDirectory.
+  ///
+  /// In ru, this message translates to:
+  /// **'Папка бэкапа'**
+  String get autoBackupDirectory;
+
+  /// No description provided for @autoBackupDirectoryNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не выбрана'**
+  String get autoBackupDirectoryNone;
+
+  /// No description provided for @autoBackupPickDirectoryTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Папка для бэкапов MeshPad'**
+  String get autoBackupPickDirectoryTitle;
+
+  /// No description provided for @autoBackupLastRun.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последний бэкап: {when}'**
+  String autoBackupLastRun(String when);
+
+  /// No description provided for @autoBackupNever.
+  ///
+  /// In ru, this message translates to:
+  /// **'Бэкапов ещё не было'**
+  String get autoBackupNever;
+
+  /// No description provided for @autoBackupNow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сделать бэкап сейчас'**
+  String get autoBackupNow;
+
+  /// No description provided for @autoBackupNowSubtitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Экспорт notes/ в zip в папку бэкапа'**
+  String get autoBackupNowSubtitle;
+
+  /// No description provided for @autoBackupDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Бэкап сохранён ({count} заметок)'**
+  String autoBackupDone(int count);
+
+  /// No description provided for @hoursShort.
+  ///
+  /// In ru, this message translates to:
+  /// **'{hours} ч'**
+  String hoursShort(int hours);
+
   /// No description provided for @verifyData.
   ///
   /// In ru, this message translates to:
@@ -563,8 +641,26 @@ abstract class AppLocalizations {
   /// No description provided for @verifyDataSubtitle.
   ///
   /// In ru, this message translates to:
-  /// **'Пересобрать индекс из файлов и создать отсутствующие превью'**
+  /// **'Пересобрать индекс, создать превью и очистить кэш сверх лимита'**
   String get verifyDataSubtitle;
+
+  /// No description provided for @thumbCacheSection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кэш превью'**
+  String get thumbCacheSection;
+
+  /// No description provided for @thumbCacheLimit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Лимит кэша: {mb} МБ'**
+  String thumbCacheLimit(int mb);
+
+  /// No description provided for @thumbCacheMb.
+  ///
+  /// In ru, this message translates to:
+  /// **'{mb} МБ'**
+  String thumbCacheMb(int mb);
 
   /// No description provided for @about.
   ///
@@ -590,6 +686,36 @@ abstract class AppLocalizations {
   /// **'Проверить обновления'**
   String get checkUpdates;
 
+  /// No description provided for @updateDownloadInstall.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачать и установить'**
+  String get updateDownloadInstall;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачивание обновления…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateDownloadPercent.
+  ///
+  /// In ru, this message translates to:
+  /// **'{percent}%'**
+  String updateDownloadPercent(int percent);
+
+  /// No description provided for @updateDownloadFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось скачать: {error}'**
+  String updateDownloadFailed(String error);
+
+  /// No description provided for @updateInstallFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось открыть установщик'**
+  String get updateInstallFailed;
+
   /// No description provided for @footerWeb.
   ///
   /// In ru, this message translates to:
@@ -607,6 +733,348 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Поиск устройств в локальной сети (mDNS/UDP)'**
   String get devicesDiscoveryHint;
+
+  /// No description provided for @devicesManualPeerTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Адрес вручную'**
+  String get devicesManualPeerTitle;
+
+  /// No description provided for @devicesManualHostLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'IP или имя хоста'**
+  String get devicesManualHostLabel;
+
+  /// No description provided for @devicesManualPortLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'HTTP порт'**
+  String get devicesManualPortLabel;
+
+  /// No description provided for @devicesManualProbe.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить'**
+  String get devicesManualProbe;
+
+  /// No description provided for @devicesManualProbeOk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Найдено: {name}'**
+  String devicesManualProbeOk(String name);
+
+  /// No description provided for @pairingWaitingOn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ожидание подтверждения на {device}…'**
+  String pairingWaitingOn(String device);
+
+  /// No description provided for @pairingQrHostHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отсканируйте QR на другом устройстве (MeshPad на телефоне)'**
+  String get pairingQrHostHint;
+
+  /// No description provided for @pairingScanQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканировать QR'**
+  String get pairingScanQr;
+
+  /// No description provided for @pairingQrScanHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наведите камеру на QR с экрана устройства-хоста'**
+  String get pairingQrScanHint;
+
+  /// No description provided for @pairingQrInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Некорректный QR для pairing'**
+  String get pairingQrInvalid;
+
+  /// No description provided for @pairingQrPinMismatch.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN в QR не совпадает с предложением устройства'**
+  String get pairingQrPinMismatch;
+
+  /// No description provided for @pairingQrProbeFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось подключиться по QR. Проверьте Wi‑Fi.'**
+  String get pairingQrProbeFailed;
+
+  /// No description provided for @devicesSheetTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройства'**
+  String get devicesSheetTitle;
+
+  /// No description provided for @devicesTrustedSection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доверенные'**
+  String get devicesTrustedSection;
+
+  /// No description provided for @devicesDiscoveredSection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обнаруженные'**
+  String get devicesDiscoveredSection;
+
+  /// No description provided for @devicesTrustedEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет доверенных устройств.\nДобавьте через PIN-pairing.'**
+  String get devicesTrustedEmpty;
+
+  /// No description provided for @devicesDiscovering.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поиск устройств в локальной сети…'**
+  String get devicesDiscovering;
+
+  /// No description provided for @devicesOnLan.
+  ///
+  /// In ru, this message translates to:
+  /// **'В локальной сети'**
+  String get devicesOnLan;
+
+  /// No description provided for @devicesPinPairing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сопряжение по PIN'**
+  String get devicesPinPairing;
+
+  /// No description provided for @devicesPinShort.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN'**
+  String get devicesPinShort;
+
+  /// No description provided for @devicesThisDevice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это устройство'**
+  String get devicesThisDevice;
+
+  /// No description provided for @devicesThisDeviceLan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это устройство · LAN {host}:{port}'**
+  String devicesThisDeviceLan(String host, int port);
+
+  /// No description provided for @devicesThisDevicePort.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это устройство · порт {port}'**
+  String devicesThisDevicePort(int port);
+
+  /// No description provided for @devicesTrustedLan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доверенное · {host}:{port}'**
+  String devicesTrustedLan(String host, int port);
+
+  /// No description provided for @devicesTrustedLanUnknown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доверенное · LAN неизвестен'**
+  String get devicesTrustedLanUnknown;
+
+  /// No description provided for @devicesIconUpdated.
+  ///
+  /// In ru, this message translates to:
+  /// **'Иконка обновлена'**
+  String get devicesIconUpdated;
+
+  /// No description provided for @devicesIconUpdatedNamed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Иконка «{name}» обновлена'**
+  String devicesIconUpdatedNamed(String name);
+
+  /// No description provided for @devicesLocalNameTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя этого устройства'**
+  String get devicesLocalNameTitle;
+
+  /// No description provided for @devicesLocalNameHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Например: Рабочий ПК'**
+  String get devicesLocalNameHint;
+
+  /// No description provided for @devicesTrustedRenameHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как показывать в списке'**
+  String get devicesTrustedRenameHint;
+
+  /// No description provided for @devicesNameLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя'**
+  String get devicesNameLabel;
+
+  /// No description provided for @devicesTrustedRenamed.
+  ///
+  /// In ru, this message translates to:
+  /// **'«{name}» переименовано'**
+  String devicesTrustedRenamed(String name);
+
+  /// No description provided for @devicesPeerUnreachable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройство недоступно в сети. Проверьте Wi‑Fi и что MeshPad открыт на обоих устройствах.'**
+  String get devicesPeerUnreachable;
+
+  /// No description provided for @devicesSyncTimeout.
+  ///
+  /// In ru, this message translates to:
+  /// **'Таймаут синхронизации'**
+  String get devicesSyncTimeout;
+
+  /// No description provided for @devicesSyncNotesCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизировано заметок: {count}'**
+  String devicesSyncNotesCount(int count);
+
+  /// No description provided for @devicesSyncCompleted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация завершена'**
+  String get devicesSyncCompleted;
+
+  /// No description provided for @devicesNoPeersToSync.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет устройств для синхронизации'**
+  String get devicesNoPeersToSync;
+
+  /// No description provided for @devicesPairingTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN-pairing'**
+  String get devicesPairingTitle;
+
+  /// No description provided for @devicesPairingShowPinSelectPeer.
+  ///
+  /// In ru, this message translates to:
+  /// **'Покажите этот PIN на другом устройстве. Выберите устройство ниже для подтверждения.'**
+  String get devicesPairingShowPinSelectPeer;
+
+  /// No description provided for @devicesPairingShowPinOnly.
+  ///
+  /// In ru, this message translates to:
+  /// **'Покажите этот PIN на другом устройстве.'**
+  String get devicesPairingShowPinOnly;
+
+  /// No description provided for @devicesPairingSelectPeer.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройство в сети'**
+  String get devicesPairingSelectPeer;
+
+  /// No description provided for @devicesRemotePinLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN другого устройства'**
+  String get devicesRemotePinLabel;
+
+  /// No description provided for @devicesRemotePinHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'000000'**
+  String get devicesRemotePinHint;
+
+  /// No description provided for @devicesPairingConfirmFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось подтвердить PIN. Проверьте устройство в сети.'**
+  String get devicesPairingConfirmFailed;
+
+  /// No description provided for @devicesPairingNoDiscovered.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет обнаруженных устройств. Дождитесь появления в списке «Обнаруженные» или проверьте Wi‑Fi.'**
+  String get devicesPairingNoDiscovered;
+
+  /// No description provided for @devicesPairingNeedWifi.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для PIN-pairing оба устройства должны быть в одной Wi‑Fi сети и видны в «Обнаруженные».'**
+  String get devicesPairingNeedWifi;
+
+  /// No description provided for @devicesPinInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите 6-значный PIN'**
+  String get devicesPinInvalid;
+
+  /// No description provided for @devicesActionIcon.
+  ///
+  /// In ru, this message translates to:
+  /// **'Иконка'**
+  String get devicesActionIcon;
+
+  /// No description provided for @devicesActionRename.
+  ///
+  /// In ru, this message translates to:
+  /// **'Переименовать'**
+  String get devicesActionRename;
+
+  /// No description provided for @devicesActionSync.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизировать'**
+  String get devicesActionSync;
+
+  /// No description provided for @devicesActionRevoke.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отозвать доверие'**
+  String get devicesActionRevoke;
+
+  /// No description provided for @devicesActionsTooltip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Действия'**
+  String get devicesActionsTooltip;
+
+  /// No description provided for @devicesManualErrorEmptyHost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Укажите IP или имя хоста'**
+  String get devicesManualErrorEmptyHost;
+
+  /// No description provided for @devicesManualErrorInvalidPort.
+  ///
+  /// In ru, this message translates to:
+  /// **'Некорректный порт'**
+  String get devicesManualErrorInvalidPort;
+
+  /// No description provided for @devicesManualErrorUnreachable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройство недоступно. Проверьте IP, порт и Wi‑Fi.'**
+  String get devicesManualErrorUnreachable;
+
+  /// No description provided for @devicesWebUnsupported.
+  ///
+  /// In ru, this message translates to:
+  /// **'Недоступно в Web-клиенте'**
+  String get devicesWebUnsupported;
+
+  /// No description provided for @devicesConfirm.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подтвердить'**
+  String get devicesConfirm;
 
   /// No description provided for @filterAllTags.
   ///
@@ -655,6 +1123,120 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Восстановить'**
   String get noteMenuRestore;
+
+  /// No description provided for @noteMenuConflicts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Конфликт версий'**
+  String get noteMenuConflicts;
+
+  /// No description provided for @noteConflictBadge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Конфликт'**
+  String get noteConflictBadge;
+
+  /// No description provided for @noteConflictTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Конфликт версий'**
+  String get noteConflictTitle;
+
+  /// No description provided for @noteConflictBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Другое устройство изменило заметку одновременно. Ваша версия сохранена; копия с устройства лежит отдельно.'**
+  String get noteConflictBody;
+
+  /// No description provided for @noteConflictUntitled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без названия'**
+  String get noteConflictUntitled;
+
+  /// No description provided for @noteConflictPreview.
+  ///
+  /// In ru, this message translates to:
+  /// **'Версия с устройства'**
+  String get noteConflictPreview;
+
+  /// No description provided for @noteConflictClose.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закрыть'**
+  String get noteConflictClose;
+
+  /// No description provided for @noteConflictUseRemote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Применить эту версию'**
+  String get noteConflictUseRemote;
+
+  /// No description provided for @noteConflictKeepMine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Оставить мою версию'**
+  String get noteConflictKeepMine;
+
+  /// No description provided for @noteMenuHistory.
+  ///
+  /// In ru, this message translates to:
+  /// **'История'**
+  String get noteMenuHistory;
+
+  /// No description provided for @noteMenuCopyAll.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировать всё'**
+  String get noteMenuCopyAll;
+
+  /// No description provided for @noteHistoryTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'История версий'**
+  String get noteHistoryTitle;
+
+  /// No description provided for @noteHistoryBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снимки сохраняются каждые 10 локальных правок (только текст; вложения не откатываются).'**
+  String get noteHistoryBody;
+
+  /// No description provided for @noteHistoryEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Снимков пока нет. Продолжайте редактировать — первый снимок появится на ревизии 10.'**
+  String get noteHistoryEmpty;
+
+  /// No description provided for @noteHistoryRevision.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ревизия {revision}'**
+  String noteHistoryRevision(int revision);
+
+  /// No description provided for @noteHistoryCurrentRevision.
+  ///
+  /// In ru, this message translates to:
+  /// **'Совпадает с текущей ревизией'**
+  String get noteHistoryCurrentRevision;
+
+  /// No description provided for @noteHistoryDiffLegend.
+  ///
+  /// In ru, this message translates to:
+  /// **'Различия (− сейчас, + снимок):'**
+  String get noteHistoryDiffLegend;
+
+  /// No description provided for @noteHistoryRestore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Восстановить'**
+  String get noteHistoryRestore;
+
+  /// No description provided for @noteHistoryClose.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закрыть'**
+  String get noteHistoryClose;
 
   /// No description provided for @emptyNotePlaceholder.
   ///

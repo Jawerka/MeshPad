@@ -92,6 +92,14 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# Optional in-process libp2p FFI (PLAN 8.4); built via scripts/build-native-ffi.ps1
+set(MESHPAD_P2P_FFI_DLL "${CMAKE_CURRENT_SOURCE_DIR}/runner/native/meshpad_p2p_native.dll")
+if(EXISTS "${MESHPAD_P2P_FFI_DLL}")
+  install(FILES "${MESHPAD_P2P_FFI_DLL}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

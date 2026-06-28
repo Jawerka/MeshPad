@@ -11,6 +11,7 @@ Map<String, dynamic> libp2pSidecarEventToJson(Libp2pNativeEvent event) {
       :final lanHost,
       :final httpPort,
       :final tlsPort,
+      :final wireBase,
     ) =>
         {
         'type': 'peer_discovered',
@@ -19,6 +20,7 @@ Map<String, dynamic> libp2pSidecarEventToJson(Libp2pNativeEvent event) {
         if (lanHost != null) 'lan_host': lanHost,
         if (httpPort != null) 'http_port': httpPort,
         if (tlsPort != null) 'tls_port': tlsPort,
+        if (wireBase != null) 'wire_base': wireBase,
       },
     Libp2pNativeSyncCompleted(:final peerId, :final noteCount) => {
         'type': 'sync_completed',
@@ -41,6 +43,7 @@ Libp2pNativeEvent libp2pSidecarEventFromJson(Map<String, dynamic> json) {
         lanHost: json['lan_host'] as String?,
         httpPort: json['http_port'] as int?,
         tlsPort: json['tls_port'] as int?,
+        wireBase: json['wire_base'] as String?,
       ),
     'sync_completed' => Libp2pNativeSyncCompleted(
         peerId: json['peer_id'] as String,

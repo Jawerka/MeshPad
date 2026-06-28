@@ -153,13 +153,59 @@
   "syncTransportLan": "LAN (HTTP)",
   "syncTransportLibp2p": "libp2p (эксп.)",
   "syncTransportLanHint": "mDNS + HTTP/HTTPS между доверенными устройствами",
-  "syncTransportLibp2pHint": "Sidecar на :45839; sync пока через LAN fallback",
+  "syncTransportLibp2pHint": "Эксперимент: sidecar (:45839), wire sync, затем LAN fallback",
   "exportNotes": "Экспорт заметок",
   "exportNotesSubtitle": "Zip-архив notes/ без ключей sync",
   "importNotes": "Импорт заметок",
   "importNotesSubtitle": "Объединение по дате изменения (LWW)",
+  "autoBackup": "Автобэкап",
+  "autoBackupOff": "Выключен",
+  "autoBackupEveryHours": "Каждые {hours} ч",
+  "@autoBackupEveryHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "autoBackupNeedDirectory": "Укажите папку для zip-архивов",
+  "autoBackupDirectory": "Папка бэкапа",
+  "autoBackupDirectoryNone": "Не выбрана",
+  "autoBackupPickDirectoryTitle": "Папка для бэкапов MeshPad",
+  "autoBackupLastRun": "Последний бэкап: {when}",
+  "@autoBackupLastRun": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "autoBackupNever": "Бэкапов ещё не было",
+  "autoBackupNow": "Сделать бэкап сейчас",
+  "autoBackupNowSubtitle": "Экспорт notes/ в zip в папку бэкапа",
+  "autoBackupDone": "Бэкап сохранён ({count} заметок)",
+  "@autoBackupDone": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "hoursShort": "{hours} ч",
+  "@hoursShort": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
   "verifyData": "Проверить данные",
-  "verifyDataSubtitle": "Пересобрать индекс из файлов и создать отсутствующие превью",
+  "verifyDataSubtitle": "Пересобрать индекс, создать превью и очистить кэш сверх лимита",
+  "thumbCacheSection": "Кэш превью",
+  "thumbCacheLimit": "Лимит кэша: {mb} МБ",
+  "@thumbCacheLimit": {
+    "placeholders": {
+      "mb": { "type": "int" }
+    }
+  },
+  "thumbCacheMb": "{mb} МБ",
+  "@thumbCacheMb": {
+    "placeholders": {
+      "mb": { "type": "int" }
+    }
+  },
   "about": "О приложении",
   "aboutWeb": "MeshPad Web · {version}",
   "@aboutWeb": {
@@ -174,9 +220,123 @@
     }
   },
   "checkUpdates": "Проверить обновления",
+  "updateDownloadInstall": "Скачать и установить",
+  "updateDownloading": "Скачивание обновления…",
+  "updateDownloadPercent": "{percent}%",
+  "@updateDownloadPercent": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "updateDownloadFailed": "Не удалось скачать: {error}",
+  "@updateDownloadFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "updateInstallFailed": "Не удалось открыть установщик",
   "footerWeb": "Web-клиент подключается к headless-серверу (meshpad_server).",
   "footerNative": "Local-first Markdown. Синхронизация между устройствами — LAN (HTTP).",
   "devicesDiscoveryHint": "Поиск устройств в локальной сети (mDNS/UDP)",
+  "devicesManualPeerTitle": "Адрес вручную",
+  "devicesManualHostLabel": "IP или имя хоста",
+  "devicesManualPortLabel": "HTTP порт",
+  "devicesManualProbe": "Проверить",
+  "devicesManualProbeOk": "Найдено: {name}",
+  "@devicesManualProbeOk": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pairingWaitingOn": "Ожидание подтверждения на {device}…",
+  "@pairingWaitingOn": {
+    "placeholders": {
+      "device": { "type": "String" }
+    }
+  },
+  "pairingQrHostHint": "Отсканируйте QR на другом устройстве (MeshPad на телефоне)",
+  "pairingScanQr": "Сканировать QR",
+  "pairingQrScanHint": "Наведите камеру на QR с экрана устройства-хоста",
+  "pairingQrInvalid": "Некорректный QR для pairing",
+  "pairingQrPinMismatch": "PIN в QR не совпадает с предложением устройства",
+  "pairingQrProbeFailed": "Не удалось подключиться по QR. Проверьте Wi‑Fi.",
+  "devicesSheetTitle": "Устройства",
+  "devicesTrustedSection": "Доверенные",
+  "devicesDiscoveredSection": "Обнаруженные",
+  "devicesTrustedEmpty": "Нет доверенных устройств.\nДобавьте через PIN-pairing.",
+  "devicesDiscovering": "Поиск устройств в локальной сети…",
+  "devicesOnLan": "В локальной сети",
+  "devicesPinPairing": "Сопряжение по PIN",
+  "devicesPinShort": "PIN",
+  "devicesThisDevice": "Это устройство",
+  "devicesThisDeviceLan": "Это устройство · LAN {host}:{port}",
+  "@devicesThisDeviceLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesThisDevicePort": "Это устройство · порт {port}",
+  "@devicesThisDevicePort": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "devicesTrustedLan": "Доверенное · {host}:{port}",
+  "@devicesTrustedLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesTrustedLanUnknown": "Доверенное · LAN неизвестен",
+  "devicesIconUpdated": "Иконка обновлена",
+  "devicesIconUpdatedNamed": "Иконка «{name}» обновлена",
+  "@devicesIconUpdatedNamed": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "devicesLocalNameTitle": "Имя этого устройства",
+  "devicesLocalNameHint": "Например: Рабочий ПК",
+  "devicesTrustedRenameHint": "Как показывать в списке",
+  "devicesNameLabel": "Имя",
+  "devicesTrustedRenamed": "«{name}» переименовано",
+  "@devicesTrustedRenamed": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "devicesPeerUnreachable": "Устройство недоступно в сети. Проверьте Wi‑Fi и что MeshPad открыт на обоих устройствах.",
+  "devicesSyncTimeout": "Таймаут синхронизации",
+  "devicesSyncNotesCount": "Синхронизировано заметок: {count}",
+  "@devicesSyncNotesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "devicesSyncCompleted": "Синхронизация завершена",
+  "devicesNoPeersToSync": "Нет устройств для синхронизации",
+  "devicesPairingTitle": "PIN-pairing",
+  "devicesPairingShowPinSelectPeer": "Покажите этот PIN на другом устройстве. Выберите устройство ниже для подтверждения.",
+  "devicesPairingShowPinOnly": "Покажите этот PIN на другом устройстве.",
+  "devicesPairingSelectPeer": "Устройство в сети",
+  "devicesRemotePinLabel": "PIN другого устройства",
+  "devicesRemotePinHint": "000000",
+  "devicesPairingConfirmFailed": "Не удалось подтвердить PIN. Проверьте устройство в сети.",
+  "devicesPairingNoDiscovered": "Нет обнаруженных устройств. Дождитесь появления в списке «Обнаруженные» или проверьте Wi‑Fi.",
+  "devicesPairingNeedWifi": "Для PIN-pairing оба устройства должны быть в одной Wi‑Fi сети и видны в «Обнаруженные».",
+  "devicesPinInvalid": "Введите 6-значный PIN",
+  "devicesActionIcon": "Иконка",
+  "devicesActionRename": "Переименовать",
+  "devicesActionSync": "Синхронизировать",
+  "devicesActionRevoke": "Отозвать доверие",
+  "devicesActionsTooltip": "Действия",
+  "devicesManualErrorEmptyHost": "Укажите IP или имя хоста",
+  "devicesManualErrorInvalidPort": "Некорректный порт",
+  "devicesManualErrorUnreachable": "Устройство недоступно. Проверьте IP, порт и Wi‑Fi.",
+  "devicesWebUnsupported": "Недоступно в Web-клиенте",
+  "devicesConfirm": "Подтвердить",
   "filterAllTags": "Все",
   "noteTagsTitle": "Теги заметки",
   "noteTagsHint": "работа, идеи (через запятую)",
@@ -185,5 +345,31 @@
   "noteMenuTags": "Теги",
   "noteMenuTrash": "В корзину",
   "noteMenuRestore": "Восстановить",
+  "noteMenuConflicts": "Конфликт версий",
+  "noteConflictBadge": "Конфликт",
+  "noteConflictTitle": "Конфликт версий",
+  "noteConflictBody": "Другое устройство изменило заметку одновременно. Ваша версия сохранена; копия с устройства лежит отдельно.",
+  "noteConflictUntitled": "Без названия",
+  "noteConflictPreview": "Версия с устройства",
+  "noteConflictClose": "Закрыть",
+  "noteConflictUseRemote": "Применить эту версию",
+  "noteConflictKeepMine": "Оставить мою версию",
+  "noteMenuHistory": "История",
+  "noteMenuCopyAll": "Скопировать всё",
+  "noteHistoryTitle": "История версий",
+  "noteHistoryBody": "Снимки сохраняются каждые 10 локальных правок (только текст; вложения не откатываются).",
+  "noteHistoryEmpty": "Снимков пока нет. Продолжайте редактировать — первый снимок появится на ревизии 10.",
+  "noteHistoryRevision": "Ревизия {revision}",
+  "@noteHistoryRevision": {
+    "placeholders": {
+      "revision": {
+        "type": "int"
+      }
+    }
+  },
+  "noteHistoryCurrentRevision": "Совпадает с текущей ревизией",
+  "noteHistoryDiffLegend": "Различия (− сейчас, + снимок):",
+  "noteHistoryRestore": "Восстановить",
+  "noteHistoryClose": "Закрыть",
   "emptyNotePlaceholder": "_Пустая заметка_"
 }

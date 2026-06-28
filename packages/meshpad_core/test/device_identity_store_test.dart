@@ -24,6 +24,30 @@ void main() {
     expect(a.displayName, 'Test');
   });
 
+  test('loadOrCreateIdentity provisions Ed25519 signing keys', () async {
+    final paths = MeshPadPaths(tempDir.path);
+    final signingKeys = MemoryDeviceSigningKeyStore();
+    final store = DeviceIdentityStore(
+      paths: paths,
+      signingKeys: signingKeys,
+    );
+
+    final identity = await store.loadOrCreateIdentity(defaultDisplayName: 'PC');
+    expect(identity.signingPublicKey, isNotNull);
+    expect(identity.signingKeyAlgorithm, deviceSigningAlgorithmEd25519);
+
+    final privateKey = await signingKeys.readPrivateKey();
+    expect(privateKey, isNotNull);
+
+    final file = File(paths.localIdentityFile);
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(json['signing_public_key'], identity.signingPublicKey);
+    expect(json.containsKey('signing_private_key'), isFalse);
+
+    final reloaded = await store.loadOrCreateIdentity();
+    expect(reloaded.signingPublicKey, identity.signingPublicKey);
+  });
+
   test('trust and list devices', () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     await store.trustDevice(peerId: 'peer-1', name: 'Phone');

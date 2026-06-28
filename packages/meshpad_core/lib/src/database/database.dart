@@ -20,7 +20,7 @@ class MeshPadDatabase extends _$MeshPadDatabase {
   bool ftsAvailable = false;
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -37,6 +37,11 @@ class MeshPadDatabase extends _$MeshPadDatabase {
           }
           if (from < 3) {
             await m.addColumn(notes, notes.tags);
+          }
+          if (from < 4) {
+            await m.addColumn(notes, notes.fsMetaModifiedAt);
+            await m.addColumn(notes, notes.fsMarkdownModifiedAt);
+            await m.addColumn(notes, notes.fsAttachmentsModifiedAt);
           }
         },
       );
@@ -64,6 +69,9 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     required String previewSnippet,
     required String markdown,
     List<String> tags = const [],
+    DateTime? fsMetaModifiedAt,
+    DateTime? fsMarkdownModifiedAt,
+    DateTime? fsAttachmentsModifiedAt,
   }) async {
     await into(notes).insertOnConflictUpdate(
       NotesCompanion.insert(
@@ -77,7 +85,30 @@ class MeshPadDatabase extends _$MeshPadDatabase {
         previewSnippet: Value(previewSnippet),
         markdown: Value(markdown),
         tags: Value(encodeTagsJson(tags)),
+        fsMetaModifiedAt: Value(fsMetaModifiedAt),
+        fsMarkdownModifiedAt: Value(fsMarkdownModifiedAt),
+        fsAttachmentsModifiedAt: Value(fsAttachmentsModifiedAt),
       ),
+    );
+  }
+
+  Future<List<String>> listAllNoteIds() async {
+    final rows = await select(notes).get();
+    return rows.map((row) => row.id).toList();
+  }
+
+  Future<({
+    DateTime? meta,
+    DateTime? md,
+    DateTime? attachments,
+  })?> getNoteFsSignatures(String id) async {
+    final row = await (select(notes)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    if (row == null) return null;
+    return (
+      meta: row.fsMetaModifiedAt,
+      md: row.fsMarkdownModifiedAt,
+      attachments: row.fsAttachmentsModifiedAt,
     );
   }
 

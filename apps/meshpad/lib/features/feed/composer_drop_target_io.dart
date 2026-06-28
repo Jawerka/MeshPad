@@ -21,7 +21,7 @@ class ComposerDropTarget extends StatefulWidget {
 
   static bool get isSupported =>
       !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+      (Platform.isWindows || Platform.isLinux);
 
   @override
   State<ComposerDropTarget> createState() => _ComposerDropTargetState();

@@ -1,189 +1,75 @@
 # Архитектура MeshPad
 
-Документ описывает **фактическую** архитектуру MeshPad **0.2.0** (MVP + post-MVP). При расхождении с ранними черновиками приоритет у кода и [PLAN.md](../PLAN.md) §5–6.
+Документ описывает архитектуру MeshPad **1.0** (простота и надёжность). При расхождении с ранними черновиками приоритет у кода и [CHANGELOG.md](../CHANGELOG.md). См. [ADR 0003](ADR/0003-simplicity-lan-git.md).
 
-**Production sync:** `LanSyncTransport` (mDNS/UDP/HTTP/HTTPS). libp2p (`Libp2pSyncTransport`) — scaffold с LAN fallback; переключатель в UI скрыт (`MeshPadFeatureFlags.libp2pTransportSettingVisible = false`).
+**Клиентские платформы:** Windows, Android; Linux (Ubuntu) — CI compile без активной разработки. См. [PLATFORMS.md](PLATFORMS.md).
+
+**Production sync:** `LanSyncTransport` (mDNS/UDP/HTTP/HTTPS) с шифрованием payload ключом pairing. **Git sync** — вторичный ручной канал (GitHub, зеркало `notes/<id>/` без вложений).
 
 ## Слои
 
 ```mermaid
 flowchart TB
   subgraph ui [apps/meshpad]
-    Widgets[Widgets]
+    Feed[FeedScreen chat-лента]
     Providers[Riverpod Providers]
-    WebMode[Web mode kIsWeb]
-  end
-  subgraph api [packages/meshpad_api_client]
-    HttpClient[REST Client]
-  end
-  subgraph server [apps/meshpad_server]
-    HttpApi[Shelf HTTP API]
-    HeadlessP2p[HeadlessLanSync optional]
   end
   subgraph core [packages/meshpad_core]
     Domain[Domain Models]
     FS[File Note Repository]
     DB[Drift Index + FTS]
     Sync[SyncEngine + Outbox]
-    Thumbs[attachment_thumbnails]
+    Git[GitSyncService]
+    Crypto[PayloadCrypto]
   end
   subgraph p2p [packages/meshpad_p2p]
     Transport[SyncTransport API]
     Lan[LanSyncTransport]
-    Libp2p[Libp2pSyncTransport]
     Fake[FakeSyncTransport tests]
-    Sidecar[libp2p sidecar backlog B.2]
   end
-  Widgets --> Providers
-  WebMode --> HttpClient
-  HttpClient --> HttpApi
-  HttpApi --> core
-  HeadlessP2p --> Lan
+  Feed --> Providers
   Providers --> Domain
   Providers --> Sync
   Sync --> FS
   Sync --> DB
-  FS --> Thumbs
   Sync --> Transport
   Transport --> Lan
-  Transport --> Libp2p
-  Libp2p --> Lan
+  FS --> Git
+  Lan --> Crypto
   Transport --> Fake
-  Libp2p -.-> Sidecar
 ```
 
 ## Поток записи заметки (native)
 
 1. UI сохраняет `note.md` + `meta.json` в `notes/<uuid>/`.
-2. `NoteRepository` обновляет Drift; для изображений — `ensureImageThumbnail` → `.thumbs/`.
+2. `NoteRepository` обновляет Drift; для изображений — thumbnails в `.thumbs/`.
 3. `SyncEngine` кладёт запись в `sync_outbox`.
-4. `pendingLocalSyncProvider` (debounce ~400 ms) → `SyncController.runSync()`.
-5. `LanSyncTransport` отправляет дельту доверенным пирам (HTTPS `:45840` после pairing).
+4. Debounce ~400 ms → `SyncController.runSync()`.
+5. `LanSyncTransport` отправляет дельту доверенным пирам (зашифрованный payload).
 
-## Поток чтения ленты
-
-1. `NotesListNotifier` читает `listNotesSlice` из Drift (offset/limit).
-2. При cold start — `reconcileFromFilesystem()` (FS побеждает).
-3. `NoteBubble` + `AttachmentGrid`: превью из `.thumbs/` или inline media players.
-4. Web: `RemoteNotesService` → paginated API (`?offset=&limit=`); SSE `/api/events` → debounced reload.
-
-## UI и навигация (реализовано)
+## UI
 
 | Элемент | Реализация |
 |---------|------------|
-| Навигация | Только **шапка** (`_FeedHeader`). Sidebar из `ref/` **не используется** |
-| Заголовок ленты | Без текста «MeshPad»; «Корзина» — только в режиме корзины |
-| Sync | Кнопка в шапке на **всех native**; иконка `Icons.sync` вращается **против часовой** при активном sync; badge = outbox count |
-| Sync на карточках | **Нет** (только шапка) |
-| Корзина | Иконка в шапке (не FAB) |
-| Сортировка | `created_at` / `updated_at`; native → `app_settings.json`, Web → `SharedPreferences` |
-| Теги | В `meta.json`; фильтр-чипы в ленте; редактор в меню заметки (не Web) |
-| Тема | Тёмная / светлая / системная (`theme_mode`) |
-| Язык | ru / en / системный (`locale_mode`, `flutter gen-l10n`) |
-| Устройства | PIN-only trust; mDNS + UDP discovery; компактные карточки на телефоне |
-| Заметка без текста | «_Пустая заметка_» только если **нет** вложений |
-| Видео Windows/Linux/macOS | Постер (кадр на 1/3), tap → диалог; `video_player_win` на Windows |
-| Видео Android/iOS | Inline player в ленте |
-| Drag-and-drop | Composer: Windows + Linux |
+| Формат | **Chat-лента** — заметки как сообщения (`NoteBubble`), composer внизу |
+| Навигация | Шапка: sync, устройства, настройки, git pull/push |
+| Sync | LAN автоматически в доверенной Wi‑Fi; SSID allowlist (Android) |
+| Git | Ручной pull/push; зеркало FS без attachments |
 
 ## Границы пакетов
 
-- `meshpad_core` — **без Flutter**; FS, Drift, sync, thumbnails, outbox, export/import.
-- `meshpad_p2p` — `SyncTransport`, `LanSyncTransport`, `Libp2pSyncTransport` (LAN fallback), discovery, pairing protocol.
-- `meshpad_api_client` — REST для Web.
-- `apps/meshpad` — единственное место с `dart:ui` и platform channels.
-- `native/meshpad_p2p_sidecar` — Dart HTTP sidecar `:45839` (browse-only mDNS).
-- `native/meshpad_p2p_native` — Rust sidecar stub (push/pull pending).
+- `meshpad_core` — FS, Drift, sync, `PayloadCrypto`, `GitSyncService` (без Flutter).
+- `meshpad_p2p` — `LanSyncTransport`, discovery, pairing.
+- `apps/meshpad` — Flutter UI, platform channels (SSID, share intent).
 
-## Web / headless server
+## Вне scope 1.0
 
-`apps/meshpad_server` — тот же `meshpad_core` + Shelf REST.
+- libp2p / Rust FFI — [LIBP2P.md](LIBP2P.md)
+- Web-клиент как продукт
+- Теги в главном UI (фильтр убран)
 
-- Web-клиент: `kIsWeb` → `RemoteNotesService` → API.
-- Sync/devices/outbox в Web UI **отключены** (by design).
-- Флаг `--p2p`: `HeadlessLanSyncService` — LAN sync + `onRemoteTrusted` для PIN-pairing с desktop.
+## Ссылки
 
-### HTTP API
-
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| GET | `/api/health` | `{ "status": "ok", "auth": "none"|"api_key" }` — без ключа |
-| GET | `/api/notes` | Список; `?sort=`, `?offset=`, `?limit=` (пагинация) |
-| GET | `/api/notes/count` | `{ "count": N }` |
-| GET | `/api/notes/<id>` | Полная заметка |
-| POST | `/api/notes` | Создать |
-| PUT | `/api/notes/<id>` | Обновить |
-| PUT | `/api/notes/<id>/attachments/<name>` | Загрузить вложение |
-| DELETE | `/api/notes/<id>` | В корзину |
-| POST | `/api/notes/<id>/restore` | Восстановить |
-| GET | `/api/trash` | Корзина |
-| GET | `/api/search?q=` | FTS |
-| GET | `/api/events` | SSE: `note_created`, `note_updated`, `note_deleted`, `feed_changed`, … |
-| GET | `/api/notes/<id>/attachments/<name>/thumb` | JPEG превью (до 240px, on-demand) |
-| GET | `/api/notes/<id>/attachments/<name>` | Файл |
-
-Опционально: `X-MeshPad-Api-Key` на `/api/*` (кроме health).
-
-## LAN sync (production transport)
-
-`LanSyncTransport` на desktop/Android/macOS:
-
-| Компонент | Детали |
-|-----------|--------|
-| Discovery | mDNS `_meshpad._tcp` + UDP `:45837`; refresh при открытии листа «Устройства» и resume приложения |
-| Pairing | HTTP `:45838` `/meshpad/p2p/pairing/*` — **только PIN**; TTL offer; rate-limited confirm |
-| Sync data | HTTPS `:45840` (pinned cert) или HTTP `:45838` fallback |
-| Auth | Shared secret в `trusted/`; headers `X-MeshPad-Peer-Id`, `X-MeshPad-Auth-Token` на sync endpoints |
-| Trust store | `devices/trusted/<peer_id>.json` + LAN endpoint + TLS pin |
-| Merge | LWW по `updated_at`; tombstones; purge через 7 дней |
-| Outbox ack | После sync: только если peer имеет meta + все вложения (sha256) |
-| Attachments | >256 KB: chunked/resumable upload + sha256 verify |
-| Maintenance | `purgeExpiredTrash` на auto-sync tick; reconcile → rebuild `.thumbs/` |
-| Android background | WorkManager: purge + reconcile + **LAN sync** (мин. 15 мин, Wi‑Fi) |
-
-Wire format: [SYNC_WIRE.md](SYNC_WIRE.md).
-
-### libp2p (Phase B — backlog data plane)
-
-`createSyncTransport(SyncTransportKind)` выбирает `LanSyncTransport` или `Libp2pSyncTransport`. В production всегда **LAN**:
-
-- UI-переключатель скрыт (`feature_flags.dart`).
-- Сохранённый `sync_transport: "libp2p"` в `app_settings.json` принудительно мапится на LAN.
-- Dev override: `--dart-define=MESHPAD_SYNC_TRANSPORT=libp2p` (всё равно LAN fallback до Rust push/pull).
-
-Sidecar `:45839` — mDNS browse + SSE events; см. [LIBP2P.md](LIBP2P.md).
-
-## Auto-sync (native)
-
-1. **Debounced** — после локальных мутаций (`pendingLocalSyncProvider` → 400 ms).
-2. **Periodic** — `SyncLoopController` по интервалу из настроек (15–60 мин).
-3. **Android background** — WorkManager: reconcile + purge + LAN sync (мин. 15 мин).
-4. **Tray** — «Синхронизировать» в меню.
-
-## Файловая структура данных
-
-```text
-<dataDir>/
-  notes/<uuid>/
-    note.md
-    meta.json          # tags[], title, timestamps, attachments meta
-    attachments/
-    .thumbs/           # JPEG превью изображений (локально)
-  devices/
-    local_identity.json
-    trusted/<peer_id>.json
-    tls/               # self-signed cert for HTTPS sync
-  app_settings.json
-  meshpad.log
-```
-
-Drift-индекс пересобирается: старт, «Проверить данные», WorkManager.
-
-## Дальнейшее развитие
-
-Дорожная карта §12 **закрыта**. Активный план — [PLAN.md §11](../PLAN.md#11-дорожная-карта--задачи):
-
-1. **Волны 0–3** — релизы, стабилизация, безопасность, conflict copies.
-2. **Волны 4–7** — discovery UX, perf, Web, история (E.5).
-3. **Волна 8** — libp2p push/pull (B.2), затем FFI in-process.
-4. **Волна 9** — in-app updates (E.6), бэкапы, hotkeys.
+- [SYNC_WIRE.md](SYNC_WIRE.md) — wire format LAN
+- [SECURITY.md](SECURITY.md) — threat model
+- [GIT_SYNC.md](GIT_SYNC.md) — Git channel

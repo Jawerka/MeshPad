@@ -12,7 +12,7 @@ abstract class Libp2pNativeApi {
 
   Stream<Libp2pNativeEvent> get events;
 
-  Future<void> requestSync({String? peerId});
+  Future<void> requestSync({String? peerId, String? remoteWireBase});
 }
 
 sealed class Libp2pNativeEvent {}
@@ -24,6 +24,7 @@ class Libp2pNativePeerDiscovered extends Libp2pNativeEvent {
     this.lanHost,
     this.httpPort,
     this.tlsPort,
+    this.wireBase,
   });
 
   final String peerId;
@@ -31,6 +32,9 @@ class Libp2pNativePeerDiscovered extends Libp2pNativeEvent {
   final String? lanHost;
   final int? httpPort;
   final int? tlsPort;
+
+  /// Optional remote sidecar wire URL (`http://host:45839/`).
+  final String? wireBase;
 }
 
 class Libp2pNativeSyncCompleted extends Libp2pNativeEvent {

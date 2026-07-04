@@ -61,8 +61,6 @@ cd apps\meshpad; flutter clean; flutter run -d windows
 ```powershell
 .\dev.ps1 -Test
 # или
-.\scripts\test-run.ps1
-# или
 dart run melos run check
 ```
 

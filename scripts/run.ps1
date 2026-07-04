@@ -182,8 +182,7 @@ try {
         if ($CollectLogs) {
             Write-Host "  Session logs: logs/latest-dual.log (merged, updated on exit)"
         } else {
-            Write-Host "  Collect logs:   .\scripts\collect-logs.ps1 -Source both"
-            Write-Host "  Or dual+logs:   .\scripts\run-dual-with-logs.ps1"
+            Write-Host "  Collect logs:   .\dev.ps1 -Device dual -CollectLogs"
         }
         Write-Host "  Quit Android with q; Windows stops unless -KeepWindowsOpen"
         Write-Host ""

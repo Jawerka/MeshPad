@@ -3,7 +3,7 @@
 .SYNOPSIS
   Background dual log streamer (Windows meshpad.log + Android logcat).
 
-  Started by run.ps1 -CollectLogs / run-dual-with-logs.ps1 — not for direct use.
+  Started by run.ps1 -CollectLogs / dev.ps1 -Device dual -CollectLogs — not for direct use.
 #>
 param(
     [Parameter(Mandatory)]

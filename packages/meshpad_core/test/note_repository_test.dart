@@ -42,7 +42,7 @@ void main() {
 
   test('update note changes updatedAt', () async {
     final note = await repo.createNote(markdown: 'old');
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
     final updated = await repo.updateNote(note.id, markdown: 'new');
     expect(updated.markdown, 'new');
     expect(updated.updatedAt.isAfter(note.updatedAt), isTrue);

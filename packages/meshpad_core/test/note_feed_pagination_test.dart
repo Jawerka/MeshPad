@@ -53,7 +53,7 @@ void main() {
 
   test('listNotesSlice orders by updatedAt when requested', () async {
     final first = await repo.createNote(title: 'a', markdown: 'a');
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
     final second = await repo.createNote(title: 'b', markdown: 'b');
     await repo.updateNote(second.id, markdown: 'b edited');
 

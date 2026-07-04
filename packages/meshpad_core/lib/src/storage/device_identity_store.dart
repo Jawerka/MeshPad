@@ -262,6 +262,7 @@ class DeviceIdentityStore {
       await _authTokens.delete(peerId);
       revoked.add(peerId);
     }
+    revoked.sort();
     return revoked;
   }
 

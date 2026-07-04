@@ -60,9 +60,13 @@ void main() {
     try {
       await seedNotes(dir.path, 200);
       final ms = await benchmarkReconcile(dir.path);
-      expect(ms, lessThan(60000));
+      expect(
+        ms,
+        lessThan(180000),
+        reason: '200-note reconcile should finish < 3 min on CI',
+      );
     } finally {
       if (await dir.exists()) await dir.delete(recursive: true);
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

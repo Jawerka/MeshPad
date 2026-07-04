@@ -44,7 +44,7 @@ void main() {
       flush: true,
     );
     await metaFile.setLastModified(
-      DateTime.now().toUtc().add(const Duration(seconds: 2)),
+      DateTime.now().toUtc().add(const Duration(seconds: 5)),
     );
 
     expect(await repo.reconcileFromFilesystem(), 1);

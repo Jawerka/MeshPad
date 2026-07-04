@@ -128,7 +128,8 @@ void main() {
 
     final revoked = await store.revokeAllTrusted();
 
-    expect(revoked, ['peer-1', 'peer-2']);
+    expect(revoked, containsAll(['peer-1', 'peer-2']));
+    expect(revoked.length, 2);
     expect(await store.listTrustedDevices(), isEmpty);
   });
 }

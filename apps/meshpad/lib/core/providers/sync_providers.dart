@@ -61,10 +61,6 @@ final lanSyncCoordinatorProvider =
   return LanSyncCoordinator(deviceStore: store);
 });
 
-final syncTransportKindProvider = Provider<SyncTransportKind>((ref) {
-  return SyncTransportKind.lan;
-});
-
 final syncTransportProvider = Provider<SyncTransport>((ref) {
   if (ref.watch(isWebClientProvider)) {
     final transport = FakeSyncTransport();

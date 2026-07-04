@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/errors/user_messages.dart';
 import '../../core/constants/app_info.dart';
-import '../../core/constants/feature_flags.dart';
 import '../../core/providers/github_auth_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
@@ -1174,67 +1173,6 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                             ],
                           ),
                         ),
-                        if (MeshPadFeatureFlags.libp2pTransportSettingVisible)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.syncTransportSection,
-                                  style: Theme.of(context).textTheme.labelLarge,
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    ChoiceChip(
-                                      label: Text(l10n.syncTransportLan),
-                                      selected: settings.syncTransportKind ==
-                                          SyncTransportKind.lan,
-                                      onSelected: _busy
-                                          ? null
-                                          : (_) async {
-                                              await ref
-                                                  .read(
-                                                      settingsControllerProvider)
-                                                  .setSyncTransportKind(
-                                                    SyncTransportKind.lan,
-                                                  );
-                                            },
-                                    ),
-                                    ChoiceChip(
-                                      label: Text(l10n.syncTransportLibp2p),
-                                      selected: settings.syncTransportKind ==
-                                          SyncTransportKind.libp2p,
-                                      onSelected: _busy
-                                          ? null
-                                          : (_) async {
-                                              await ref
-                                                  .read(
-                                                      settingsControllerProvider)
-                                                  .setSyncTransportKind(
-                                                    SyncTransportKind.libp2p,
-                                                  );
-                                            },
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  settings.syncTransportKind ==
-                                          SyncTransportKind.libp2p
-                                      ? l10n.syncTransportLibp2pHint
-                                      : l10n.syncTransportLanHint,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: MeshPadColors.textMuted,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
                       ],
                     ),
                   ),

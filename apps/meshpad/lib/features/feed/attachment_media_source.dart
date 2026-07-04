@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
 
-import 'attachment_grid.dart';
+import 'attachment_paths.dart';
 
 class AttachmentMediaSource {
   const AttachmentMediaSource.file(

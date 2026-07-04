@@ -8,7 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../features/feed/attachment_grid.dart';
+import '../../features/feed/attachment_paths.dart';
 import 'save_attachment_file.dart';
 
 Future<void> openExternalUrl(String href) async {

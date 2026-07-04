@@ -155,20 +155,6 @@ class SettingsController {
     _ref.invalidate(appSettingsProvider);
   }
 
-  Future<void> setSyncTransportKind(SyncTransportKind kind) async {
-    final current = await _store.loadSettings();
-    if (current.syncTransportKind == kind) return;
-    final discovery = _ref.read(discoveryServiceProvider);
-    await discovery.prepareForTransportChange();
-    final next = current.copyWith(syncTransportKind: kind);
-    await _store.saveSettings(next);
-    _ref.invalidate(appSettingsProvider);
-    _ref.invalidate(syncTransportProvider);
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      unawaited(discovery.ensureRunning());
-    });
-  }
-
   Future<void> setThemeMode(AppThemeMode mode) async {
     if (kIsWeb) {
       final web = _ref.read(webApiSettingsStoreProvider);

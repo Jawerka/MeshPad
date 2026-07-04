@@ -232,8 +232,3 @@ class _FileChip extends StatelessWidget {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
-
-String noteAttachmentPath(
-    Note note, AttachmentMeta attachment, String dataDir) {
-  return MeshPadPaths(dataDir).attachmentFile(note.id, attachment.name);
-}

@@ -31,6 +31,7 @@ desktop.ini
 
 # Local data (dev)
 data/
+logs/
 *.db
 *.db-shm
 *.db-wal

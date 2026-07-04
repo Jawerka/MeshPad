@@ -25,9 +25,19 @@
 .PARAMETER Release
   Release-сборка Windows и запуск meshpad.exe (без hot reload).
 
+.PARAMETER CollectLogs
+  Только с -Device dual: писать объединённые логи в logs/latest-dual.log.
+
+.PARAMETER LogOutFile
+  Путь к файлу сессии (с -CollectLogs).
+
 .EXAMPLE
   .\dev.ps1 -Release
   Production-like запуск на Windows.
+
+.EXAMPLE
+  .\dev.ps1 -Device dual -CollectLogs
+  Win + телефон с автосбором логов для отладки LAN.
 #>
 param(
     [switch] $Test,
@@ -36,7 +46,9 @@ param(
     [switch] $SkipBootstrap,
     [switch] $SkipCodegen,
     [switch] $WithFormat,
-    [switch] $WithBuild
+    [switch] $WithBuild,
+    [switch] $CollectLogs,
+    [string] $LogOutFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -133,7 +145,15 @@ try {
     }
 
     if ($Device -in @("dual", "both", "lan", "android")) {
-        & "$PSScriptRoot\run.ps1" -Device $Device
+        $runArgs = @{ Device = $Device }
+        if ($CollectLogs) {
+            if ($Device -notin @('dual', 'both', 'lan')) {
+                throw '-CollectLogs requires -Device dual (Win + phone).'
+            }
+            $runArgs.CollectLogs = $true
+            if ($LogOutFile) { $runArgs.LogOutFile = $LogOutFile }
+        }
+        & "$PSScriptRoot\run.ps1" @runArgs
         exit $LASTEXITCODE
     }
 

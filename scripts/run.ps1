@@ -15,16 +15,25 @@
 .PARAMETER KeepWindowsOpen
   When using dual mode, leave the Windows flutter run window open after Android session ends.
 
+.PARAMETER CollectLogs
+  Dual mode only: stream Windows + Android logs to logs/latest-dual.log while running.
+
+.PARAMETER LogOutFile
+  Custom session log path (with -CollectLogs). Default: logs/sessions/<timestamp>.log
+
 .EXAMPLE
   .\scripts\run.ps1
   .\scripts\run.ps1 -Device chrome
   .\scripts\run.ps1 -Device dual
+  .\scripts\run.ps1 -Device dual -CollectLogs
   .\scripts\run.ps1 -Device dual -AndroidDevice 192.168.88.3:40699
 #>
 param(
     [string] $Device = "windows",
     [string] $AndroidDevice = "",
-    [switch] $KeepWindowsOpen
+    [switch] $KeepWindowsOpen,
+    [switch] $CollectLogs,
+    [string] $LogOutFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -170,9 +179,25 @@ try {
         Write-Host "Dual run: Windows (new window) + Android ($androidId)"
         Write-Host "  Windows logs: separate PowerShell window"
         Write-Host "  Android logs: this terminal (meshpad:* lines)"
-        Write-Host "  Collect logs:   .\scripts\collect-logs.ps1 -Source both"
+        if ($CollectLogs) {
+            Write-Host "  Session logs: logs/latest-dual.log (merged, updated on exit)"
+        } else {
+            Write-Host "  Collect logs:   .\scripts\collect-logs.ps1 -Source both"
+            Write-Host "  Or dual+logs:   .\scripts\run-dual-with-logs.ps1"
+        }
         Write-Host "  Quit Android with q; Windows stops unless -KeepWindowsOpen"
         Write-Host ""
+
+        $logSession = $null
+        $logCollector = $null
+        if ($CollectLogs) {
+            . "$PSScriptRoot\_logging.ps1"
+            $logSession = New-MeshPadLogSession -Root $Root -LogOutFile $LogOutFile
+            $logCollector = Start-MeshPadDualLogCollector -Session $logSession -AndroidDeviceId $androidId
+            Write-Host "Logging session: $($logSession.SessionLog)" -ForegroundColor Green
+            Write-Host "Agent reads:       $($logSession.LatestLog)" -ForegroundColor Green
+            Write-Host ""
+        }
 
         $windowsShell = Start-MeshPadFlutterRunWindow `
             -WorkingDir $AppDir `
@@ -193,6 +218,12 @@ try {
                 $script:RunExitCode = $LASTEXITCODE
             }
         } finally {
+            if ($CollectLogs -and $logSession) {
+                Write-Host ""
+                Write-Host "Finalizing log session..."
+                Stop-MeshPadDualLogCollector -Session $logSession -Collector $logCollector -AndroidDeviceId $androidId
+                Write-Host "Logs saved: $($logSession.LatestLog)" -ForegroundColor Green
+            }
             if (-not $KeepWindowsOpen) {
                 Write-Host ""
                 Write-Host "Stopping Windows MeshPad..."

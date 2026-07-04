@@ -70,6 +70,11 @@ dart run build_runner build --delete-conflicting-outputs
 # LAN dual debug (Win + phone)
 .\dev.ps1 -Device dual
 
+# LAN dual debug + merged logs for agent analysis
+.\dev.ps1 -Device dual -CollectLogs
+# or: .\scripts\run-dual-with-logs.ps1
+# After session: logs/latest-dual.log
+
 # Firewall (Windows, admin once)
 .\scripts\allow-meshpad-firewall.ps1
 ```

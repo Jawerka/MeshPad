@@ -30,52 +30,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-
-function Get-MeshPadWindowsLogPath {
-    $settingsPath = Join-Path $env:LOCALAPPDATA 'MeshPad\app_settings.json'
-    $dataDir = $null
-    if (Test-Path $settingsPath) {
-        try {
-            $json = Get-Content -Raw -Encoding UTF8 $settingsPath | ConvertFrom-Json
-            if ($json.data_dir) { $dataDir = [string]$json.data_dir }
-        } catch {
-            Write-Warning "Failed to parse $settingsPath : $_"
-        }
-    }
-    if (-not $dataDir) {
-        $support = Join-Path $env:LOCALAPPDATA 'MeshPad'
-        if (-not (Test-Path $support)) {
-            $support = Join-Path $env:APPDATA 'com.meshpad.meshpad'
-        }
-        $dataDir = Join-Path $support 'meshpad'
-    }
-    return (Join-Path $dataDir 'meshpad.log')
-}
-
-function Get-AdbPath {
-    $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-    if (-not (Test-Path $adb)) { throw "adb not found at $adb" }
-    return $adb
-}
-
-function Resolve-AdbDevice {
-    param([string] $RequestedId)
-    $adb = Get-AdbPath
-    if ($RequestedId) {
-        $state = & $adb -s $RequestedId get-state 2>&1
-        if ($LASTEXITCODE -ne 0 -or $state -ne 'device') {
-            throw "Android device '$RequestedId' is not ready (state: $state)"
-        }
-        return $RequestedId
-    }
-    $lines = & $adb devices | Select-Object -Skip 1 | Where-Object { $_ -match '\tdevice$' }
-    if (-not $lines) { return $null }
-    foreach ($line in $lines) {
-        $id = ($line -split '\s+', 2)[0]
-        if ($id -and $id -notmatch '^emulator-') { return $id }
-    }
-    return ($lines[0] -split '\s+', 2)[0]
-}
+. "$PSScriptRoot\_logging.ps1"
 
 function Read-WindowsLogs {
     param([int] $LineCount, [switch] $Wait)
@@ -89,7 +44,7 @@ function Read-WindowsLogs {
         Get-Content -Path $path -Wait -Tail $LineCount -Encoding UTF8
         return @()
     }
-    return Get-Content -Path $path -Tail $LineCount -Encoding UTF8
+    return @(Get-Content -Path $path -Tail $LineCount -Encoding UTF8 -ErrorAction SilentlyContinue)
 }
 
 function Read-AndroidLogs {
@@ -100,7 +55,7 @@ function Read-AndroidLogs {
         [switch] $Wait
     )
     $adb = Get-AdbPath
-    $pattern = 'meshpad:|45837|45838|_meshpad|Dart Socket ERROR'
+    $pattern = Get-MeshPadAndroidLogPattern
     Write-Host "Android device: $DeviceId" -ForegroundColor Cyan
 
     if ($CaptureSeconds -gt 0) {
@@ -115,11 +70,11 @@ function Read-AndroidLogs {
     }
 
     $raw = & $adb -s $DeviceId logcat -d -v time 2>&1
-    $filtered = $raw | Select-String -Pattern $pattern -CaseSensitive:$false
+    $filtered = @($raw | Select-String -Pattern $pattern -CaseSensitive:$false)
     if ($LineCount -gt 0) {
-        return $filtered | Select-Object -Last $LineCount | ForEach-Object { $_.Line }
+        return @($filtered | Select-Object -Last $LineCount | ForEach-Object { $_.Line })
     }
-    return $filtered | ForEach-Object { $_.Line }
+    return @($filtered | ForEach-Object { $_.Line })
 }
 
 $adbDevice = Resolve-AdbDevice -RequestedId $Device
@@ -150,13 +105,19 @@ if ($Follow) {
 
 if ($useWindows) {
     $combined.Add('=== Windows ===')
-    $combined.AddRange([string[]](Read-WindowsLogs -LineCount $Tail))
+    $winLines = @(Read-WindowsLogs -LineCount $Tail)
+    if ($winLines.Count -gt 0) {
+        $combined.AddRange([string[]]$winLines)
+    }
 }
 
 if ($useAndroid) {
     $combined.Add('')
     $combined.Add('=== Android ===')
-    $combined.AddRange([string[]](Read-AndroidLogs -DeviceId $adbDevice -LineCount $Tail -CaptureSeconds $Seconds))
+    $androidLines = @(Read-AndroidLogs -DeviceId $adbDevice -LineCount $Tail -CaptureSeconds $Seconds)
+    if ($androidLines.Count -gt 0) {
+        $combined.AddRange([string[]]$androidLines)
+    }
 }
 
 if ($OutFile) {

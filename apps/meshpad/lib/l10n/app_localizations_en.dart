@@ -407,7 +407,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String pairingWaitingOn(String device) {
-    return 'Waiting for confirmation on $device…';
+    return 'Sending confirmation to $device…';
+  }
+
+  @override
+  String get pairingHostWaiting =>
+      'Show this PIN or QR on the other device. Pairing completes when they enter the code.';
+
+  @override
+  String get pairingGuestIntro =>
+      'Enter the PIN shown on the other device, then confirm.';
+
+  @override
+  String pairingCompletedWith(String device) {
+    return 'Paired with $device';
   }
 
   @override

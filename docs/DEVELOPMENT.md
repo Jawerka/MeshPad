@@ -118,7 +118,7 @@ Wire format: [SYNC_WIRE.md](SYNC_WIRE.md).
 - «Проверить данные» → reconcile + rebuild thumbnails + LRU eviction
 - Корзина: 7 дней, purge при maintenance
 - Экспорт/импорт zip; автобэкап (настройки)
-- Логи: `<dataDir>/meshpad.log` или `.\scripts\collect-logs.ps1`
+- Логи: `<dataDir>/meshpad.log`, `.\scripts\collect-logs.ps1`, или dual+logs: `.\dev.ps1 -Device dual -CollectLogs` → `logs/latest-dual.log`
 
 ### libp2p (archived)
 
@@ -158,7 +158,7 @@ dart pub global activate melos
 2. Откройте **Устройства** — повторный mDNS/UDP browse
 3. Firewall (Windows): `.\scripts\allow-meshpad-firewall.ps1`
 4. PIN-pairing у обнаруженного устройства
-5. Логи: `.\scripts\collect-logs.ps1`
+5. Логи: `.\scripts\collect-logs.ps1` или `.\dev.ps1 -Device dual -CollectLogs` (файл `logs/latest-dual.log`)
 
 ## Ручные чеклисты
 

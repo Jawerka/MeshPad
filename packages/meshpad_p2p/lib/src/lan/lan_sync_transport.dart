@@ -260,6 +260,24 @@ class LanSyncTransport implements SyncTransport {
 
   Future<void> _handlePairingConfirmed(PinPairingConfirm confirm) async {
 
+    final initiatorId = confirm.initiatorPeerId;
+
+    if (initiatorId != null) {
+
+      _controller.add(
+
+        PairingConfirmedRemotely(
+
+          initiatorPeerId: initiatorId,
+
+          initiatorDisplayName: confirm.initiatorDisplayName,
+
+        ),
+
+      );
+
+    }
+
     if (onRemoteTrusted == null) return;
 
     if (confirm.initiatorPeerId == null ||

@@ -248,8 +248,16 @@
       "name": { "type": "String" }
     }
   },
-  "pairingWaitingOn": "Ожидание подтверждения на {device}…",
+  "pairingWaitingOn": "Отправка подтверждения на {device}…",
   "@pairingWaitingOn": {
+    "placeholders": {
+      "device": { "type": "String" }
+    }
+  },
+  "pairingHostWaiting": "Покажите этот PIN или QR на другом устройстве. Сопряжение завершится, когда оно введёт код.",
+  "pairingGuestIntro": "Введите PIN с экрана другого устройства и нажмите «Подтвердить».",
+  "pairingCompletedWith": "Сопряжено с {device}",
+  "@pairingCompletedWith": {
     "placeholders": {
       "device": { "type": "String" }
     }

@@ -28,3 +28,14 @@ class SyncFailed extends SyncTransportEvent {
   final String? peerId;
   final String message;
 }
+
+/// Emitted on the host when a remote peer completes PIN pairing via HTTP confirm.
+class PairingConfirmedRemotely extends SyncTransportEvent {
+  PairingConfirmedRemotely({
+    required this.initiatorPeerId,
+    this.initiatorDisplayName,
+  });
+
+  final String initiatorPeerId;
+  final String? initiatorDisplayName;
+}

@@ -767,8 +767,26 @@ abstract class AppLocalizations {
   /// No description provided for @pairingWaitingOn.
   ///
   /// In ru, this message translates to:
-  /// **'Ожидание подтверждения на {device}…'**
+  /// **'Отправка подтверждения на {device}…'**
   String pairingWaitingOn(String device);
+
+  /// No description provided for @pairingHostWaiting.
+  ///
+  /// In ru, this message translates to:
+  /// **'Покажите этот PIN или QR на другом устройстве. Сопряжение завершится, когда оно введёт код.'**
+  String get pairingHostWaiting;
+
+  /// No description provided for @pairingGuestIntro.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите PIN с экрана другого устройства и нажмите «Подтвердить».'**
+  String get pairingGuestIntro;
+
+  /// No description provided for @pairingCompletedWith.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сопряжено с {device}'**
+  String pairingCompletedWith(String device);
 
   /// No description provided for @pairingQrHostHint.
   ///

@@ -42,6 +42,7 @@ class DevicesSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sheetContext = context;
     final identityAsync = ref.watch(localIdentityProvider);
     final trustedAsync = ref.watch(trustedDevicesProvider);
     final discovered = ref.watch(discoveredPeersProvider);
@@ -95,7 +96,7 @@ class DevicesSheet extends ConsumerWidget {
                         accent: peerAccentColor(identity.peerId),
                         compact: compact,
                         onAvatarTap: () => _pickLocalIcon(
-                          context,
+                          sheetContext,
                           ref,
                           identity.icon,
                           identity.peerId,
@@ -103,17 +104,17 @@ class DevicesSheet extends ConsumerWidget {
                         trailing: _LocalDeviceActions(
                           compact: compact,
                           onPickIcon: () => _pickLocalIcon(
-                            context,
+                            sheetContext,
                             ref,
                             identity.icon,
                             identity.peerId,
                           ),
                           onRename: () => _renameLocalDevice(
-                            context,
+                            sheetContext,
                             ref,
                             identity.displayName,
                           ),
-                          onSync: () => _runSync(context, ref),
+                          onSync: () => _runSync(sheetContext, ref),
                         ),
                       ),
                     ),
@@ -146,24 +147,24 @@ class DevicesSheet extends ConsumerWidget {
                                 accent: peerAccentColor(device.peerId),
                                 compact: compact,
                                 onAvatarTap: () => _pickTrustedIcon(
-                                  context,
+                                  sheetContext,
                                   ref,
                                   device,
                                 ),
                                 trailing: _TrustedDeviceActions(
                                   compact: compact,
                                   onPickIcon: () => _pickTrustedIcon(
-                                    context,
+                                    sheetContext,
                                     ref,
                                     device,
                                   ),
                                   onRename: () => _renameTrustedDevice(
-                                    context,
+                                    sheetContext,
                                     ref,
                                     device,
                                   ),
                                   onSync: () => _runSyncWithPeer(
-                                    context,
+                                    sheetContext,
                                     ref,
                                     device,
                                   ),
@@ -221,7 +222,7 @@ class DevicesSheet extends ConsumerWidget {
                                   ? null
                                   : FilledButton.tonal(
                                       onPressed: () => _showPinPairingDialog(
-                                        context,
+                                        sheetContext,
                                         ref,
                                         targetPeer: peer,
                                       ),
@@ -232,7 +233,7 @@ class DevicesSheet extends ConsumerWidget {
                                       alignment: Alignment.centerRight,
                                       child: FilledButton.tonal(
                                         onPressed: () => _showPinPairingDialog(
-                                          context,
+                                          sheetContext,
                                           ref,
                                           targetPeer: peer,
                                         ),
@@ -245,7 +246,7 @@ class DevicesSheet extends ConsumerWidget {
                       ),
                     const SizedBox(height: 20),
                     OutlinedButton.icon(
-                      onPressed: () => _showPinPairingDialog(context, ref),
+                      onPressed: () => _showPinPairingDialog(sheetContext, ref),
                       icon: const Icon(Icons.pin_outlined),
                       label: Text(l10n.devicesPinPairing),
                     ),
@@ -468,137 +469,91 @@ class DevicesSheet extends ConsumerWidget {
     WidgetRef ref, {
     DiscoveredPeer? targetPeer,
   }) async {
-    final pin = generatePairingPin();
+    final asHost = targetPeer == null;
+    final pin = asHost ? generatePairingPin() : '';
+    final rootContext = Navigator.of(context, rootNavigator: true).context;
+
+    // Read providers before closing the sheet — its Consumer ref unmounts on pop.
     final identity = await ref.read(localIdentityProvider.future);
     final lan = readLanSyncTransport(ref);
 
-    if (lan != null) {
-      await lan.setPairingOffer(
-        createPairingOffer(
-          peerId: identity.peerId,
-          displayName: identity.displayName,
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    await Future<void>.delayed(Duration.zero);
+    if (!rootContext.mounted) return;
+
+    try {
+      MeshPadLog.pairing(
+        asHost
+            ? 'opening pin dialog (host) pin=$pin'
+            : 'opening pin dialog (guest) target=${targetPeer.peerId}',
+      );
+
+      final canScanQr =
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+      Future<void> Function()? activateOffer;
+      if (asHost && lan != null) {
+        activateOffer = () => lan.setPairingOffer(
+              createPairingOffer(
+                peerId: identity.peerId,
+                displayName: identity.displayName,
+                pin: pin,
+                signingPublicKey: identity.signingPublicKey,
+                signingKeyAlgorithm: identity.signingKeyAlgorithm,
+              ),
+            );
+      }
+
+      await showDialog<void>(
+        context: rootContext,
+        useRootNavigator: true,
+        builder: (dialogContext) => _PinPairingDialog(
           pin: pin,
-          signingPublicKey: identity.signingPublicKey,
-          signingKeyAlgorithm: identity.signingKeyAlgorithm,
+          asHost: asHost,
+          lan: lan,
+          activateOffer: activateOffer,
+          canScanQr: canScanQr,
+          lanAvailable: lan != null,
+          initialPeer: targetPeer,
         ),
       );
-    }
 
-    if (!context.mounted) return;
-
-    String? qrPayload;
-    if (lan != null) {
-      final host = lan.localLanHost;
-      final port = lan.localHttpPort;
-      if (host != null && port != null) {
-        qrPayload = PairingQrPayload(
-          host: host,
-          httpPort: port,
-          pin: pin,
-          tlsPort: lan.localTlsPort,
-        ).encode();
+      if (asHost && lan != null) {
+        await lan.setPairingOffer(null);
+      }
+    } catch (e, st) {
+      MeshPadLog.warn('pairing', 'pin dialog failed: $e');
+      MeshPadLog.warn('pairing', '$st');
+      if (rootContext.mounted) {
+        final snackL10n = AppLocalizations.of(rootContext);
+        ScaffoldMessenger.of(rootContext).showSnackBar(
+          SnackBar(content: Text(snackL10n.devicesPairingConfirmFailed)),
+        );
       }
     }
-    final canScanQr =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => _PinPairingDialog(
-        pin: pin,
-        qrPayload: qrPayload,
-        canScanQr: canScanQr,
-        lanAvailable: lan != null,
-        initialPeer: targetPeer,
-        onConfirm: (remotePin, targetPeer) async {
-          final store = await ref.read(deviceStoreProvider.future);
-          final identity = await ref.read(localIdentityProvider.future);
-          final authToken = generateSyncAuthToken();
-
-          if (lan != null && targetPeer != null) {
-            await lan.start();
-            final endpoint = lan.endpointFor(targetPeer.peerId) ??
-                (await lan.resolvePeerEndpoint(
-                  peerId: targetPeer.peerId,
-                  stored: null,
-                ));
-            if (endpoint != null) {
-              final offer = await lan.fetchPairingOffer(endpoint);
-              if (offer != null && offer.pin == remotePin) {
-                final remoteTls = await lan.fetchPeerTlsCertSha256(endpoint);
-                final ok = await lan.confirmPairingOnPeer(
-                  endpoint: endpoint,
-                  confirm: PinPairingConfirm(
-                    peerId: offer.peerId,
-                    pin: remotePin,
-                    initiatorPeerId: identity.peerId,
-                    initiatorDisplayName: identity.displayName,
-                    initiatorLanHost: lan.localLanHost,
-                    initiatorHttpPort: lan.localHttpPort,
-                    authToken: authToken,
-                    initiatorTlsCertSha256: lan.localTlsCertSha256,
-                    initiatorSigningPublicKey: identity.signingPublicKey,
-                    initiatorSigningKeyAlgorithm: identity.signingKeyAlgorithm,
-                  ),
-                );
-                if (ok) {
-                  await store.trustDevice(
-                    peerId: offer.peerId,
-                    name: offer.displayName,
-                    lanHost: endpoint.host,
-                    lanHttpPort: endpoint.httpPort,
-                    authToken: authToken,
-                    tlsCertSha256: remoteTls,
-                    signingPublicKey: offer.signingPublicKey,
-                    signingKeyAlgorithm: offer.signingKeyAlgorithm,
-                  );
-                  ref.invalidate(trustedDevicesProvider);
-                  ref
-                      .read(discoveredPeersProvider.notifier)
-                      .remove(offer.peerId);
-                  return true;
-                }
-              }
-            }
-            return false;
-          }
-
-          if (context.mounted) {
-            final snackL10n = AppLocalizations.of(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(snackL10n.devicesPairingNeedWifi)),
-            );
-          }
-          return false;
-        },
-        onClose: () async {
-          if (lan != null) await lan.setPairingOffer(null);
-        },
-      ),
-    );
-    if (lan != null) await lan.setPairingOffer(null);
   }
 }
 
 class _PinPairingDialog extends ConsumerStatefulWidget {
   const _PinPairingDialog({
     required this.pin,
-    this.qrPayload,
+    required this.asHost,
+    this.lan,
+    this.activateOffer,
     this.canScanQr = false,
     required this.lanAvailable,
     this.initialPeer,
-    required this.onConfirm,
-    required this.onClose,
   });
 
   final String pin;
-  final String? qrPayload;
+  final bool asHost;
+  final LanSyncTransport? lan;
+  final Future<void> Function()? activateOffer;
   final bool canScanQr;
   final bool lanAvailable;
   final DiscoveredPeer? initialPeer;
-  final Future<bool> Function(String remotePin, DiscoveredPeer? targetPeer)
-      onConfirm;
-  final Future<void> Function() onClose;
 
   @override
   ConsumerState<_PinPairingDialog> createState() => _PinPairingDialogState();
@@ -609,11 +564,77 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
   DiscoveredPeer? _selectedPeer;
   var _confirming = false;
   String? _statusMessage;
+  String? _qrPayload;
+  StreamSubscription<SyncTransportEvent>? _pairingEventsSub;
+
+  String? _qrPayloadForLan(LanSyncTransport? lan) {
+    if (lan == null) return null;
+    final host = lan.localLanHost;
+    final port = lan.localHttpPort;
+    if (host == null || port == null) return null;
+    return PairingQrPayload(
+      host: host,
+      httpPort: port,
+      pin: widget.pin,
+      tlsPort: lan.localTlsPort,
+    ).encode();
+  }
+
+  void _scheduleQrRefresh() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final next = _qrPayloadForLan(widget.lan);
+      if (next == _qrPayload) return;
+      setState(() => _qrPayload = next);
+    });
+  }
+
+  Future<void> _activateOfferAfterFirstFrame() async {
+    final activate = widget.activateOffer;
+    if (activate == null) return;
+    try {
+      await activate();
+    } catch (e, st) {
+      MeshPadLog.warn('pairing', 'setPairingOffer failed: $e');
+      MeshPadLog.warn('pairing', '$st');
+    }
+    _scheduleQrRefresh();
+  }
 
   @override
   void initState() {
     super.initState();
     _selectedPeer = widget.initialPeer;
+    if (widget.asHost) {
+      _qrPayload = _qrPayloadForLan(widget.lan);
+    }
+    if (widget.activateOffer != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_activateOfferAfterFirstFrame());
+      });
+    }
+    if (widget.asHost && widget.lan != null) {
+      _pairingEventsSub = widget.lan!.events.listen(_onPairingTransportEvent);
+    }
+  }
+
+  void _onPairingTransportEvent(SyncTransportEvent event) {
+    if (event is! PairingConfirmedRemotely || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final name = event.initiatorDisplayName?.trim();
+    final label = (name != null && name.isNotEmpty)
+        ? name
+        : l10n.devicesPinPairing;
+    setState(() {
+      _confirming = false;
+      _statusMessage = l10n.pairingCompletedWith(label);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.pairingCompletedWith(label))),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   @override
@@ -626,8 +647,110 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
 
   @override
   void dispose() {
+    unawaited(_pairingEventsSub?.cancel());
     _remotePinController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _confirmPairing(
+    String remotePin,
+    DiscoveredPeer? targetPeer,
+  ) async {
+    final lan = widget.lan;
+    if (lan == null || targetPeer == null) {
+      if (mounted && lan == null) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.devicesPairingNeedWifi)),
+        );
+      }
+      return false;
+    }
+
+    try {
+      final store = await ref.read(deviceStoreProvider.future);
+      final identity = await ref.read(localIdentityProvider.future);
+      final authToken = generateSyncAuthToken();
+
+      await lan.start();
+      final endpoint = lan.endpointFor(targetPeer.peerId) ??
+          (await lan.resolvePeerEndpoint(
+            peerId: targetPeer.peerId,
+            stored: null,
+          ));
+      if (endpoint == null) {
+        MeshPadLog.warn(
+          'pairing',
+          'confirm aborted: no endpoint for ${targetPeer.peerId}',
+        );
+        return false;
+      }
+
+      final offer = await lan.fetchPairingOffer(endpoint);
+      if (offer == null) {
+        MeshPadLog.warn(
+          'pairing',
+          'confirm aborted: no active offer at ${endpoint.host}:${endpoint.httpPort}',
+        );
+        return false;
+      }
+      if (offer.pin != remotePin) {
+        MeshPadLog.warn(
+          'pairing',
+          'confirm aborted: pin mismatch (expected ${offer.pin}, got $remotePin)',
+        );
+        return false;
+      }
+
+      final remoteTls = await lan.fetchPeerTlsCertSha256(endpoint);
+      final ok = await lan.confirmPairingOnPeer(
+        endpoint: endpoint,
+        confirm: PinPairingConfirm(
+          peerId: offer.peerId,
+          pin: remotePin,
+          initiatorPeerId: identity.peerId,
+          initiatorDisplayName: identity.displayName,
+          initiatorLanHost: lan.localLanHost,
+          initiatorHttpPort: lan.localHttpPort,
+          authToken: authToken,
+          initiatorTlsCertSha256: lan.localTlsCertSha256,
+          initiatorSigningPublicKey: identity.signingPublicKey,
+          initiatorSigningKeyAlgorithm: identity.signingKeyAlgorithm,
+        ),
+      );
+      if (!ok) {
+        MeshPadLog.warn(
+          'pairing',
+          'confirm HTTP failed for ${endpoint.host}:${endpoint.httpPort}',
+        );
+        return false;
+      }
+
+      await store.trustDevice(
+        peerId: offer.peerId,
+        name: offer.displayName,
+        lanHost: endpoint.host,
+        lanHttpPort: endpoint.httpPort,
+        authToken: authToken,
+        tlsCertSha256: remoteTls,
+        signingPublicKey: offer.signingPublicKey,
+        signingKeyAlgorithm: offer.signingKeyAlgorithm,
+      );
+      ref.invalidate(trustedDevicesProvider);
+      ref.read(discoveredPeersProvider.notifier).remove(offer.peerId);
+      MeshPadLog.pairing('local trust saved for ${offer.peerId}');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pairingCompletedWith(offer.displayName))),
+        );
+      }
+      return true;
+    } catch (e, st) {
+      MeshPadLog.warn('pairing', 'confirm failed: $e');
+      MeshPadLog.warn('pairing', '$st');
+      return false;
+    }
   }
 
   Future<void> _scanPairingQr() async {
@@ -692,7 +815,7 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
       _statusMessage = l10n.pairingWaitingOn(peer.displayName);
     });
 
-    final ok = await widget.onConfirm(applied.payload.pin, peer);
+    final ok = await _confirmPairing(applied.payload.pin, peer);
     if (!mounted) return;
     setState(() {
       _confirming = false;
@@ -709,9 +832,14 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 720;
     final l10n = AppLocalizations.of(context);
-    final discovered = ref.watch(discoveredPeersProvider);
+    // Rebuild only when the peer set changes, not on every UDP rediscovery tick.
+    ref.watch(
+      discoveredPeersProvider.select(
+        (peers) => peers.map((p) => p.peerId).toList(growable: false),
+      ),
+    );
+    final discovered = ref.read(discoveredPeersProvider);
     final selectedPeer = _selectedPeer ??
         (discovered.isEmpty
             ? null
@@ -720,176 +848,236 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
                 ? widget.initialPeer
                 : discovered.first));
 
-    return AlertDialog(
-      title: Text(l10n.devicesPairingTitle),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: compact ? double.infinity : 420,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.lanAvailable
-                    ? l10n.devicesPairingShowPinSelectPeer
-                    : l10n.devicesPairingShowPinOnly,
-                style: Theme.of(context).textTheme.bodyMedium,
+    // Dialog (not AlertDialog): AlertDialog uses IntrinsicWidth which breaks
+    // with scroll views and QrImageView's LayoutBuilder on mobile/desktop.
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 480,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Text(
+                l10n.devicesPairingTitle,
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 16),
-              SelectableText(
-                widget.pin,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      letterSpacing: 4,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              if (widget.qrPayload != null) ...[
-                const SizedBox(height: 16),
-                PairingQrCodeView(payload: widget.qrPayload!),
-              ],
-              if (widget.canScanQr) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _confirming ? null : _scanPairingQr,
-                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                  label: Text(l10n.pairingScanQr),
-                ),
-              ],
-              if (widget.lanAvailable && discovered.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  l10n.devicesPairingSelectPeer,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                if (discovered.length == 1)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.devices_outlined),
-                    title: Text(discovered.first.displayName),
-                  )
-                else
-                  ...discovered.map(
-                    (peer) {
-                      final selected = selectedPeer?.peerId == peer.peerId;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Material(
-                          color: selected
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer
-                                  .withValues(alpha: 0.35)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          child: ListTile(
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 8),
-                            leading: Icon(
-                              selected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_off,
-                            ),
-                            title: Text(
-                              peer.displayName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onTap: () => setState(() => _selectedPeer = peer),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-              const SizedBox(height: 16),
-              TextField(
-                controller: _remotePinController,
-                decoration: InputDecoration(
-                  labelText: l10n.devicesRemotePinLabel,
-                  hintText: l10n.devicesRemotePinHint,
-                ),
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                enabled: !_confirming,
-              ),
-              if (_statusMessage != null) ...[
-                const SizedBox(height: 12),
-                Row(
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_confirming)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    if (_confirming) const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _statusMessage!,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                    Text(
+                      widget.asHost
+                          ? l10n.pairingHostWaiting
+                          : (widget.lanAvailable
+                              ? l10n.pairingGuestIntro
+                              : l10n.devicesPairingShowPinOnly),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (widget.asHost) ...[
+                      const SizedBox(height: 16),
+                      SelectableText(
+                        widget.pin,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              letterSpacing: 4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (_qrPayload != null) ...[
+                        const SizedBox(height: 16),
+                        PairingQrCodeView(payload: _qrPayload!),
+                      ],
+                    ],
+                    if (!widget.asHost && widget.canScanQr) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _confirming ? null : _scanPairingQr,
+                        icon: const Icon(Icons.qr_code_scanner_outlined),
+                        label: Text(l10n.pairingScanQr),
+                      ),
+                    ],
+                    if (!widget.asHost &&
+                        widget.lanAvailable &&
+                        discovered.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.devicesPairingSelectPeer,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      if (discovered.length == 1)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.devices_outlined),
+                          title: Text(discovered.first.displayName),
+                        )
+                      else
+                        ...discovered.map(
+                          (peer) {
+                            final selected =
+                                selectedPeer?.peerId == peer.peerId;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Material(
+                                color: selected
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer
+                                        .withValues(alpha: 0.35)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  leading: Icon(
+                                    selected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                  ),
+                                  title: Text(
+                                    peer.displayName,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () =>
+                                      setState(() => _selectedPeer = peer),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                    if (!widget.asHost) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _remotePinController,
+                        decoration: InputDecoration(
+                          labelText: l10n.devicesRemotePinLabel,
+                          hintText: l10n.devicesRemotePinHint,
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        enabled: !_confirming,
+                      ),
+                    ],
+                    if (_statusMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (_confirming)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          if (_confirming) const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _statusMessage!,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
-            ],
-          ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _confirming
+                        ? null
+                        : () {
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                    child: Text(l10n.close),
+                  ),
+                  if (!widget.asHost)
+                    FilledButton(
+                      onPressed: _confirming
+                          ? null
+                          : () async {
+                              final remotePin =
+                                  _remotePinController.text.trim();
+                              if (!isValidPairingPin(remotePin)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(l10n.devicesPinInvalid),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              if (!widget.lanAvailable) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(l10n.devicesPairingNeedWifi),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final target = selectedPeer ??
+                                  (discovered.isEmpty ? null : discovered.first);
+                              if (target == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text(l10n.devicesPairingNoDiscovered),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setState(() {
+                                _confirming = true;
+                                _statusMessage =
+                                    l10n.pairingWaitingOn(target.displayName);
+                              });
+                              final ok =
+                                  await _confirmPairing(remotePin, target);
+                              if (!context.mounted) return;
+                              setState(() {
+                                _confirming = false;
+                                _statusMessage = null;
+                              });
+                              if (ok) {
+                                Navigator.pop(context);
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    l10n.devicesPairingConfirmFailed,
+                                  ),
+                                ),
+                              );
+                            },
+                      child: Text(l10n.devicesConfirm),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _confirming
-              ? null
-              : () async {
-                  await widget.onClose();
-                  if (context.mounted) Navigator.pop(context);
-                },
-          child: Text(l10n.close),
-        ),
-        FilledButton(
-          onPressed: _confirming
-              ? null
-              : () async {
-            final remotePin = _remotePinController.text.trim();
-            if (!isValidPairingPin(remotePin)) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.devicesPinInvalid)),
-              );
-              return;
-            }
-
-            if (widget.lanAvailable && discovered.isNotEmpty) {
-              final target = selectedPeer ?? discovered.first;
-              setState(() {
-                _confirming = true;
-                _statusMessage = l10n.pairingWaitingOn(target.displayName);
-              });
-              final ok = await widget.onConfirm(remotePin, target);
-              if (!context.mounted) return;
-              setState(() {
-                _confirming = false;
-                _statusMessage = null;
-              });
-              if (ok) {
-                Navigator.pop(context);
-                return;
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.devicesPairingConfirmFailed)),
-              );
-              return;
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.devicesPairingNoDiscovered)),
-            );
-          },
-          child: Text(l10n.devicesConfirm),
-        ),
-      ],
     );
   }
 }

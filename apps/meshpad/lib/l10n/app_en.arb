@@ -156,8 +156,16 @@
       "name": { "type": "String" }
     }
   },
-  "pairingWaitingOn": "Waiting for confirmation on {device}…",
+  "pairingWaitingOn": "Sending confirmation to {device}…",
   "@pairingWaitingOn": {
+    "placeholders": {
+      "device": { "type": "String" }
+    }
+  },
+  "pairingHostWaiting": "Show this PIN or QR on the other device. Pairing completes when they enter the code.",
+  "pairingGuestIntro": "Enter the PIN shown on the other device, then confirm.",
+  "pairingCompletedWith": "Paired with {device}",
+  "@pairingCompletedWith": {
     "placeholders": {
       "device": { "type": "String" }
     }

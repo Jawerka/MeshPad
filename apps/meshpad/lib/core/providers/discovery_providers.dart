@@ -17,8 +17,18 @@ class DiscoveredPeersNotifier extends Notifier<List<DiscoveredPeer>> {
   List<DiscoveredPeer> build() => const [];
 
   void upsert(DiscoveredPeer peer) {
-    final without = state.where((p) => p.peerId != peer.peerId).toList();
-    state = [...without, peer];
+    final index = state.indexWhere((p) => p.peerId == peer.peerId);
+    if (index >= 0) {
+      final existing = state[index];
+      if (existing.displayName == peer.displayName) {
+        return;
+      }
+      final next = List<DiscoveredPeer>.of(state);
+      next[index] = peer;
+      state = next;
+      return;
+    }
+    state = [...state, peer];
   }
 
   void remove(String peerId) {

@@ -22,7 +22,7 @@ melos:
       description: Static analysis for all packages.
 
     test:
-      run: melos exec --ignore="meshpad" --fail-fast -- dart test
+      run: melos exec --ignore="meshpad" --fail-fast -- dart test --exclude-tags benchmark
       description: Unit tests in Dart packages (core, p2p).
 
     format:

@@ -91,6 +91,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install MSVC ATL (flutter_secure_storage)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $setup = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) { throw "Visual Studio C++ tools not found on runner" }
+          Write-Host "Adding VC ATL to $installPath"
+          & $setup modify --installPath $installPath --add Microsoft.VisualStudio.Component.VC.ATL --quiet --norestart --wait
+          if ($LASTEXITCODE -ne 0) { throw "setup.exe modify failed with $LASTEXITCODE" }
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

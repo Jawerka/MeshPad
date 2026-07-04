@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
+import '../meshpad_log.dart';
 import 'lan_sync_auth.dart';
 import 'lan_catalog_body.dart';
 import 'lan_sync_codec.dart';
@@ -218,7 +219,12 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       );
       final json = jsonDecode(body) as Map<String, dynamic>;
       return json['status'] == 'trusted';
-    } on HttpRemoteSyncException {
+    } on HttpRemoteSyncException catch (e) {
+      final snippet = e.body.length > 120 ? '${e.body.substring(0, 120)}…' : e.body;
+      MeshPadLog.warn(
+        'pairing',
+        'confirm failed ${e.statusCode} for ${_endpoint.host}:${_endpoint.httpPort}: $snippet',
+      );
       return false;
     }
   }

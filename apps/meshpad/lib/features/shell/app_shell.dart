@@ -52,9 +52,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           await repo.purgeMisfiledRemoteOutbox(
             localAuthorLabels: localAuthorLabels(identity.displayName),
           );
-          await repo.purgeExhaustedOutboxEntries(maxRetries: 5);
           ref.invalidate(outboxCountProvider);
-        } catch (_) {}
+        } catch (e, st) {
+          MeshPadLog.warn('sync', 'startup outbox cleanup failed: $e');
+          MeshPadLog.warn('sync', '$st');
+        }
         try {
           await ref.read(settingsControllerProvider).runAutoBackupIfDue();
         } catch (e, st) {

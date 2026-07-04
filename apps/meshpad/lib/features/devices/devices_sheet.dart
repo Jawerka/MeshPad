@@ -477,6 +477,7 @@ class DevicesSheet extends ConsumerWidget {
     final identity = await ref.read(localIdentityProvider.future);
     final lan = readLanSyncTransport(ref);
 
+    if (!context.mounted) return;
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
@@ -614,7 +615,13 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
       });
     }
     if (widget.asHost && widget.lan != null) {
-      _pairingEventsSub = widget.lan!.events.listen(_onPairingTransportEvent);
+      _pairingEventsSub = widget.lan!.events.listen(
+        _onPairingTransportEvent,
+        onError: (Object error, StackTrace st) {
+          MeshPadLog.warn('pairing', 'transport events error: $error');
+          MeshPadLog.warn('pairing', '$st');
+        },
+      );
     }
   }
 
@@ -726,17 +733,15 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
         return false;
       }
 
-      await store.trustDevice(
-        peerId: offer.peerId,
-        name: offer.displayName,
+      await trustDeviceFromPairingOffer(
+        store: store,
+        offer: offer,
         lanHost: endpoint.host,
         lanHttpPort: endpoint.httpPort,
         authToken: authToken,
         tlsCertSha256: remoteTls,
-        signingPublicKey: offer.signingPublicKey,
-        signingKeyAlgorithm: offer.signingKeyAlgorithm,
+        onTrusted: () => ref.invalidate(trustedDevicesProvider),
       );
-      ref.invalidate(trustedDevicesProvider);
       ref.read(discoveredPeersProvider.notifier).remove(offer.peerId);
       MeshPadLog.pairing('local trust saved for ${offer.peerId}');
       if (mounted) {

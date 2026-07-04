@@ -30,9 +30,13 @@ class NetworkSyncCoordinator {
   Future<void> start() async {
     if (kIsWeb) return;
     await _sub?.cancel();
-    _sub = Connectivity().onConnectivityChanged.listen((_) {
-      unawaited(_evaluate());
-    });
+    _sub = Connectivity().onConnectivityChanged.listen(
+      (_) => unawaited(_evaluate()),
+      onError: (Object error, StackTrace st) {
+        MeshPadLog.warn('discovery', 'connectivity stream error: $error');
+        MeshPadLog.warn('discovery', '$st');
+      },
+    );
     await _evaluate();
   }
 

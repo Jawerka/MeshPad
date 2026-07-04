@@ -314,7 +314,7 @@ void main() {
     );
   });
 
-  test('attachment push failure does not mark note as failed push', () async {
+  test('attachment push failure marks note for retry', () async {
     final dirA = await Directory.systemTemp.createTemp('remote_att_push_a_');
     final dirB = await Directory.systemTemp.createTemp('remote_att_push_b_');
     final dbA = MeshPadDatabase.inMemory();
@@ -367,9 +367,19 @@ void main() {
       _FailAttachmentOnNoteGateway(engineB, badNoteId),
     );
 
-    expect(result.failedPushNoteIds, isEmpty);
+    expect(result.failedPushNoteIds, [badNoteId]);
     expect((await repoB.listNotes()).single.markdown, 'note bad attachment');
     expect(await repoA.pendingOutboxCount(), greaterThan(0));
+
+    await OutboxProcessor().recordOutboxRetriesForNoteIds(
+      repoA,
+      result.failedPushNoteIds,
+    );
+    final bumped = await repoA.listOutbox();
+    expect(
+      bumped.firstWhere((e) => e.entityId == badNoteId).retryCount,
+      1,
+    );
   });
 }
 

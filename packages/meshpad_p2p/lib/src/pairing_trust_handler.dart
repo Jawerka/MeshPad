@@ -26,6 +26,29 @@ Future<void> trustDeviceFromPairingConfirm({
   onTrusted?.call();
 }
 
+/// Trusts a remote device after guest-side PIN confirmation (offer from host).
+Future<void> trustDeviceFromPairingOffer({
+  required DeviceIdentityStore store,
+  required PinPairingOffer offer,
+  required String lanHost,
+  required int lanHttpPort,
+  required String authToken,
+  String? tlsCertSha256,
+  void Function()? onTrusted,
+}) async {
+  await store.trustDevice(
+    peerId: offer.peerId,
+    name: offer.displayName,
+    lanHost: lanHost,
+    lanHttpPort: lanHttpPort,
+    authToken: authToken,
+    tlsCertSha256: tlsCertSha256,
+    signingPublicKey: offer.signingPublicKey,
+    signingKeyAlgorithm: offer.signingKeyAlgorithm,
+  );
+  onTrusted?.call();
+}
+
 /// Callback for [LanSyncTransport] when a remote peer completes PIN pairing.
 Future<void> handleRemotePairingTrusted({
   required DeviceIdentityStore store,

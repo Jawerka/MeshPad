@@ -170,6 +170,9 @@
       "device": { "type": "String" }
     }
   },
+  "syncNoTrustedDevices": "No trusted devices",
+  "syncPartialDefault": "Sync partially completed — some peers failed",
+  "syncFailedDefault": "Sync failed",
   "pairingQrHostHint": "Scan this QR on the other device (MeshPad mobile)",
   "pairingScanQr": "Scan QR",
   "pairingQrScanHint": "Point the camera at the pairing QR on the host device",

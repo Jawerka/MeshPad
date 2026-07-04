@@ -13,6 +13,7 @@ import '../../core/providers/feed_ui_providers.dart';
 import '../../core/providers/git_sync_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_activity_provider.dart';
+import '../../core/sync/sync_run_feedback.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/services/notes_service.dart';
 import '../../core/theme/feed_layout.dart';
@@ -166,7 +167,8 @@ class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
 
   Future<void> _refreshFeed() async {
     if (!ref.read(isWebClientProvider)) {
-      await ref.read(syncControllerProvider).runSync();
+      final result = await ref.read(syncControllerProvider).runSync();
+      if (mounted) showSyncRunFeedback(context, result);
     }
     await ref.read(notesListProvider.notifier).reload();
   }
@@ -418,8 +420,13 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   _HeaderSyncButton(
                     activity: syncActivity,
                     outboxCount: outboxCount,
-                    onPressed: () =>
-                        ref.read(syncControllerProvider).runSync(),
+                    onPressed: () async {
+                      final result =
+                          await ref.read(syncControllerProvider).runSync();
+                      if (context.mounted) {
+                        showSyncRunFeedback(context, result);
+                      }
+                    },
                   ),
                 if (!isWeb && (Platform.isWindows || Platform.isLinux)) ...[
                   IconButton(

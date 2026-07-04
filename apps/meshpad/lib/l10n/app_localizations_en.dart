@@ -424,6 +424,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get syncNoTrustedDevices => 'No trusted devices';
+
+  @override
+  String get syncPartialDefault =>
+      'Sync partially completed — some peers failed';
+
+  @override
+  String get syncFailedDefault => 'Sync failed';
+
+  @override
   String get pairingQrHostHint =>
       'Scan this QR on the other device (MeshPad mobile)';
 

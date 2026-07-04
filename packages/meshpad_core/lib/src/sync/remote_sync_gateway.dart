@@ -112,7 +112,15 @@ extension SyncEngineRemote on SyncEngine {
         final result = await remote.pushNote(snapshot);
         if (result == NoteApplyResult.applied) pushed++;
         await syncAttachmentsTo(remote, snapshot.meta);
-        await tryAckOutboxForRemoteNote(remote, head.id);
+        if (!await isNoteFullySyncedOnRemote(
+          localNotes: notes,
+          remote: remote,
+          noteId: head.id,
+        )) {
+          failedNoteIds.add(head.id);
+        } else {
+          await tryAckOutboxForRemoteNote(remote, head.id);
+        }
       } on Object catch (e) {
         developer.log(
           'push note ${head.id} failed: $e',

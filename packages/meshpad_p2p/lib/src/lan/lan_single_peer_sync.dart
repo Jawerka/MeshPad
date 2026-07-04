@@ -62,14 +62,25 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
 
   final completer = Completer<SyncTransportEvent>();
   late final StreamSubscription<SyncTransportEvent> sub;
-  sub = transport.events.listen((event) {
-    if (event is SyncCompleted && event.peerId == peer.peerId) {
-      if (!completer.isCompleted) completer.complete(event);
-    } else if (event is SyncFailed &&
-        (event.peerId == null || event.peerId == peer.peerId)) {
-      if (!completer.isCompleted) completer.complete(event);
-    }
-  });
+  sub = transport.events.listen(
+    (event) {
+      if (event is SyncCompleted && event.peerId == peer.peerId) {
+        if (!completer.isCompleted) completer.complete(event);
+      } else if (event is SyncFailed &&
+          (event.peerId == null || event.peerId == peer.peerId)) {
+        if (!completer.isCompleted) completer.complete(event);
+      }
+    },
+    onError: (Object error, StackTrace st) {
+      MeshPadLog.warn('sync', 'transport events error for ${peer.peerId}: $error');
+      MeshPadLog.warn('sync', '$st');
+      if (!completer.isCompleted) {
+        completer.complete(
+          SyncFailed(peerId: peer.peerId, message: error.toString()),
+        );
+      }
+    },
+  );
 
   try {
     await transport.requestSync(peerId: peer.peerId);

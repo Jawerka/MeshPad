@@ -160,7 +160,9 @@ class LanSyncCoordinator {
         succeededPeerIds: succeededPeerIds,
       );
     } catch (e) {
-      await outboxProcessor.recordSyncFailure(repository);
+      if (e is! SyncTransportException) {
+        await outboxProcessor.recordSyncFailure(repository);
+      }
       final message = e is MeshPadException
           ? e.message
           : meshPadExceptionUserMessage(e);

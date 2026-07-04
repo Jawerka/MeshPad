@@ -423,6 +423,16 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get syncNoTrustedDevices => 'Нет доверенных устройств';
+
+  @override
+  String get syncPartialDefault =>
+      'Синхронизация частично выполнена — часть устройств недоступна';
+
+  @override
+  String get syncFailedDefault => 'Синхронизация не удалась';
+
+  @override
   String get pairingQrHostHint =>
       'Отсканируйте QR на другом устройстве (MeshPad на телефоне)';
 

@@ -262,6 +262,9 @@
       "device": { "type": "String" }
     }
   },
+  "syncNoTrustedDevices": "Нет доверенных устройств",
+  "syncPartialDefault": "Синхронизация частично выполнена — часть устройств недоступна",
+  "syncFailedDefault": "Синхронизация не удалась",
   "pairingQrHostHint": "Отсканируйте QR на другом устройстве (MeshPad на телефоне)",
   "pairingScanQr": "Сканировать QR",
   "pairingQrScanHint": "Наведите камеру на QR с экрана устройства-хоста",

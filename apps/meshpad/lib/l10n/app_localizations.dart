@@ -788,6 +788,24 @@ abstract class AppLocalizations {
   /// **'Сопряжено с {device}'**
   String pairingCompletedWith(String device);
 
+  /// No description provided for @syncNoTrustedDevices.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет доверенных устройств'**
+  String get syncNoTrustedDevices;
+
+  /// No description provided for @syncPartialDefault.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация частично выполнена — часть устройств недоступна'**
+  String get syncPartialDefault;
+
+  /// No description provided for @syncFailedDefault.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация не удалась'**
+  String get syncFailedDefault;
+
   /// No description provided for @pairingQrHostHint.
   ///
   /// In ru, this message translates to:

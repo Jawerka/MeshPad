@@ -8,18 +8,16 @@ import 'package:path/path.dart' as p;
 /// C ABI from `native/meshpad_p2p_native` (PLAN §11.8.4).
 final class MeshpadFfiBindings {
   MeshpadFfiBindings._(DynamicLibrary lib)
-      : _startEmbedded = lib
-            .lookupFunction<_StartNative, _StartDart>('meshpad_ffi_start_embedded'),
-        _stopEmbedded =
-            lib.lookupFunction<_StopNative, _StopDart>('meshpad_ffi_stop_embedded'),
-        _embeddedPort = lib
-            .lookupFunction<_PortNative, _PortDart>('meshpad_ffi_embedded_port'),
-        _startDirect =
-            lib.lookupFunction<_StartDirectNative, _StartDirectDart>(
+      : _startEmbedded = lib.lookupFunction<_StartNative, _StartDart>(
+            'meshpad_ffi_start_embedded'),
+        _stopEmbedded = lib.lookupFunction<_StopNative, _StopDart>(
+            'meshpad_ffi_stop_embedded'),
+        _embeddedPort = lib.lookupFunction<_PortNative, _PortDart>(
+            'meshpad_ffi_embedded_port'),
+        _startDirect = lib.lookupFunction<_StartDirectNative, _StartDirectDart>(
           'meshpad_ffi_start_direct',
         ),
-        _stopDirect =
-            lib.lookupFunction<_StopDirectNative, _StopDirectDart>(
+        _stopDirect = lib.lookupFunction<_StopDirectNative, _StopDirectDart>(
           'meshpad_ffi_stop_direct',
         ),
         _request = lib.lookupFunction<_RequestNative, _RequestDart>(
@@ -113,9 +111,10 @@ final class MeshpadFfiBindings {
     }
 
     final script = Platform.script.toFilePath();
-    final pkgRoot = script.contains('packages${Platform.pathSeparator}meshpad_p2p')
-        ? script.split('packages${Platform.pathSeparator}meshpad_p2p').first
-        : null;
+    final pkgRoot =
+        script.contains('packages${Platform.pathSeparator}meshpad_p2p')
+            ? script.split('packages${Platform.pathSeparator}meshpad_p2p').first
+            : null;
     if (pkgRoot != null) {
       for (final profile in ['debug', 'release']) {
         yield '$pkgRoot/native${Platform.pathSeparator}meshpad_p2p_native'
@@ -218,8 +217,10 @@ typedef _StartDirectNative = Uint8 Function();
 typedef _StartDirectDart = int Function();
 typedef _StopDirectNative = Int32 Function();
 typedef _StopDirectDart = int Function();
-typedef _RequestNative = Pointer<Utf8> Function(Int32 method, Pointer<Utf8> path, Pointer<Utf8> body);
-typedef _RequestDart = Pointer<Utf8> Function(int method, Pointer<Utf8> path, Pointer<Utf8> body);
+typedef _RequestNative = Pointer<Utf8> Function(
+    Int32 method, Pointer<Utf8> path, Pointer<Utf8> body);
+typedef _RequestDart = Pointer<Utf8> Function(
+    int method, Pointer<Utf8> path, Pointer<Utf8> body);
 typedef _PollEventNative = Pointer<Utf8> Function();
 typedef _PollEventDart = Pointer<Utf8> Function();
 typedef _FreeStringNative = Void Function(Pointer<Utf8> ptr);

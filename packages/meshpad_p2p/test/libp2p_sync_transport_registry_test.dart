@@ -34,7 +34,8 @@ void main() {
         displayName: 'L',
         createdAt: DateTime.utc(2026),
       ),
-      nativeApi: HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${server.port}'),
+      nativeApi:
+          HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${server.port}'),
       trySidecar: false,
       peerWireRegistry: registry,
     );

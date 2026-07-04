@@ -28,8 +28,7 @@ class GitSyncController {
 
   final Ref _ref;
 
-  Future<String?> _token() =>
-      _ref.read(secureGitTokenStoreProvider).read();
+  Future<String?> _token() => _ref.read(secureGitTokenStoreProvider).read();
 
   Future<GitSyncResult> pull() async {
     final service = await _ref.read(gitSyncServiceProvider.future);

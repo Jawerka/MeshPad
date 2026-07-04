@@ -6,8 +6,10 @@ import 'meshpad_ffi_bindings.dart';
 import 'sidecar_json_transport.dart';
 
 /// In-process libp2p sidecar via Rust FFI (no loopback HTTP, PLAN 8.4).
-class FfiDirectLibp2pNativeApi implements Libp2pNativeApi, SidecarJsonTransport {
-  FfiDirectLibp2pNativeApi(this._ffi) : _transport = FfiSidecarJsonTransport(_ffi);
+class FfiDirectLibp2pNativeApi
+    implements Libp2pNativeApi, SidecarJsonTransport {
+  FfiDirectLibp2pNativeApi(this._ffi)
+      : _transport = FfiSidecarJsonTransport(_ffi);
 
   final MeshpadFfiBindings _ffi;
   final FfiSidecarJsonTransport _transport;

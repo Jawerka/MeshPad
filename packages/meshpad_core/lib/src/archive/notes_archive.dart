@@ -64,9 +64,8 @@ class NotesArchive {
 
     await for (final entity in notesDir.list(recursive: true)) {
       if (entity is! File) continue;
-      final relative = p
-          .relative(entity.path, from: paths.root)
-          .replaceAll('\\', '/');
+      final relative =
+          p.relative(entity.path, from: paths.root).replaceAll('\\', '/');
       final bytes = await entity.readAsBytes();
       archive.addFile(ArchiveFile(relative, bytes.length, bytes));
     }

@@ -114,7 +114,8 @@ void main() {
     expect(await repoA.pendingOutboxCount(), 0);
   });
 
-  test('outbox stays when remote has note meta but missing attachments', () async {
+  test('outbox stays when remote has note meta but missing attachments',
+      () async {
     final dirA = await Directory.systemTemp.createTemp('remote_ack_a_');
     final dirB = await Directory.systemTemp.createTemp('remote_ack_b_');
     final dbA = MeshPadDatabase.inMemory();
@@ -248,7 +249,9 @@ void main() {
       1,
     );
     expect(
-      bumped.where((e) => e.entityId != badNoteId).every((e) => e.retryCount == 0),
+      bumped
+          .where((e) => e.entityId != badNoteId)
+          .every((e) => e.retryCount == 0),
       isTrue,
     );
   });

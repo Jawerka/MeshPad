@@ -20,7 +20,8 @@ void main() {
     });
 
     final storeLocal = DeviceIdentityStore(paths: MeshPadPaths(dirLocal.path));
-    final storeRemote = DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
+    final storeRemote =
+        DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
     final token = generateSyncAuthToken();
 
     final identityLocal = await storeLocal.loadOrCreateIdentity();

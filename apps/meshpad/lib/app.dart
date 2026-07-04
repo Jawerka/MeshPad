@@ -144,8 +144,7 @@ Future<void> bootstrapMeshPadApp() async {
     settings.dataDir ?? await settingsStore.defaultDataDir(),
   );
   MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
-  SyncClockMonitor.onAnomaly =
-      (message) => MeshPadLog.warn('sync', message);
+  SyncClockMonitor.onAnomaly = (message) => MeshPadLog.warn('sync', message);
   await BackgroundSyncRegistrar.applySettings(settings);
   await initializeDateFormatting('ru');
   await initializeDateFormatting('en');

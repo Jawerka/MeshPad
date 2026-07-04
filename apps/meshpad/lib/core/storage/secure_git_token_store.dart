@@ -24,7 +24,8 @@ class SecureGitTokenStore {
     await _storage.write(key: _loginKey, value: login);
   }
 
-  Future<void> write(String token) => _storage.write(key: _tokenKey, value: token);
+  Future<void> write(String token) =>
+      _storage.write(key: _tokenKey, value: token);
 
   Future<void> delete() async {
     await _storage.delete(key: _tokenKey);

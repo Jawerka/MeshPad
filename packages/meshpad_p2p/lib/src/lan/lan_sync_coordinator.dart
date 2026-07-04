@@ -145,9 +145,7 @@ class LanSyncCoordinator {
         return LanSyncRunResult(
           LanSyncRunStatus.partial,
           noteCount: total,
-          message: failureMessages.isNotEmpty
-              ? failureMessages.first
-              : null,
+          message: failureMessages.isNotEmpty ? failureMessages.first : null,
           failedPeerIds: failedPeerIds,
           succeededPeerIds: succeededPeerIds,
         );
@@ -163,9 +161,8 @@ class LanSyncCoordinator {
       if (e is! SyncTransportException) {
         await outboxProcessor.recordSyncFailure(repository);
       }
-      final message = e is MeshPadException
-          ? e.message
-          : meshPadExceptionUserMessage(e);
+      final message =
+          e is MeshPadException ? e.message : meshPadExceptionUserMessage(e);
       MeshPadLog.warn('sync', 'sync batch failed: $message');
       return LanSyncRunResult(
         LanSyncRunStatus.failed,

@@ -23,7 +23,8 @@ void main() {
     await Directory(attachmentsDir).create(recursive: true);
 
     final sourcePath = p.join(attachmentsDir, 'photo.png');
-    await File(sourcePath).writeAsBytes(encodePng(Image(width: 800, height: 600)));
+    await File(sourcePath)
+        .writeAsBytes(encodePng(Image(width: 800, height: 600)));
 
     final thumbFile = await resolveImageThumbnailFile(
       attachmentPath: sourcePath,
@@ -44,7 +45,8 @@ void main() {
     await Directory(thumbsDir).create(recursive: true);
 
     final sourcePath = p.join(attachmentsDir, 'photo.png');
-    await File(sourcePath).writeAsBytes(encodePng(Image(width: 400, height: 300)));
+    await File(sourcePath)
+        .writeAsBytes(encodePng(Image(width: 400, height: 300)));
 
     final staleThumb = File(p.join(thumbsDir, thumbFileName('photo.png')));
     await staleThumb.writeAsBytes(encodeJpg(Image(width: 10, height: 10)));

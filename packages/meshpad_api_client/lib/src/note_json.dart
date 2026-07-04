@@ -43,8 +43,7 @@ List<Note> notesFromApiList(String body) {
     throw const FormatException('Expected JSON array of notes');
   }
   return [
-    for (final item in decoded)
-      noteFromApiJson(item as Map<String, dynamic>),
+    for (final item in decoded) noteFromApiJson(item as Map<String, dynamic>),
   ];
 }
 

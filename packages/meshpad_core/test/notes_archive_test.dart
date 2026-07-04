@@ -55,7 +55,8 @@ void main() {
     );
 
     final zipPath = p.join(tempDir.path, 'export.zip');
-    final count = await NotesArchive.exportToFile(paths: paths, zipPath: zipPath);
+    final count =
+        await NotesArchive.exportToFile(paths: paths, zipPath: zipPath);
     expect(count, 1);
     expect(await File(zipPath).exists(), isTrue);
 

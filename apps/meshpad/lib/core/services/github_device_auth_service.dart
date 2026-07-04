@@ -92,7 +92,8 @@ class GitHubDeviceAuthService {
     void Function(Duration remaining)? onWaiting,
     bool Function()? isCancelled,
   }) async {
-    final deadline = DateTime.now().add(Duration(seconds: deviceCode.expiresIn));
+    final deadline =
+        DateTime.now().add(Duration(seconds: deviceCode.expiresIn));
     var interval = Duration(seconds: deviceCode.interval);
 
     while (DateTime.now().isBefore(deadline)) {

@@ -95,7 +95,8 @@ Endpoints:
     );
   }
 
-  stdout.writeln('MeshPad server listening on http://${server.address.host}:${server.port}');
+  stdout.writeln(
+      'MeshPad server listening on http://${server.address.host}:${server.port}');
   stdout.writeln('Data directory: $dataDir');
   if (auth.isEnabled) {
     stdout.writeln('API key auth: enabled');

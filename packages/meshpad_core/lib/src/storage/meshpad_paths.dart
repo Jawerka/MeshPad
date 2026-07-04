@@ -22,7 +22,8 @@ class MeshPadPaths {
 
   String get tlsRoot => p.join(devicesRoot, 'tls');
 
-  String trustedDeviceFile(String peerId) => p.join(devicesRoot, 'trusted', '$peerId.json');
+  String trustedDeviceFile(String peerId) =>
+      p.join(devicesRoot, 'trusted', '$peerId.json');
 
   String noteDir(String id) => p.join(notesRoot, id);
 
@@ -31,7 +32,8 @@ class MeshPadPaths {
   String noteHistoryRevisionDir(String noteId, int revision) =>
       p.join(noteHistoryDir(noteId), '$revision');
 
-  String attachmentsDir(String noteId) => p.join(noteDir(noteId), 'attachments');
+  String attachmentsDir(String noteId) =>
+      p.join(noteDir(noteId), 'attachments');
 
   String attachmentFile(String noteId, String fileName) =>
       p.join(attachmentsDir(noteId), fileName);

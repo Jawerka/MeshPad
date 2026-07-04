@@ -30,7 +30,8 @@ void main() {
       bytes: [1, 2, 3],
     );
 
-    final clientB = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
+    final clientB =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
     final imported = await clientB.importBatch(storeA.exportBatch());
     expect(imported, greaterThan(0));
 
@@ -52,7 +53,8 @@ void main() {
       await sidecarB.close();
     });
 
-    final clientA = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
+    final clientA =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
     await clientA.pushSnapshot(
       snapshot: {
         'meta': {
@@ -69,7 +71,8 @@ void main() {
     );
 
     final local = Libp2pSidecarWireStore();
-    final remote = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
+    final remote =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
     final count = await local.importFromRemote(remote);
     expect(count, 1);
     expect(local.pullSnapshots(['via-batch']), hasLength(1));

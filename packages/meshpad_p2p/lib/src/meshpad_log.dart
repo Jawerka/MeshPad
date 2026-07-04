@@ -36,9 +36,11 @@ abstract final class MeshPadLog {
   static void discovery(String message) =>
       _write(MeshPadLogLevel.info, 'discovery', message);
 
-  static void sync(String message) => _write(MeshPadLogLevel.debug, 'sync', message);
+  static void sync(String message) =>
+      _write(MeshPadLogLevel.debug, 'sync', message);
 
-  static void lan(String message) => _write(MeshPadLogLevel.info, 'lan', message);
+  static void lan(String message) =>
+      _write(MeshPadLogLevel.info, 'lan', message);
 
   /// Structured metric for sync/reconcile timing (PLAN §11, task 1.6).
   static void metric(String key, String value) =>

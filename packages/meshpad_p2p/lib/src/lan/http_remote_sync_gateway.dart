@@ -30,8 +30,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
   final String? tlsCertSha256;
   final Uint8List? signingPrivateKey;
 
-  bool get _useTlsForSync =>
-      tlsCertSha256 != null && _endpoint.tlsPort != null;
+  bool get _useTlsForSync => tlsCertSha256 != null && _endpoint.tlsPort != null;
 
   bool get _encryptPayload =>
       authToken != null &&
@@ -220,7 +219,8 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       final json = jsonDecode(body) as Map<String, dynamic>;
       return json['status'] == 'trusted';
     } on HttpRemoteSyncException catch (e) {
-      final snippet = e.body.length > 120 ? '${e.body.substring(0, 120)}…' : e.body;
+      final snippet =
+          e.body.length > 120 ? '${e.body.substring(0, 120)}…' : e.body;
       MeshPadLog.warn(
         'pairing',
         'confirm failed ${e.statusCode} for ${_endpoint.host}:${_endpoint.httpPort}: $snippet',
@@ -297,7 +297,8 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
 
   HttpClient _plainClient() => HttpClient();
 
-  Future<String> _get(String path, {bool? secure, bool acceptGzip = false}) async {
+  Future<String> _get(String path,
+      {bool? secure, bool acceptGzip = false}) async {
     final bytes = await _getBytes(path, secure: secure, acceptGzip: acceptGzip);
     return utf8.decode(await _maybeDecryptBytes(bytes));
   }
@@ -309,7 +310,8 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       await _applySyncAuthHeaders(request, method: 'PUT', path: path);
       final json = jsonEncode(payload);
       if (_encryptPayload) {
-        request.headers.contentType = ContentType.parse(encryptedPayloadContentType());
+        request.headers.contentType =
+            ContentType.parse(encryptedPayloadContentType());
         request.write(
           await encryptJsonString(
             json: json,
@@ -429,7 +431,8 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
       }
       final json = jsonEncode(payload);
       if (_encryptPayload) {
-        request.headers.contentType = ContentType.parse(encryptedPayloadContentType());
+        request.headers.contentType =
+            ContentType.parse(encryptedPayloadContentType());
         request.write(
           await encryptJsonString(
             json: json,

@@ -45,9 +45,8 @@ class RustSidecarHarness {
   }
 
   static String _binaryPath(String manifestPath, String profile) {
-    final name = Platform.isWindows
-        ? 'meshpad_p2p_sidecar.exe'
-        : 'meshpad_p2p_sidecar';
+    final name =
+        Platform.isWindows ? 'meshpad_p2p_sidecar.exe' : 'meshpad_p2p_sidecar';
     return '$manifestPath${Platform.pathSeparator}target'
         '${Platform.pathSeparator}$profile'
         '${Platform.pathSeparator}$name';
@@ -78,8 +77,8 @@ class RustSidecarHarness {
         try {
           final request = await client.getUrl(Uri.parse('$baseUrl/health'));
           final response = await request.close().timeout(
-            const Duration(seconds: 2),
-          );
+                const Duration(seconds: 2),
+              );
           if (response.statusCode == 200) return;
         } on Object {
           // retry

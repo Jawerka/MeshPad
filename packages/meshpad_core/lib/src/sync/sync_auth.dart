@@ -7,5 +7,4 @@ const meshpadSyncPeerIdHeader = 'X-MeshPad-Peer-Id';
 const meshpadSyncAuthTokenHeader = 'X-MeshPad-Auth-Token';
 
 /// Generates a shared LAN sync auth token (stored on both peers after pairing).
-String generateSyncAuthToken([Uuid? uuid]) =>
-    (uuid ?? const Uuid()).v4();
+String generateSyncAuthToken([Uuid? uuid]) => (uuid ?? const Uuid()).v4();

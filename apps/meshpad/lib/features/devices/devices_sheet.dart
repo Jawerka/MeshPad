@@ -47,10 +47,10 @@ class DevicesSheet extends ConsumerWidget {
     final trustedAsync = ref.watch(trustedDevicesProvider);
     final discovered = ref.watch(discoveredPeersProvider);
     final lan = readLanSyncTransport(ref);
-    final trustedIds = trustedAsync.valueOrNull?.map((d) => d.peerId).toSet() ?? {};
-    final visibleDiscovered = discovered
-        .where((peer) => !trustedIds.contains(peer.peerId))
-        .toList();
+    final trustedIds =
+        trustedAsync.valueOrNull?.map((d) => d.peerId).toSet() ?? {};
+    final visibleDiscovered =
+        discovered.where((peer) => !trustedIds.contains(peer.peerId)).toList();
     final compact = isCompactFeedLayout(context);
     final l10n = AppLocalizations.of(context);
 
@@ -131,7 +131,10 @@ class DevicesSheet extends ConsumerWidget {
                         if (devices.isEmpty) {
                           return Text(
                             l10n.devicesTrustedEmpty,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: MeshPadColors.textMuted,
                                 ),
                           );
@@ -260,7 +263,8 @@ class DevicesSheet extends ConsumerWidget {
     );
   }
 
-  static String _localLanSubtitle(AppLocalizations l10n, LanSyncTransport? lan) {
+  static String _localLanSubtitle(
+      AppLocalizations l10n, LanSyncTransport? lan) {
     final port = lan?.localHttpPort;
     if (port == null) return l10n.devicesThisDevice;
     final host = lan?.localLanHost;
@@ -430,7 +434,8 @@ class DevicesSheet extends ConsumerWidget {
       LanPeerSyncStatus.completed when peerResult.noteCount > 0 =>
         l10n.devicesSyncNotesCount(peerResult.noteCount),
       LanPeerSyncStatus.completed => l10n.devicesSyncCompleted,
-      LanPeerSyncStatus.failed || LanPeerSyncStatus.unreachable =>
+      LanPeerSyncStatus.failed ||
+      LanPeerSyncStatus.unreachable =>
         peerResult.message ?? l10n.devicesSyncTimeout,
     };
 
@@ -440,7 +445,8 @@ class DevicesSheet extends ConsumerWidget {
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
@@ -449,8 +455,7 @@ class DevicesSheet extends ConsumerWidget {
     if (!context.mounted) return;
 
     final message = switch (result.status) {
-      SyncRunStatus.noPeers =>
-        result.message ?? l10n.devicesNoPeersToSync,
+      SyncRunStatus.noPeers => result.message ?? l10n.devicesNoPeersToSync,
       SyncRunStatus.completed => result.noteCount > 0
           ? l10n.devicesSyncNotesCount(result.noteCount)
           : l10n.devicesSyncCompleted,
@@ -461,7 +466,8 @@ class DevicesSheet extends ConsumerWidget {
         result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showPinPairingDialog(
@@ -629,9 +635,8 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
     if (event is! PairingConfirmedRemotely || !mounted) return;
     final l10n = AppLocalizations.of(context);
     final name = event.initiatorDisplayName?.trim();
-    final label = (name != null && name.isNotEmpty)
-        ? name
-        : l10n.devicesPinPairing;
+    final label =
+        (name != null && name.isNotEmpty) ? name : l10n.devicesPinPairing;
     setState(() {
       _confirming = false;
       _statusMessage = l10n.pairingCompletedWith(label);
@@ -849,7 +854,8 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
         (discovered.isEmpty
             ? null
             : (widget.initialPeer != null &&
-                    discovered.any((p) => p.peerId == widget.initialPeer!.peerId)
+                    discovered
+                        .any((p) => p.peerId == widget.initialPeer!.peerId)
                 ? widget.initialPeer
                 : discovered.first));
 
@@ -1040,7 +1046,9 @@ class _PinPairingDialogState extends ConsumerState<_PinPairingDialog> {
                               }
 
                               final target = selectedPeer ??
-                                  (discovered.isEmpty ? null : discovered.first);
+                                  (discovered.isEmpty
+                                      ? null
+                                      : discovered.first);
                               if (target == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -1106,8 +1114,16 @@ class _LocalDeviceActions extends StatelessWidget {
     if (compact) {
       return _DeviceActionsMenu(
         items: [
-          (value: 'icon', label: l10n.devicesActionIcon, icon: Icons.palette_outlined),
-          (value: 'rename', label: l10n.devicesActionRename, icon: Icons.edit_outlined),
+          (
+            value: 'icon',
+            label: l10n.devicesActionIcon,
+            icon: Icons.palette_outlined
+          ),
+          (
+            value: 'rename',
+            label: l10n.devicesActionRename,
+            icon: Icons.edit_outlined
+          ),
           (value: 'sync', label: l10n.devicesActionSync, icon: Icons.sync),
         ],
         onSelected: (value) {
@@ -1167,8 +1183,16 @@ class _TrustedDeviceActions extends StatelessWidget {
     if (compact) {
       return _DeviceActionsMenu(
         items: [
-          (value: 'icon', label: l10n.devicesActionIcon, icon: Icons.palette_outlined),
-          (value: 'rename', label: l10n.devicesActionRename, icon: Icons.edit_outlined),
+          (
+            value: 'icon',
+            label: l10n.devicesActionIcon,
+            icon: Icons.palette_outlined
+          ),
+          (
+            value: 'rename',
+            label: l10n.devicesActionRename,
+            icon: Icons.edit_outlined
+          ),
           (value: 'sync', label: l10n.devicesActionSync, icon: Icons.sync),
           (
             value: 'revoke',
@@ -1310,9 +1334,10 @@ class _DeviceCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           subtitle,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: MeshPadColors.textMuted,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: MeshPadColors.textMuted,
+                                  ),
                         ),
                       ],
                     ),

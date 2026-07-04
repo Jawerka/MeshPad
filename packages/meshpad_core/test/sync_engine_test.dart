@@ -3,8 +3,7 @@ import 'dart:io';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:test/test.dart';
 
-NoteRepository _repo(String dir, MeshPadDatabase db) =>
-    createNoteRepository(
+NoteRepository _repo(String dir, MeshPadDatabase db) => createNoteRepository(
       dataDir: dir,
       defaultAuthor: 'peer',
       database: db,

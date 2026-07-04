@@ -45,7 +45,8 @@ class MeshPadHttpServer {
     router.put('/api/notes/<id>', _updateNote);
     router.delete('/api/notes/<id>', _deleteNote);
     router.post('/api/notes/<id>/restore', _restoreNote);
-    router.get('/api/notes/<noteId>/attachments/<fileName>/thumb', _getAttachmentThumb);
+    router.get('/api/notes/<noteId>/attachments/<fileName>/thumb',
+        _getAttachmentThumb);
     router.get('/api/notes/<noteId>/attachments/<fileName>', _getAttachment);
     router.put('/api/notes/<noteId>/attachments/<fileName>', _putAttachment);
     router.get('/api/tags', _listTags);
@@ -472,7 +473,7 @@ Middleware corsHeaders() {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers':
+    'Access-Control-Allow-Headers':
         'Origin, Content-Type, Accept, Authorization, X-MeshPad-Api-Key, Last-Event-ID',
   };
 

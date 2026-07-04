@@ -108,9 +108,9 @@ class _PairingQrScannerPageState extends State<_PairingQrScannerPage> {
               child: Text(
                 l10n.pairingQrScanHint,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      shadows: const [Shadow(blurRadius: 8)],
-                    ),
+                  color: Colors.white,
+                  shadows: const [Shadow(blurRadius: 8)],
+                ),
                 textAlign: TextAlign.center,
               ),
             ),

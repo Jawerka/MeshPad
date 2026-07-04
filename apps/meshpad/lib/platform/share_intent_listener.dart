@@ -53,7 +53,9 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
   Future<void> _handleShare(SharePayload payload) async {
     final notifier = ref.read(notesListProvider.notifier);
 
-    if (payload.isText && payload.text != null && payload.text!.trim().isNotEmpty) {
+    if (payload.isText &&
+        payload.text != null &&
+        payload.text!.trim().isNotEmpty) {
       final raw = payload.text!.trim();
       final markdown = _markdownFromSharedText(raw);
       await notifier.createNote(markdown: markdown);
@@ -74,7 +76,9 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
 
   String _markdownFromSharedText(String raw) {
     final uri = Uri.tryParse(raw);
-    if (uri != null && uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
+    if (uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
       return '[$raw]($raw)';
     }
     return raw;
@@ -82,7 +86,8 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

@@ -5,7 +5,8 @@ import 'package:meshpad_core/meshpad_core.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('generateDeviceSigningKeyPair produces verifiable Ed25519 keys', () async {
+  test('generateDeviceSigningKeyPair produces verifiable Ed25519 keys',
+      () async {
     final pair = await generateDeviceSigningKeyPair();
     expect(pair.algorithm, deviceSigningAlgorithmEd25519);
     expect(pair.publicKeyBytes.length, 32);

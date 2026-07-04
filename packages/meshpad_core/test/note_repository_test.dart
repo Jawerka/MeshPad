@@ -66,7 +66,8 @@ void main() {
     await repo.deleteNote(note.id);
 
     final metaPath = p.join(tempDir.path, 'notes', note.id, 'meta.json');
-    final raw = jsonDecode(await File(metaPath).readAsString()) as Map<String, dynamic>;
+    final raw =
+        jsonDecode(await File(metaPath).readAsString()) as Map<String, dynamic>;
     raw['deleted_at'] = DateTime.now()
         .toUtc()
         .subtract(const Duration(days: 8))

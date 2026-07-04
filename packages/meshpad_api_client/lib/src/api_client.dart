@@ -29,7 +29,8 @@ class MeshPadApiClient {
   Future<void> checkHealth() async {
     final response = await _get('/api/health');
     if (response.statusCode != 200) {
-      throw MeshPadApiException.fromResponse(response.statusCode, response.body);
+      throw MeshPadApiException.fromResponse(
+          response.statusCode, response.body);
     }
   }
 
@@ -104,8 +105,7 @@ class MeshPadApiClient {
     required NoteSort sort,
     String? tag,
   }) {
-    final sortParam =
-        sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
+    final sortParam = sort == NoteSort.updatedAt ? 'updated_at' : 'created_at';
     return {
       'sort': sortParam,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
@@ -149,7 +149,8 @@ class MeshPadApiClient {
       },
     );
     if (response.statusCode != 201) {
-      throw MeshPadApiException.fromResponse(response.statusCode, response.body);
+      throw MeshPadApiException.fromResponse(
+          response.statusCode, response.body);
     }
     return noteFromApiBody(response.body);
   }
@@ -270,14 +271,16 @@ class MeshPadApiClient {
   }
 
   Uri _uri(String path, {Map<String, String>? query}) {
-    final resolved = _base.resolve(path.startsWith('/') ? path.substring(1) : path);
+    final resolved =
+        _base.resolve(path.startsWith('/') ? path.substring(1) : path);
     if (query == null || query.isEmpty) return resolved;
     return resolved.replace(queryParameters: query);
   }
 
   void _ensureOk(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw MeshPadApiException.fromResponse(response.statusCode, response.body);
+      throw MeshPadApiException.fromResponse(
+          response.statusCode, response.body);
     }
   }
 
@@ -297,8 +300,11 @@ class MeshPadApiClient {
     if (uri.host.isEmpty) {
       throw MeshPadApiException('api_config', 'Некорректный URL: $baseUrl');
     }
-    return uri.replace(path: uri.path.endsWith('/') ? uri.path : '${uri.path}/');
+    return uri.replace(
+        path: uri.path.endsWith('/') ? uri.path : '${uri.path}/');
   }
 
-  static const _jsonHeaders = {'Content-Type': 'application/json; charset=utf-8'};
+  static const _jsonHeaders = {
+    'Content-Type': 'application/json; charset=utf-8'
+  };
 }

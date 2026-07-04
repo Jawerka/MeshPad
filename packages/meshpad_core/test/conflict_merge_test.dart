@@ -25,15 +25,16 @@ void main() {
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   });
 
-  test('A edits title, B edits body at same time → conflict copy, no silent loss',
+  test(
+      'A edits title, B edits body at same time → conflict copy, no silent loss',
       () async {
     final note = await repo.createNote(title: 'Original', markdown: 'shared');
     final at = DateTime.utc(2026, 5, 31, 12);
     final noteDir = p.join(tempDir.path, 'notes', note.id);
     final localMeta = note.toMeta().copyWith(
-      title: 'Title from A',
-      updatedAt: at,
-    );
+          title: 'Title from A',
+          updatedAt: at,
+        );
     await File(p.join(noteDir, 'meta.json')).writeAsString(
       const JsonEncoder.withIndent('  ').convert(localMeta.toJson()),
     );

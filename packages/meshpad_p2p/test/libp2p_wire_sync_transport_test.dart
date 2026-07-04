@@ -21,7 +21,8 @@ void main() {
     await sidecar.close();
   });
 
-  test('requestSync uses wire data plane and skips unreachable LAN peer', () async {
+  test('requestSync uses wire data plane and skips unreachable LAN peer',
+      () async {
     final wire = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:$port');
     await wire.pushSnapshot(
       snapshot: {

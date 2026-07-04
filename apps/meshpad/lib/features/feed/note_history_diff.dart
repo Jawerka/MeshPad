@@ -92,7 +92,7 @@ class NoteHistoryDiffView extends StatelessWidget {
         final bg = switch (line.kind) {
           _HistoryDiffLineKind.same => null,
           _HistoryDiffLineKind.added =>
-              MeshPadColors.primary.withValues(alpha: 0.12),
+            MeshPadColors.primary.withValues(alpha: 0.12),
           _HistoryDiffLineKind.removed => Colors.red.withValues(alpha: 0.12),
         };
         final fg = switch (line.kind) {

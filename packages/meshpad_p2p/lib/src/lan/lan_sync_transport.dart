@@ -2,11 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-
-
 import 'package:meshpad_core/meshpad_core.dart';
-
-
 
 import '../pairing_protocol.dart';
 
@@ -30,37 +26,21 @@ import '../meshpad_log.dart';
 
 import 'udp_lan_discovery.dart';
 
-
-
 typedef RemoteTrustedHandler = Future<void> Function(PinPairingConfirm confirm);
-
-
 
 /// LAN sync transport over HTTP + mDNS/UDP discovery (pre-libp2p MVP, PLAN §5).
 
 class LanSyncTransport implements SyncTransport {
-
   LanSyncTransport({
-
     required Future<SyncEngine> Function() getEngine,
-
     required Future<LocalDeviceIdentity> Function() getIdentity,
-
     this.getDeviceStore,
-
     this.announceHost,
-
     this.onRemoteTrusted,
-
     this.onCascadeSync,
-
     this.enableTls = true,
-
   })  : _getEngine = getEngine,
-
         _getIdentity = getIdentity;
-
-
 
   final Future<SyncEngine> Function() _getEngine;
 
@@ -76,13 +56,9 @@ class LanSyncTransport implements SyncTransport {
 
   final bool enableTls;
 
-
-
   final _controller = StreamController<SyncTransportEvent>.broadcast();
 
   final _peers = <String, LanPeerEndpoint>{};
-
-
 
   LanPeerServer? _server;
 
@@ -98,49 +74,29 @@ class LanSyncTransport implements SyncTransport {
 
   LanTlsIdentity? _tlsIdentity;
 
-
-
   @override
-
   Stream<SyncTransportEvent> get events => _controller.stream;
 
-
-
   LanPeerEndpoint? endpointFor(String peerId) => _peers[peerId];
-
-
 
   /// Caches a peer endpoint (e.g. from trusted device record) for sync.
 
   void rememberEndpoint(LanPeerEndpoint endpoint) {
-
     _peers[endpoint.peerId] = endpoint;
 
     MeshPadLog.lan(
-
       'remember endpoint ${endpoint.peerId} '
-
       '${endpoint.host}:${endpoint.httpPort}',
-
     );
-
   }
-
-
 
   /// Drops cached peer state after trust is revoked (PLAN §5.3).
 
   void forgetPeer(String peerId) {
-
     if (_peers.remove(peerId) != null) {
-
       MeshPadLog.lan('forget peer $peerId');
-
     }
-
   }
-
-
 
   Map<String, LanPeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
 
@@ -152,53 +108,31 @@ class LanSyncTransport implements SyncTransport {
 
   String? get localTlsCertSha256 => _tlsIdentity?.certSha256Hex;
 
-
-
   Future<void> setPairingOffer(PinPairingOffer? offer) async {
-
     await _ensureStarted();
 
     _server?.setPairingOffer(offer);
 
     if (offer != null) {
-
       MeshPadLog.pairing(
-
         'pairing offer active for ${offer.peerId} pin=${offer.pin}',
-
       );
-
     } else {
-
       MeshPadLog.pairing('pairing offer cleared');
-
     }
-
   }
 
-
-
   Future<void> _ensureStarted() async {
-
     if (_running) return;
 
     await start();
-
   }
-
-
 
   String? _announceHost;
 
-
-
   @override
-
   Future<void> start() async {
-
     if (_running) return;
-
-
 
     _identity = await _getIdentity();
 
@@ -212,29 +146,21 @@ class LanSyncTransport implements SyncTransport {
     }
 
     _server = LanPeerServer(
-
       getEngine: _getEngine,
-
       lookupTrustedPeer: getDeviceStore == null
           ? null
           : (peerId) async {
               final store = await getDeviceStore!();
               return store.trustedRecordFor(peerId);
             },
-
       onPairingConfirmed: _handlePairingConfirmed,
-
       onCascadeSyncRequested: onCascadeSync,
-
       tlsIdentity: _tlsIdentity,
-
     );
 
     _httpPort = await _server!.start();
 
     _tlsPort = _server!.tlsPort;
-
-
 
     _discovery = CompositeLanDiscovery();
 
@@ -242,95 +168,57 @@ class LanSyncTransport implements SyncTransport {
 
     await _discovery!.start(buildAnnouncement: _buildAnnouncement);
 
-
-
     _running = true;
 
     MeshPadLog.lan(
-
       'transport started peer=${_identity!.peerId} '
-
       'host=$_announceHost http=$_httpPort',
-
     );
-
   }
 
-
-
   Future<void> _handlePairingConfirmed(PinPairingConfirm confirm) async {
-
     final initiatorId = confirm.initiatorPeerId;
 
     if (initiatorId != null) {
-
       _controller.add(
-
         PairingConfirmedRemotely(
-
           initiatorPeerId: initiatorId,
-
           initiatorDisplayName: confirm.initiatorDisplayName,
-
         ),
-
       );
-
     }
 
     if (onRemoteTrusted == null) return;
 
     if (confirm.initiatorPeerId == null ||
-
         confirm.initiatorLanHost == null ||
-
         confirm.initiatorHttpPort == null) {
-
       MeshPadLog.pairing(
-
         'remote trust skipped: initiator endpoint missing in confirm',
-
       );
 
       return;
-
     }
 
     await onRemoteTrusted!(confirm);
-
   }
 
-
-
   LanPeerAnnouncement _buildAnnouncement() {
-
     final identity = _identity!;
 
     return LanPeerAnnouncement(
-
       peerId: identity.peerId,
-
       displayName: identity.displayName,
-
       host: _announceHost!,
-
       httpPort: _httpPort!,
-
       tlsPort: _tlsPort,
-
     );
-
   }
 
-
-
   void _handleAnnouncement(LanPeerAnnouncement announcement) {
-
     final localId = _identity?.peerId;
 
     if (localId == null || announcement.peerId == localId) return;
-
-
 
     final endpoint = LanPeerEndpoint.fromAnnouncement(announcement);
 
@@ -347,44 +235,25 @@ class LanSyncTransport implements SyncTransport {
 
     _peers[announcement.peerId] = merged;
 
-
-
     if (existing == null ||
-
         existing.host != merged.host ||
-
         existing.httpPort != merged.httpPort ||
-
         existing.displayName != merged.displayName) {
-
       MeshPadLog.discovery(
-
         'peer updated ${merged.peerId} ${merged.host}:${merged.httpPort}',
-
       );
 
       _controller.add(
-
         PeerDiscovered(
-
           peerId: merged.peerId,
-
           displayName: merged.displayName,
-
         ),
-
       );
-
     }
-
   }
 
-
-
   @override
-
   Future<void> stop() async {
-
     if (!_running) return;
 
     await _discovery?.stop();
@@ -398,69 +267,47 @@ class LanSyncTransport implements SyncTransport {
     _running = false;
 
     MeshPadLog.lan('transport stopped');
-
   }
-
-
 
   /// Resolves a reachable endpoint: cache → discovery refresh → stored fallback.
 
   Future<LanPeerEndpoint?> resolvePeerEndpoint({
-
     required String peerId,
-
     LanPeerEndpoint? stored,
-
   }) async {
-
     await _ensureStarted();
 
-
-
     Future<LanPeerEndpoint?> probe(LanPeerEndpoint endpoint) async {
-
       final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
 
       if (!await gateway.checkHealth(secure: false)) {
-
         MeshPadLog.warn(
           'sync',
           'health failed ${endpoint.peerId} ${endpoint.host}:${endpoint.httpPort}',
         );
 
         return null;
-
       }
 
       final enriched = await gateway.enrichEndpointFromHealth(endpoint);
 
       MeshPadLog.sync(
-
         'health ok ${enriched.peerId} ${enriched.host}:${enriched.httpPort}'
-
         '${enriched.tlsPort != null ? ' tls=${enriched.tlsPort}' : ''}',
-
       );
 
       return enriched;
-
     }
-
-
 
     final cached = _peers[peerId];
 
     if (cached != null) {
-
       final live = await probe(cached);
 
       if (live != null) return live;
 
       _peers.remove(peerId);
-
     }
-
-
 
     MeshPadLog.sync('refreshing discovery for $peerId');
 
@@ -468,19 +315,13 @@ class LanSyncTransport implements SyncTransport {
 
     await Future<void>.delayed(const Duration(milliseconds: 600));
 
-
-
     final discovered = _peers[peerId];
 
     if (discovered != null) {
-
       final live = await probe(discovered);
 
       if (live != null) return live;
-
     }
-
-
 
     if (stored != null) {
       final localHost = _announceHost;
@@ -506,88 +347,52 @@ class LanSyncTransport implements SyncTransport {
       }
     }
 
-
-
     MeshPadLog.warn('sync', 'no reachable endpoint for $peerId');
 
     return null;
-
   }
 
-
-
   @override
-
   Future<void> requestSync({String? peerId}) async {
-
     if (!_running) {
-
       _controller.add(
-
         SyncFailed(
-
           peerId: peerId,
-
           message: 'LAN transport не запущен',
-
         ),
-
       );
 
       return;
-
     }
-
-
 
     if (peerId == null) {
-
       _controller.add(
-
         SyncFailed(message: 'Не указано устройство для синхронизации'),
-
       );
 
       return;
-
     }
-
-
 
     final resolved = _peers[peerId];
 
     if (resolved == null) {
-
       _controller.add(
-
         SyncFailed(
-
           peerId: peerId,
-
           message: 'Устройство $peerId не найдено в сети',
-
         ),
-
       );
 
       return;
-
     }
 
-
-
     MeshPadLog.sync(
-
       'sync start with $peerId at ${resolved.host}:${resolved.httpPort}',
-
     );
-
-
 
     LanSyncWireBytes.beginSession();
     final syncStopwatch = Stopwatch()..start();
     try {
-
       final engine = await _getEngine();
 
       final gateway = await gatewayForPeer(peerId);
@@ -602,25 +407,19 @@ class LanSyncTransport implements SyncTransport {
       }
 
       syncStopwatch.stop();
-      MeshPadLog.metric('sync_duration_ms', '${syncStopwatch.elapsedMilliseconds}');
+      MeshPadLog.metric(
+          'sync_duration_ms', '${syncStopwatch.elapsedMilliseconds}');
       MeshPadLog.metric('sync_bytes', '${LanSyncWireBytes.sessionTotal}');
 
       MeshPadLog.sync(
-
         'sync done $peerId pulled=${result.pulled} '
-
         'pushed=${result.receivedByPeer} ack=${result.acknowledged}'
-
         '${result.failedPushNoteIds.isNotEmpty ? ' partialFail=${result.failedPushNoteIds.length}' : ''}',
-
       );
 
       _controller.add(
-
         SyncCompleted(peerId: peerId, noteCount: result.total),
-
       );
-
     } catch (e) {
       if (e is HttpRemoteSyncException &&
           (e.statusCode == 401 || e.statusCode == 403)) {
@@ -636,41 +435,25 @@ class LanSyncTransport implements SyncTransport {
       MeshPadLog.warn('sync', 'sync failed $peerId: $message');
 
       _controller.add(
-
         SyncFailed(peerId: peerId, message: message),
-
       );
-
     }
-
   }
 
-
-
   Future<bool> confirmPairingOnPeer({
-
     required LanPeerEndpoint endpoint,
-
     required PinPairingConfirm confirm,
-
   }) async {
-
     final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
 
     return gateway.confirmPairing(confirm);
-
   }
 
-
-
   Future<HttpRemoteSyncGateway> gatewayForPeer(String peerId) async {
-
     final endpoint = _peers[peerId];
 
     if (endpoint == null) {
-
       throw StateError('no endpoint for $peerId');
-
     }
 
     final identity = await _getIdentity();
@@ -695,39 +478,26 @@ class LanSyncTransport implements SyncTransport {
     );
   }
 
-
-
   Future<String?> fetchPeerTlsCertSha256(LanPeerEndpoint endpoint) async {
     final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
     final enriched = await gateway.enrichEndpointFromHealth(endpoint);
     return HttpRemoteSyncGateway(endpoint: enriched).fetchTlsCertSha256();
   }
 
-
-
   Future<PinPairingOffer?> fetchPairingOffer(LanPeerEndpoint endpoint) {
-
     return HttpRemoteSyncGateway(endpoint: endpoint).fetchPairingOffer();
-
   }
-
-
 
   /// Re-advertises on LAN after the local display name changes.
 
   Future<void> refreshLocalDisplayName(String displayName) async {
-
     final trimmed = displayName.trim();
 
     if (trimmed.isEmpty) return;
 
-
-
     final current = _identity ?? await _getIdentity();
 
     if (trimmed == current.displayName) return;
-
-
 
     _identity = LocalDeviceIdentity(
       peerId: current.peerId,
@@ -738,21 +508,14 @@ class LanSyncTransport implements SyncTransport {
       signingKeyAlgorithm: current.signingKeyAlgorithm,
     );
 
-
-
     if (!_running || _discovery == null) return;
-
-
 
     await _discovery!.stop();
 
     await _discovery!.start(buildAnnouncement: _buildAnnouncement);
 
     MeshPadLog.lan('local display name updated to $trimmed');
-
   }
-
-
 
   Future<String?> _authTokenFor(String peerId) async {
     final loader = getDeviceStore;
@@ -771,13 +534,12 @@ class LanSyncTransport implements SyncTransport {
 
   String _httpSyncErrorMessage(HttpRemoteSyncException e) {
     return switch (e.statusCode) {
-      401 => 'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.',
+      401 =>
+        'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.',
       403 => 'Синхронизация отклонена: устройство не доверено.',
       _ => e.toString(),
     };
   }
-
-
 
   /// Triggers an immediate mDNS/UDP browse (e.g. when opening «Устройства»).
   Future<void> refreshDiscovery() async {
@@ -789,13 +551,7 @@ class LanSyncTransport implements SyncTransport {
     unawaited(stop());
     _controller.close();
   }
-
 }
 
-
-
 Future<bool> probeLanPeerHealth(LanPeerEndpoint endpoint) =>
-
     HttpRemoteSyncGateway(endpoint: endpoint).checkHealth();
-
-

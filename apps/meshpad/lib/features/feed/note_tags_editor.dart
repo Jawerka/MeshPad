@@ -84,7 +84,8 @@ class _NoteTagsEditorDialogState extends ConsumerState<_NoteTagsEditorDialog> {
                 elevation: 4,
                 borderRadius: BorderRadius.circular(8),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 160, maxWidth: 400),
+                  constraints:
+                      const BoxConstraints(maxHeight: 160, maxWidth: 400),
                   child: ListView.builder(
                     padding: EdgeInsets.zero,
                     shrinkWrap: true,
@@ -128,13 +129,13 @@ class _NoteTagsEditorDialogState extends ConsumerState<_NoteTagsEditorDialog> {
     final spacer = prefix.isEmpty ? '' : ' ';
     final newBefore = '$prefix$spacer$tag';
     final trimmedAfter = after.trimLeft();
-    final newText = trimmedAfter.isEmpty
-        ? '$newBefore, '
-        : '$newBefore, $trimmedAfter';
+    final newText =
+        trimmedAfter.isEmpty ? '$newBefore, ' : '$newBefore, $trimmedAfter';
     final offset = newBefore.length + 2;
     _controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(offset: offset.clamp(0, newText.length)),
+      selection:
+          TextSelection.collapsed(offset: offset.clamp(0, newText.length)),
     );
   }
 

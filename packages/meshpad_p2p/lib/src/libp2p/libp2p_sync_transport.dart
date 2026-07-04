@@ -74,8 +74,7 @@ class Libp2pSyncTransport implements SyncTransport {
   LanSyncTransport get lanFallback => _lan;
 
   @override
-  Stream<SyncTransportEvent> get events =>
-      _mergedEvents?.stream ?? _lan.events;
+  Stream<SyncTransportEvent> get events => _mergedEvents?.stream ?? _lan.events;
 
   /// When false, only the native sidecar is started (unit tests).
   @override
@@ -99,7 +98,8 @@ class Libp2pSyncTransport implements SyncTransport {
         if (native is FfiDirectLibp2pNativeApi) {
           final health = await native.fetchHealth();
           _sidecarBackend = health?.backend;
-          MeshPadLog.lan('libp2p native transport: ffi_direct (no loopback HTTP)');
+          MeshPadLog.lan(
+              'libp2p native transport: ffi_direct (no loopback HTTP)');
         } else if (native is HttpLibp2pNativeApi) {
           final health = await native.fetchHealth();
           _sidecarBackend = health?.backend;
@@ -163,7 +163,8 @@ class Libp2pSyncTransport implements SyncTransport {
             'via=${sidecarSync.importVia ?? 'none'})',
           );
         }
-        final result = await _syncViaSidecarWire(peerId: peerId, native: native);
+        final result =
+            await _syncViaSidecarWire(peerId: peerId, native: native);
         final wireActive = result.pulled > 0 ||
             result.receivedByPeer > 0 ||
             result.acknowledged > 0 ||
@@ -278,7 +279,8 @@ class Libp2pSyncTransport implements SyncTransport {
     }
   }
 
-  Future<void> setPairingOffer(PinPairingOffer? offer) => _lan.setPairingOffer(offer);
+  Future<void> setPairingOffer(PinPairingOffer? offer) =>
+      _lan.setPairingOffer(offer);
 
   Future<bool> confirmPairingOnPeer({
     required LanPeerEndpoint endpoint,
@@ -302,7 +304,8 @@ class Libp2pSyncTransport implements SyncTransport {
     _peerWireRegistry.remember(peerId, wireBaseUrl);
   }
 
-  String? peerWireBaseFor(String peerId) => _peerWireRegistry.wireBaseFor(peerId);
+  String? peerWireBaseFor(String peerId) =>
+      _peerWireRegistry.wireBaseFor(peerId);
 
   String? remoteWireBaseFor(String peerId) =>
       _peerWireRegistry.remoteWireBaseFor(peerId);
@@ -413,7 +416,8 @@ class Libp2pSyncTransport implements SyncTransport {
         final resolved = inferPeerWireBase(lanHost: lanHost);
         if (resolved != null) {
           _peerWireRegistry.rememberInferred(peerId, resolved);
-          MeshPadLog.lan('libp2p peer wire hint $peerId → $resolved (inferred)');
+          MeshPadLog.lan(
+              'libp2p peer wire hint $peerId → $resolved (inferred)');
         }
       }
     }

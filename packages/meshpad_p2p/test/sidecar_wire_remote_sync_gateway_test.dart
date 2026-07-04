@@ -21,7 +21,8 @@ void main() {
     await sidecar.close();
   });
 
-  test('pulls remote snapshot from sidecar wire store into SyncEngine', () async {
+  test('pulls remote snapshot from sidecar wire store into SyncEngine',
+      () async {
     final wire = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:$port');
     await wire.pushSnapshot(
       snapshot: {
@@ -108,7 +109,8 @@ void main() {
       ),
     );
 
-    final result = await engine.syncWithRemote(SidecarWireRemoteSyncGateway(client: wire));
+    final result =
+        await engine.syncWithRemote(SidecarWireRemoteSyncGateway(client: wire));
     expect(result.pulled, 1);
 
     final note = await repo.getNote('note-att');

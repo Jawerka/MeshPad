@@ -117,8 +117,9 @@ class _LightboxDialogState extends State<_LightboxDialog> {
                     : Colors.white24,
                 size: 36,
               ),
-              onPressed:
-                  _index < widget.imageSources.length - 1 ? () => _goTo(1) : null,
+              onPressed: _index < widget.imageSources.length - 1
+                  ? () => _goTo(1)
+                  : null,
             ),
           ),
           Positioned(

@@ -112,9 +112,8 @@ class AttachmentGrid extends StatelessWidget {
             (file) => _FileChip(
               name: file.name,
               size: file.size,
-              onTap: onOpenAttachment == null
-                  ? null
-                  : () => openAttachment(file),
+              onTap:
+                  onOpenAttachment == null ? null : () => openAttachment(file),
             ),
           ),
         ],
@@ -233,6 +232,7 @@ class _FileChip extends StatelessWidget {
   }
 }
 
-String noteAttachmentPath(Note note, AttachmentMeta attachment, String dataDir) {
+String noteAttachmentPath(
+    Note note, AttachmentMeta attachment, String dataDir) {
   return MeshPadPaths(dataDir).attachmentFile(note.id, attachment.name);
 }

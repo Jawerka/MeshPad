@@ -113,7 +113,8 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   Future<void> _resetDataDir() async {
     if (_busy) return;
 
-    final isCustom = await ref.read(settingsControllerProvider).isCustomDataDir();
+    final isCustom =
+        await ref.read(settingsControllerProvider).isCustomDataDir();
     if (!isCustom || !mounted) return;
 
     final confirmed = await showDialog<bool>(
@@ -473,7 +474,10 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       hintText: l10n.apiUrlHint,
     );
 
-    if (nextUrl == null || nextUrl.isEmpty || nextUrl == currentUrl || !mounted) {
+    if (nextUrl == null ||
+        nextUrl.isEmpty ||
+        nextUrl == currentUrl ||
+        !mounted) {
       return;
     }
 
@@ -500,18 +504,15 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
   Future<void> _pickAutoBackupDirectory() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
-    final picked = await ref
-        .read(settingsControllerProvider)
-        .pickAutoBackupDirectory(
-          dialogTitle: l10n.autoBackupPickDirectoryTitle,
-        );
+    final picked =
+        await ref.read(settingsControllerProvider).pickAutoBackupDirectory(
+              dialogTitle: l10n.autoBackupPickDirectoryTitle,
+            );
     if (!mounted || picked == null) return;
 
     setState(() => _busy = true);
     try {
-      await ref
-          .read(settingsControllerProvider)
-          .setAutoBackupDirectory(picked);
+      await ref.read(settingsControllerProvider).setAutoBackupDirectory(picked);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -686,703 +687,742 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(l10n.settingsTitle, style: Theme.of(context).textTheme.titleMedium),
+          Text(l10n.settingsTitle,
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
           Expanded(
             child: ListView(
               controller: widget.scrollController,
               children: [
-          if (isWeb) ...[
-            ref.watch(webApiBaseUrlProvider).when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text(userFacingError(e)),
-                  data: (url) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.cloud_outlined),
-                    title: Text(l10n.apiServer),
-                    subtitle: Text(
-                      url,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    trailing: _busy
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.chevron_right),
-                    onTap: _busy ? null : () => _saveApiUrl(url),
-                  ),
-                ),
-            ref.watch(webApiKeyProvider).when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, _) => Text(userFacingError(e)),
-                  data: (key) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.key_outlined),
-                    title: Text(l10n.apiKey),
-                    subtitle: Text(
-                      key == null ? l10n.apiKeyNotSet : l10n.apiKeyMasked,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    trailing: _busy
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.chevron_right),
-                    onTap: _busy ? null : () => _saveApiKey(key),
-                  ),
-                ),
-          ] else
-            dataDirAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(l10n.errorGeneric('$e')),
-              data: (path) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.folder_outlined),
-                    title: Text(l10n.dataFolder),
-                    subtitle: Text(
-                      path ?? '',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    trailing: _busy
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.chevron_right),
-                    onTap: _busy || path == null
-                        ? null
-                        : () => _changeDataDir(path),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: customDirAsync.when(
-                      data: (isCustom) => isCustom
-                          ? TextButton(
-                              onPressed: _busy ? null : _resetDataDir,
-                              child: Text(l10n.defaultAction),
-                            )
-                          : const SizedBox.shrink(),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (!isWeb) ...[
-            ref.watch(localIdentityProvider).when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (identity) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.badge_outlined),
-                    title: Text(l10n.deviceName),
-                    subtitle: Text(identity.displayName),
-                    trailing: _busy
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.chevron_right),
-                    onTap: _busy
-                        ? null
-                        : () => _editLocalDisplayName(identity.displayName),
-                  ),
-                ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.devices),
-              title: Text(l10n.devicesAndSync),
-              trailing: failedAsync.when(
-                data: (count) => count > 0
-                    ? Chip(
-                        label: Text('$count'),
-                        visualDensity: VisualDensity.compact,
-                      )
-                    : null,
-                loading: () => null,
-                error: (_, __) => null,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                DevicesSheet.show(context);
-              },
-            ),
-            failedAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (count) => count > 0
-                  ? ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.error_outline),
-                      title: Text(l10n.syncOutboxErrors),
-                      subtitle: Text(l10n.syncOutboxErrorsSubtitle(count)),
-                      trailing: _busy
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.delete_outline),
-                      onTap: _busy ? null : _purgeFailedOutbox,
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            settingsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (e, _) => Text(l10n.syncSettingsError('$e')),
-              data: (settings) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(l10n.autoSync),
-                    subtitle: Text(
-                      settings.autoSyncEnabled
-                          ? l10n.autoSyncEvery(settings.autoSyncIntervalMinutes)
-                          : l10n.autoSyncOff,
-                    ),
-                    value: settings.autoSyncEnabled,
-                    onChanged: _busy
-                        ? null
-                        : (value) async {
-                            await ref
-                                .read(settingsControllerProvider)
-                                .setAutoSyncEnabled(value);
-                          },
-                  ),
-                  if (settings.autoSyncEnabled)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 8),
-                      child: Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final minutes in const [15, 30, 60])
-                            ChoiceChip(
-                              label: Text(l10n.minutesShort(minutes)),
-                              selected:
-                                  settings.autoSyncIntervalMinutes == minutes,
-                              onSelected: _busy
-                                  ? null
-                                  : (_) async {
-                                      await ref
-                                          .read(settingsControllerProvider)
-                                          .setAutoSyncIntervalMinutes(minutes);
-                                    },
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (!kIsWeb && Platform.isAndroid)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Синхронизация только в выбранных Wi‑Fi'),
-                      subtitle: Text(
-                        settings.allowedWifiSsids.isEmpty
-                            ? 'Добавьте сеть ниже'
-                            : settings.allowedWifiSsids.join(', '),
-                      ),
-                      value: settings.syncOnlyOnAllowedWifi,
-                      onChanged: _busy
-                          ? null
-                          : (value) => ref
-                              .read(settingsControllerProvider)
-                              .setSyncOnlyOnAllowedWifi(value),
-                    ),
-                  if (!kIsWeb && Platform.isAndroid)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Добавить текущую Wi‑Fi'),
-                      trailing: const Icon(Icons.wifi),
-                      onTap: _busy
-                          ? null
-                          : () async {
-                              final ssid = await WifiInfoPlatform.currentSsid();
-                              if (ssid == null || ssid.isEmpty) return;
-                              await ref
-                                  .read(settingsControllerProvider)
-                                  .addAllowedWifiSsid(ssid);
-                            },
-                    ),
-                  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) ...[
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Git sync (GitHub)'),
-                      subtitle: Text(settings.gitRepoUrl ?? 'Укажите URL репозитория'),
-                      value: settings.gitSyncEnabled,
-                      onChanged: _busy
-                          ? null
-                          : (value) => ref
-                              .read(settingsControllerProvider)
-                              .setGitSyncEnabled(value),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('URL приватного репозитория'),
-                      subtitle: Text(settings.gitRepoUrl ?? 'https://github.com/user/repo.git'),
-                      onTap: _busy
-                          ? null
-                          : () async {
-                              final controller = TextEditingController(
-                                text: settings.gitRepoUrl ?? '',
-                              );
-                              final url = await showDialog<String>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Git repository URL'),
-                                  content: TextField(
-                                    controller: controller,
-                                    decoration: const InputDecoration(
-                                      hintText: 'https://github.com/user/repo.git',
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Отмена'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, controller.text),
-                                      child: const Text('Сохранить'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (url == null) return;
-                              await ref
-                                  .read(settingsControllerProvider)
-                                  .setGitRepoUrl(url);
-                            },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('GitHub OAuth Client ID'),
-                      subtitle: Text(
-                        settings.githubOAuthClientId?.isNotEmpty == true
-                            ? settings.githubOAuthClientId!
-                            : 'Нужен для входа через браузер (см. docs/GIT_SYNC.md)',
-                      ),
-                      onTap: _busy
-                          ? null
-                          : () async {
-                              final controller = TextEditingController(
-                                text: settings.githubOAuthClientId ?? '',
-                              );
-                              final clientId = await showDialog<String>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('GitHub OAuth Client ID'),
-                                  content: TextField(
-                                    controller: controller,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Ov23li…',
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Отмена'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, controller.text),
-                                      child: const Text('Сохранить'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (clientId == null) return;
-                              await ref
-                                  .read(settingsControllerProvider)
-                                  .setGithubOAuthClientId(clientId);
-                            },
-                    ),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final auth = ref.watch(githubAuthStateProvider);
-                        return auth.when(
-                          loading: () => const ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text('GitHub'),
-                            subtitle: Text('Проверка…'),
-                          ),
-                          error: (_, __) => const SizedBox.shrink(),
-                          data: (state) {
-                            if (state.connected) {
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text('GitHub: ${state.login}'),
-                                subtitle: const Text('Аккаунт подключён'),
-                                trailing: TextButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () async {
-                                          await ref
-                                              .read(githubAuthControllerProvider)
-                                              .signOut();
-                                        },
-                                  child: const Text('Выйти'),
-                                ),
-                              );
-                            }
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('Войти через GitHub'),
-                              subtitle: const Text(
-                                'Браузер + код устройства (OAuth Device Flow)',
-                              ),
-                              trailing: FilledButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () async {
-                                        setState(() => _busy = true);
-                                        try {
-                                          await showGitHubDeviceAuthDialog(
-                                            context,
-                                            ref,
-                                          );
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _busy = false);
-                                          }
-                                        }
-                                      },
-                                child: const Text('Войти'),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.themeSection,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            for (final entry in [
-                              (AppThemeMode.dark, l10n.themeDark),
-                              (AppThemeMode.light, l10n.themeLight),
-                              (AppThemeMode.system, l10n.themeSystem),
-                            ])
-                              ChoiceChip(
-                                label: Text(entry.$2),
-                                selected: settings.themeMode == entry.$1,
-                                onSelected: _busy
-                                    ? null
-                                    : (_) async {
-                                        await ref
-                                            .read(settingsControllerProvider)
-                                            .setThemeMode(entry.$1);
-                                      },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.localeSection,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            for (final entry in [
-                              (AppLocaleMode.ru, l10n.localeRu),
-                              (AppLocaleMode.en, l10n.localeEn),
-                              (AppLocaleMode.system, l10n.localeSystem),
-                            ])
-                              ChoiceChip(
-                                label: Text(entry.$2),
-                                selected: settings.localeMode == entry.$1,
-                                onSelected: _busy
-                                    ? null
-                                    : (_) async {
-                                        await ref
-                                            .read(settingsControllerProvider)
-                                            .setLocaleMode(entry.$1);
-                                      },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (MeshPadFeatureFlags.libp2pTransportSettingVisible)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.syncTransportSection,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              ChoiceChip(
-                                label: Text(l10n.syncTransportLan),
-                                selected: settings.syncTransportKind ==
-                                    SyncTransportKind.lan,
-                                onSelected: _busy
-                                    ? null
-                                    : (_) async {
-                                        await ref
-                                            .read(settingsControllerProvider)
-                                            .setSyncTransportKind(
-                                              SyncTransportKind.lan,
-                                            );
-                                      },
-                              ),
-                              ChoiceChip(
-                                label: Text(l10n.syncTransportLibp2p),
-                                selected: settings.syncTransportKind ==
-                                    SyncTransportKind.libp2p,
-                                onSelected: _busy
-                                    ? null
-                                    : (_) async {
-                                        await ref
-                                            .read(settingsControllerProvider)
-                                            .setSyncTransportKind(
-                                              SyncTransportKind.libp2p,
-                                            );
-                                      },
-                              ),
-                            ],
-                          ),
-                          Text(
-                            settings.syncTransportKind ==
-                                    SyncTransportKind.libp2p
-                                ? l10n.syncTransportLibp2pHint
-                                : l10n.syncTransportLanHint,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: MeshPadColors.textMuted,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.upload_file_outlined),
-              title: Text(l10n.exportNotes),
-              subtitle: Text(l10n.exportNotesSubtitle),
-              onTap: _busy ? null : _exportNotes,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.download_outlined),
-              title: Text(l10n.importNotes),
-              subtitle: Text(l10n.importNotesSubtitle),
-              onTap: _busy ? null : _importNotes,
-            ),
-            if (!isWeb)
-              settingsAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (settings) {
-                  final backupDir = settings.autoBackupDirectory?.trim();
-                  final hasDir = backupDir != null && backupDir.isNotEmpty;
-                  String autoBackupSubtitle;
-                  if (!settings.autoBackupEnabled) {
-                    autoBackupSubtitle = l10n.autoBackupOff;
-                  } else if (!hasDir) {
-                    autoBackupSubtitle = l10n.autoBackupNeedDirectory;
-                  } else {
-                    autoBackupSubtitle =
-                        l10n.autoBackupEveryHours(settings.autoBackupIntervalHours);
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(l10n.autoBackup),
-                        subtitle: Text(autoBackupSubtitle),
-                        value: settings.autoBackupEnabled,
-                        onChanged: _busy
-                            ? null
-                            : (value) async {
-                                await ref
-                                    .read(settingsControllerProvider)
-                                    .setAutoBackupEnabled(value);
-                              },
-                      ),
-                      if (settings.autoBackupEnabled) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4, bottom: 8),
-                          child: Wrap(
-                            spacing: 8,
-                            children: [
-                              for (final hours in const [12, 24, 48, 168])
-                                ChoiceChip(
-                                  label: Text(l10n.hoursShort(hours)),
-                                  selected:
-                                      settings.autoBackupIntervalHours == hours,
-                                  onSelected: _busy
-                                      ? null
-                                      : (_) async {
-                                          await ref
-                                              .read(settingsControllerProvider)
-                                              .setAutoBackupIntervalHours(hours);
-                                        },
-                                ),
-                            ],
-                          ),
-                        ),
-                        ListTile(
+                if (isWeb) ...[
+                  ref.watch(webApiBaseUrlProvider).when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text(userFacingError(e)),
+                        data: (url) => ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.folder_zip_outlined),
-                          title: Text(l10n.autoBackupDirectory),
+                          leading: const Icon(Icons.cloud_outlined),
+                          title: Text(l10n.apiServer),
                           subtitle: Text(
-                            hasDir ? backupDir : l10n.autoBackupDirectoryNone,
+                            url,
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                           trailing: _busy
                               ? const SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.chevron_right),
-                          onTap: _busy ? null : _pickAutoBackupDirectory,
+                          onTap: _busy ? null : () => _saveApiUrl(url),
                         ),
-                        if (hasDir)
-                          Text(
-                            settings.autoBackupLastAt == null
-                                ? l10n.autoBackupNever
-                                : l10n.autoBackupLastRun(
-                                    _formatBackupTimestamp(
-                                      context,
-                                      settings.autoBackupLastAt!,
-                                    ),
-                                  ),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: MeshPadColors.textMuted,
-                                ),
+                      ),
+                  ref.watch(webApiKeyProvider).when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (e, _) => Text(userFacingError(e)),
+                        data: (key) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.key_outlined),
+                          title: Text(l10n.apiKey),
+                          subtitle: Text(
+                            key == null ? l10n.apiKeyNotSet : l10n.apiKeyMasked,
+                            style: Theme.of(context).textTheme.labelSmall,
                           ),
-                        if (hasDir)
+                          trailing: _busy
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.chevron_right),
+                          onTap: _busy ? null : () => _saveApiKey(key),
+                        ),
+                      ),
+                ] else
+                  dataDirAsync.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(l10n.errorGeneric('$e')),
+                    data: (path) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.folder_outlined),
+                          title: Text(l10n.dataFolder),
+                          subtitle: Text(
+                            path ?? '',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          trailing: _busy
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.chevron_right),
+                          onTap: _busy || path == null
+                              ? null
+                              : () => _changeDataDir(path),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: customDirAsync.when(
+                            data: (isCustom) => isCustom
+                                ? TextButton(
+                                    onPressed: _busy ? null : _resetDataDir,
+                                    child: Text(l10n.defaultAction),
+                                  )
+                                : const SizedBox.shrink(),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!isWeb) ...[
+                  ref.watch(localIdentityProvider).when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (identity) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.badge_outlined),
+                          title: Text(l10n.deviceName),
+                          subtitle: Text(identity.displayName),
+                          trailing: _busy
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.chevron_right),
+                          onTap: _busy
+                              ? null
+                              : () =>
+                                  _editLocalDisplayName(identity.displayName),
+                        ),
+                      ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.devices),
+                    title: Text(l10n.devicesAndSync),
+                    trailing: failedAsync.when(
+                      data: (count) => count > 0
+                          ? Chip(
+                              label: Text('$count'),
+                              visualDensity: VisualDensity.compact,
+                            )
+                          : null,
+                      loading: () => null,
+                      error: (_, __) => null,
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      DevicesSheet.show(context);
+                    },
+                  ),
+                  failedAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (count) => count > 0
+                        ? ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.error_outline),
+                            title: Text(l10n.syncOutboxErrors),
+                            subtitle:
+                                Text(l10n.syncOutboxErrorsSubtitle(count)),
+                            trailing: _busy
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.delete_outline),
+                            onTap: _busy ? null : _purgeFailedOutbox,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  settingsAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (e, _) => Text(l10n.syncSettingsError('$e')),
+                    data: (settings) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.autoSync),
+                          subtitle: Text(
+                            settings.autoSyncEnabled
+                                ? l10n.autoSyncEvery(
+                                    settings.autoSyncIntervalMinutes)
+                                : l10n.autoSyncOff,
+                          ),
+                          value: settings.autoSyncEnabled,
+                          onChanged: _busy
+                              ? null
+                              : (value) async {
+                                  await ref
+                                      .read(settingsControllerProvider)
+                                      .setAutoSyncEnabled(value);
+                                },
+                        ),
+                        if (settings.autoSyncEnabled)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 8),
+                            child: Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final minutes in const [15, 30, 60])
+                                  ChoiceChip(
+                                    label: Text(l10n.minutesShort(minutes)),
+                                    selected:
+                                        settings.autoSyncIntervalMinutes ==
+                                            minutes,
+                                    onSelected: _busy
+                                        ? null
+                                        : (_) async {
+                                            await ref
+                                                .read(
+                                                    settingsControllerProvider)
+                                                .setAutoSyncIntervalMinutes(
+                                                    minutes);
+                                          },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        if (!kIsWeb && Platform.isAndroid)
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                                'Синхронизация только в выбранных Wi‑Fi'),
+                            subtitle: Text(
+                              settings.allowedWifiSsids.isEmpty
+                                  ? 'Добавьте сеть ниже'
+                                  : settings.allowedWifiSsids.join(', '),
+                            ),
+                            value: settings.syncOnlyOnAllowedWifi,
+                            onChanged: _busy
+                                ? null
+                                : (value) => ref
+                                    .read(settingsControllerProvider)
+                                    .setSyncOnlyOnAllowedWifi(value),
+                          ),
+                        if (!kIsWeb && Platform.isAndroid)
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.backup_outlined),
-                            title: Text(l10n.autoBackupNow),
-                            subtitle: Text(l10n.autoBackupNowSubtitle),
-                            onTap: _busy ? null : _runAutoBackupNow,
+                            title: const Text('Добавить текущую Wi‑Fi'),
+                            trailing: const Icon(Icons.wifi),
+                            onTap: _busy
+                                ? null
+                                : () async {
+                                    final ssid =
+                                        await WifiInfoPlatform.currentSsid();
+                                    if (ssid == null || ssid.isEmpty) return;
+                                    await ref
+                                        .read(settingsControllerProvider)
+                                        .addAllowedWifiSsid(ssid);
+                                  },
+                          ),
+                        if (!kIsWeb &&
+                            (Platform.isWindows || Platform.isLinux)) ...[
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Git sync (GitHub)'),
+                            subtitle: Text(settings.gitRepoUrl ??
+                                'Укажите URL репозитория'),
+                            value: settings.gitSyncEnabled,
+                            onChanged: _busy
+                                ? null
+                                : (value) => ref
+                                    .read(settingsControllerProvider)
+                                    .setGitSyncEnabled(value),
+                          ),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('URL приватного репозитория'),
+                            subtitle: Text(settings.gitRepoUrl ??
+                                'https://github.com/user/repo.git'),
+                            onTap: _busy
+                                ? null
+                                : () async {
+                                    final controller = TextEditingController(
+                                      text: settings.gitRepoUrl ?? '',
+                                    );
+                                    final url = await showDialog<String>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Git repository URL'),
+                                        content: TextField(
+                                          controller: controller,
+                                          decoration: const InputDecoration(
+                                            hintText:
+                                                'https://github.com/user/repo.git',
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Отмена'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () => Navigator.pop(
+                                                ctx, controller.text),
+                                            child: const Text('Сохранить'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (url == null) return;
+                                    await ref
+                                        .read(settingsControllerProvider)
+                                        .setGitRepoUrl(url);
+                                  },
+                          ),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('GitHub OAuth Client ID'),
+                            subtitle: Text(
+                              settings.githubOAuthClientId?.isNotEmpty == true
+                                  ? settings.githubOAuthClientId!
+                                  : 'Нужен для входа через браузер (см. docs/GIT_SYNC.md)',
+                            ),
+                            onTap: _busy
+                                ? null
+                                : () async {
+                                    final controller = TextEditingController(
+                                      text: settings.githubOAuthClientId ?? '',
+                                    );
+                                    final clientId = await showDialog<String>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text(
+                                            'GitHub OAuth Client ID'),
+                                        content: TextField(
+                                          controller: controller,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Ov23li…',
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Отмена'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () => Navigator.pop(
+                                                ctx, controller.text),
+                                            child: const Text('Сохранить'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (clientId == null) return;
+                                    await ref
+                                        .read(settingsControllerProvider)
+                                        .setGithubOAuthClientId(clientId);
+                                  },
+                          ),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final auth = ref.watch(githubAuthStateProvider);
+                              return auth.when(
+                                loading: () => const ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text('GitHub'),
+                                  subtitle: Text('Проверка…'),
+                                ),
+                                error: (_, __) => const SizedBox.shrink(),
+                                data: (state) {
+                                  if (state.connected) {
+                                    return ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text('GitHub: ${state.login}'),
+                                      subtitle: const Text('Аккаунт подключён'),
+                                      trailing: TextButton(
+                                        onPressed: _busy
+                                            ? null
+                                            : () async {
+                                                await ref
+                                                    .read(
+                                                        githubAuthControllerProvider)
+                                                    .signOut();
+                                              },
+                                        child: const Text('Выйти'),
+                                      ),
+                                    );
+                                  }
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: const Text('Войти через GitHub'),
+                                    subtitle: const Text(
+                                      'Браузер + код устройства (OAuth Device Flow)',
+                                    ),
+                                    trailing: FilledButton(
+                                      onPressed: _busy
+                                          ? null
+                                          : () async {
+                                              setState(() => _busy = true);
+                                              try {
+                                                await showGitHubDeviceAuthDialog(
+                                                  context,
+                                                  ref,
+                                                );
+                                              } finally {
+                                                if (mounted) {
+                                                  setState(() => _busy = false);
+                                                }
+                                              }
+                                            },
+                                      child: const Text('Войти'),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.themeSection,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  for (final entry in [
+                                    (AppThemeMode.dark, l10n.themeDark),
+                                    (AppThemeMode.light, l10n.themeLight),
+                                    (AppThemeMode.system, l10n.themeSystem),
+                                  ])
+                                    ChoiceChip(
+                                      label: Text(entry.$2),
+                                      selected: settings.themeMode == entry.$1,
+                                      onSelected: _busy
+                                          ? null
+                                          : (_) async {
+                                              await ref
+                                                  .read(
+                                                      settingsControllerProvider)
+                                                  .setThemeMode(entry.$1);
+                                            },
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.localeSection,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  for (final entry in [
+                                    (AppLocaleMode.ru, l10n.localeRu),
+                                    (AppLocaleMode.en, l10n.localeEn),
+                                    (AppLocaleMode.system, l10n.localeSystem),
+                                  ])
+                                    ChoiceChip(
+                                      label: Text(entry.$2),
+                                      selected: settings.localeMode == entry.$1,
+                                      onSelected: _busy
+                                          ? null
+                                          : (_) async {
+                                              await ref
+                                                  .read(
+                                                      settingsControllerProvider)
+                                                  .setLocaleMode(entry.$1);
+                                            },
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (MeshPadFeatureFlags.libp2pTransportSettingVisible)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.syncTransportSection,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    ChoiceChip(
+                                      label: Text(l10n.syncTransportLan),
+                                      selected: settings.syncTransportKind ==
+                                          SyncTransportKind.lan,
+                                      onSelected: _busy
+                                          ? null
+                                          : (_) async {
+                                              await ref
+                                                  .read(
+                                                      settingsControllerProvider)
+                                                  .setSyncTransportKind(
+                                                    SyncTransportKind.lan,
+                                                  );
+                                            },
+                                    ),
+                                    ChoiceChip(
+                                      label: Text(l10n.syncTransportLibp2p),
+                                      selected: settings.syncTransportKind ==
+                                          SyncTransportKind.libp2p,
+                                      onSelected: _busy
+                                          ? null
+                                          : (_) async {
+                                              await ref
+                                                  .read(
+                                                      settingsControllerProvider)
+                                                  .setSyncTransportKind(
+                                                    SyncTransportKind.libp2p,
+                                                  );
+                                            },
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  settings.syncTransportKind ==
+                                          SyncTransportKind.libp2p
+                                      ? l10n.syncTransportLibp2pHint
+                                      : l10n.syncTransportLanHint,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: MeshPadColors.textMuted,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
                       ],
-                    ],
-                  );
-                },
-              ),
-            if (!isWeb)
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: settingsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (settings) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.thumbCacheSection,
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.thumbCacheLimit(settings.thumbCacheMaxMb),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: MeshPadColors.textMuted,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final mb in const [128, 256, 512, 1024])
-                            ChoiceChip(
-                              label: Text(l10n.thumbCacheMb(mb)),
-                              selected: settings.thumbCacheMaxMb == mb,
-                              onSelected: _busy
+                    ),
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.upload_file_outlined),
+                    title: Text(l10n.exportNotes),
+                    subtitle: Text(l10n.exportNotesSubtitle),
+                    onTap: _busy ? null : _exportNotes,
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.download_outlined),
+                    title: Text(l10n.importNotes),
+                    subtitle: Text(l10n.importNotesSubtitle),
+                    onTap: _busy ? null : _importNotes,
+                  ),
+                  if (!isWeb)
+                    settingsAsync.when(
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (settings) {
+                        final backupDir = settings.autoBackupDirectory?.trim();
+                        final hasDir =
+                            backupDir != null && backupDir.isNotEmpty;
+                        String autoBackupSubtitle;
+                        if (!settings.autoBackupEnabled) {
+                          autoBackupSubtitle = l10n.autoBackupOff;
+                        } else if (!hasDir) {
+                          autoBackupSubtitle = l10n.autoBackupNeedDirectory;
+                        } else {
+                          autoBackupSubtitle = l10n.autoBackupEveryHours(
+                              settings.autoBackupIntervalHours);
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(l10n.autoBackup),
+                              subtitle: Text(autoBackupSubtitle),
+                              value: settings.autoBackupEnabled,
+                              onChanged: _busy
                                   ? null
-                                  : (_) async {
+                                  : (value) async {
                                       await ref
                                           .read(settingsControllerProvider)
-                                          .setThumbCacheMaxMb(mb);
+                                          .setAutoBackupEnabled(value);
                                     },
                             ),
-                        ],
+                            if (settings.autoBackupEnabled) ...[
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 4, bottom: 8),
+                                child: Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    for (final hours in const [12, 24, 48, 168])
+                                      ChoiceChip(
+                                        label: Text(l10n.hoursShort(hours)),
+                                        selected:
+                                            settings.autoBackupIntervalHours ==
+                                                hours,
+                                        onSelected: _busy
+                                            ? null
+                                            : (_) async {
+                                                await ref
+                                                    .read(
+                                                        settingsControllerProvider)
+                                                    .setAutoBackupIntervalHours(
+                                                        hours);
+                                              },
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.folder_zip_outlined),
+                                title: Text(l10n.autoBackupDirectory),
+                                subtitle: Text(
+                                  hasDir
+                                      ? backupDir
+                                      : l10n.autoBackupDirectoryNone,
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                trailing: _busy
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.chevron_right),
+                                onTap: _busy ? null : _pickAutoBackupDirectory,
+                              ),
+                              if (hasDir)
+                                Text(
+                                  settings.autoBackupLastAt == null
+                                      ? l10n.autoBackupNever
+                                      : l10n.autoBackupLastRun(
+                                          _formatBackupTimestamp(
+                                            context,
+                                            settings.autoBackupLastAt!,
+                                          ),
+                                        ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: MeshPadColors.textMuted,
+                                      ),
+                                ),
+                              if (hasDir)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.backup_outlined),
+                                  title: Text(l10n.autoBackupNow),
+                                  subtitle: Text(l10n.autoBackupNowSubtitle),
+                                  onTap: _busy ? null : _runAutoBackupNow,
+                                ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  if (!isWeb)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 8),
+                      child: settingsAsync.when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (settings) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.thumbCacheSection,
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.thumbCacheLimit(settings.thumbCacheMaxMb),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: MeshPadColors.textMuted,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final mb in const [128, 256, 512, 1024])
+                                  ChoiceChip(
+                                    label: Text(l10n.thumbCacheMb(mb)),
+                                    selected: settings.thumbCacheMaxMb == mb,
+                                    onSelected: _busy
+                                        ? null
+                                        : (_) async {
+                                            await ref
+                                                .read(
+                                                    settingsControllerProvider)
+                                                .setThumbCacheMaxMb(mb);
+                                          },
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+                  if (!isWeb)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.build_circle_outlined),
+                      title: Text(l10n.verifyData),
+                      subtitle: Text(l10n.verifyDataSubtitle),
+                      onTap: _busy ? null : _rebuildIndex,
+                    ),
+                ],
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.info_outline),
+                  title: Text(l10n.about),
+                  subtitle: Text(
+                    isWeb
+                        ? l10n.aboutWeb(kAppVersion)
+                        : l10n.aboutNative(kAppVersion),
                   ),
                 ),
-              ),
-            if (!isWeb)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.build_circle_outlined),
-                title: Text(l10n.verifyData),
-                subtitle: Text(l10n.verifyDataSubtitle),
-                onTap: _busy ? null : _rebuildIndex,
-              ),
-          ],
-          const Divider(),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.info_outline),
-            title: Text(l10n.about),
-            subtitle: Text(
-              isWeb
-                  ? l10n.aboutWeb(kAppVersion)
-                  : l10n.aboutNative(kAppVersion),
-            ),
-          ),
-          if (!isWeb)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.system_update_alt),
-              title: Text(l10n.checkUpdates),
-              onTap: _busy ? null : _checkUpdates,
-            ),
-          const SizedBox(height: 8),
-          Text(
-            isWeb ? l10n.footerWeb : l10n.footerNative,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: MeshPadColors.textMuted,
+                if (!isWeb)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.system_update_alt),
+                    title: Text(l10n.checkUpdates),
+                    onTap: _busy ? null : _checkUpdates,
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  isWeb ? l10n.footerWeb : l10n.footerNative,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: MeshPadColors.textMuted,
+                      ),
                 ),
-          ),
               ],
             ),
           ),

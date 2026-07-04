@@ -62,7 +62,9 @@ void main() {
       ),
     );
     expect(create.statusCode, 201);
-    final id = RegExp(r'"id":"([^"]+)"').firstMatch(await create.readAsString())!.group(1)!;
+    final id = RegExp(r'"id":"([^"]+)"')
+        .firstMatch(await create.readAsString())!
+        .group(1)!;
 
     final update = await router.call(
       Request(
@@ -102,7 +104,9 @@ void main() {
       ),
     );
     expect(create.statusCode, 201);
-    final id = RegExp(r'"id":"([^"]+)"').firstMatch(await create.readAsString())!.group(1)!;
+    final id = RegExp(r'"id":"([^"]+)"')
+        .firstMatch(await create.readAsString())!
+        .group(1)!;
 
     final payload = [1, 2, 3, 4, 5];
     final upload = await router.call(
@@ -439,25 +443,29 @@ void main() {
     expect(
       (await handler.call(
         Request('GET', Uri.parse('http://localhost/api/notes/count')),
-      )).statusCode,
+      ))
+          .statusCode,
       200,
     );
     expect(
       (await handler.call(
         Request('GET', Uri.parse('http://localhost/api/notes/count')),
-      )).statusCode,
+      ))
+          .statusCode,
       200,
     );
     expect(
       (await handler.call(
         Request('GET', Uri.parse('http://localhost/api/notes/count')),
-      )).statusCode,
+      ))
+          .statusCode,
       429,
     );
     expect(
       (await handler.call(
         Request('GET', Uri.parse('http://localhost/api/health')),
-      )).statusCode,
+      ))
+          .statusCode,
       200,
     );
   });

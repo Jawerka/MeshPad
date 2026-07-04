@@ -86,7 +86,8 @@ void main() {
 
   test('syncTrustedPeers continues when one peer is unreachable', () async {
     final dirLocal = await Directory.systemTemp.createTemp('lan_coord_local_');
-    final dirRemote = await Directory.systemTemp.createTemp('lan_coord_remote_');
+    final dirRemote =
+        await Directory.systemTemp.createTemp('lan_coord_remote_');
     addTearDown(() async {
       if (await dirLocal.exists()) await dirLocal.delete(recursive: true);
       if (await dirRemote.exists()) await dirRemote.delete(recursive: true);
@@ -135,7 +136,8 @@ void main() {
       ),
     );
 
-    final storeRemote = DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
+    final storeRemote =
+        DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
     await storeRemote.trustDevice(
       peerId: identity.peerId,
       name: 'Local',

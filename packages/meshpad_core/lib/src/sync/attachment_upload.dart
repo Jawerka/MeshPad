@@ -176,7 +176,8 @@ Future<AttachmentUploadResult> receiveAttachmentUploadChunk({
     ),
   );
 
-  final sink = partFile.openWrite(mode: received == 0 ? FileMode.write : FileMode.append);
+  final sink = partFile.openWrite(
+      mode: received == 0 ? FileMode.write : FileMode.append);
   sink.add(bytes);
   await sink.close();
 

@@ -105,7 +105,8 @@ class NoteMeta {
 Map<String, int> _parseVectorClock(Object? raw) {
   if (raw is! Map) return const {};
   return raw.map(
-    (key, value) => MapEntry('$key', value is int ? value : int.tryParse('$value') ?? 0),
+    (key, value) =>
+        MapEntry('$key', value is int ? value : int.tryParse('$value') ?? 0),
   );
 }
 

@@ -49,7 +49,8 @@ void main() {
   test('copyAttachmentIntoNote generates thumbnail for images', () async {
     final attachmentsDir = p.join(tempDir.path, 'attachments');
     final sourcePath = p.join(tempDir.path, 'input.png');
-    await File(sourcePath).writeAsBytes(encodePng(Image(width: 400, height: 300)));
+    await File(sourcePath)
+        .writeAsBytes(encodePng(Image(width: 400, height: 300)));
 
     await copyAttachmentIntoNote(
       attachmentsDir: attachmentsDir,

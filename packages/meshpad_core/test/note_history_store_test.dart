@@ -13,7 +13,8 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('meshpad_hist_');
     db = createMeshPadDatabase(tempDir.path);
-    history = NoteHistoryStore(paths: MeshPadPaths(tempDir.path), snapshotInterval: 3);
+    history = NoteHistoryStore(
+        paths: MeshPadPaths(tempDir.path), snapshotInterval: 3);
     repo = createNoteRepository(
       dataDir: tempDir.path,
       defaultAuthor: 'device-a',

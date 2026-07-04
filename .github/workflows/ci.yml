@@ -27,7 +27,7 @@ jobs:
         run: melos bootstrap
 
       - name: Codegen
-        run: cd packages/meshpad_core && dart run build_runner build
+        run: cd packages/meshpad_core && dart run build_runner build --delete-conflicting-outputs
 
       - name: Analyze
         run: melos run analyze

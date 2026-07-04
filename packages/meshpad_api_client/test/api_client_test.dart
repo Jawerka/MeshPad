@@ -51,7 +51,8 @@ void main() {
   });
 
   test('MeshPadApiClient accepts optional API key', () {
-    final client = MeshPadApiClient(baseUrl: 'http://127.0.0.1:8787', apiKey: 'secret');
+    final client =
+        MeshPadApiClient(baseUrl: 'http://127.0.0.1:8787', apiKey: 'secret');
     expect(meshPadApiKeyHeaders('secret')[meshPadApiKeyHeader], 'secret');
     client.close();
   });

@@ -178,7 +178,8 @@ class AppSettings {
       autoBackupDirectory: _parseOptionalString(json['auto_backup_directory']),
       autoBackupLastAt: _parseOptionalDate(json['auto_backup_last_at']),
       allowedWifiSsids: _parseStringList(json['allowed_wifi_ssids']),
-      syncOnlyOnAllowedWifi: json['sync_only_on_allowed_wifi'] as bool? ?? false,
+      syncOnlyOnAllowedWifi:
+          json['sync_only_on_allowed_wifi'] as bool? ?? false,
       gitSyncEnabled: json['git_sync_enabled'] as bool? ?? false,
       gitRepoUrl: _parseOptionalString(json['git_repo_url']),
       gitPullIntervalMinutes: _clampGitPullInterval(
@@ -230,7 +231,8 @@ class AppSettings {
   }
 
   static int clampInterval(int minutes) {
-    return minutes.clamp(minAutoSyncIntervalMinutes, maxAutoSyncIntervalMinutes);
+    return minutes.clamp(
+        minAutoSyncIntervalMinutes, maxAutoSyncIntervalMinutes);
   }
 
   static int _clampInterval(int minutes) => clampInterval(minutes);

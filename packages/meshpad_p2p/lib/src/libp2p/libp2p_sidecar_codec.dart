@@ -13,7 +13,7 @@ Map<String, dynamic> libp2pSidecarEventToJson(Libp2pNativeEvent event) {
       :final tlsPort,
       :final wireBase,
     ) =>
-        {
+      {
         'type': 'peer_discovered',
         'peer_id': peerId,
         'display_name': displayName,
@@ -57,7 +57,8 @@ Libp2pNativeEvent libp2pSidecarEventFromJson(Map<String, dynamic> json) {
   };
 }
 
-Stream<Libp2pNativeEvent> parseLibp2pSidecarEventStream(Stream<String> lines) async* {
+Stream<Libp2pNativeEvent> parseLibp2pSidecarEventStream(
+    Stream<String> lines) async* {
   await for (final line in lines) {
     if (!line.startsWith('data:')) continue;
     final payload = line.substring(5).trimLeft();

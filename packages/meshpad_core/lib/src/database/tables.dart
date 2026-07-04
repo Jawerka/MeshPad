@@ -28,7 +28,8 @@ class Notes extends Table {
 
 class NoteAttachments extends Table {
   IntColumn get rowId => integer().autoIncrement()();
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text()();
   IntColumn get size => integer().withDefault(const Constant(0))();
   TextColumn get mime => text().nullable()();

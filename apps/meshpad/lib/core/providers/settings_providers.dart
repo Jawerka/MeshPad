@@ -123,8 +123,7 @@ class SettingsController {
     final current = await _store.loadSettings();
     final trimmed = clientId?.trim();
     final next = current.copyWith(
-      githubOAuthClientId:
-          trimmed == null || trimmed.isEmpty ? null : trimmed,
+      githubOAuthClientId: trimmed == null || trimmed.isEmpty ? null : trimmed,
       clearGithubOAuthClientId: trimmed == null || trimmed.isEmpty,
     );
     await _store.saveSettings(next);
@@ -279,7 +278,8 @@ class SettingsController {
       thumbCacheMaxMb: settings.thumbCacheMaxMb,
     );
     stopwatch.stop();
-    MeshPadLog.metric('reconcile_duration_ms', '${stopwatch.elapsedMilliseconds}');
+    MeshPadLog.metric(
+        'reconcile_duration_ms', '${stopwatch.elapsedMilliseconds}');
     MeshPadLog.metric('reconcile_notes', '$count');
     await _ref.read(notesListProvider.notifier).reload();
     _ref.invalidate(outboxCountProvider);

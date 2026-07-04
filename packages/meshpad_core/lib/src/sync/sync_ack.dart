@@ -24,7 +24,8 @@ Future<bool> isNoteFullySyncedOnRemote({
   if (localMeta.deleted) return true;
 
   for (final attachment in localMeta.attachments) {
-    final hasMeta = remoteMeta.attachments.any((a) => a.name == attachment.name);
+    final hasMeta =
+        remoteMeta.attachments.any((a) => a.name == attachment.name);
     if (!hasMeta) return false;
 
     final bytes = await remote.fetchAttachment(noteId, attachment.name);

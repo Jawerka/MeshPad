@@ -34,8 +34,10 @@ class GitSyncService {
     }
     await _writeGitignore();
     await _syncNotesToWorkTree();
-    await _git(['remote', 'remove', 'origin'], workingDirectory: gitDir, allowFailure: true);
-    await _git(['remote', 'add', 'origin', remoteUrl], workingDirectory: gitDir);
+    await _git(['remote', 'remove', 'origin'],
+        workingDirectory: gitDir, allowFailure: true);
+    await _git(['remote', 'add', 'origin', remoteUrl],
+        workingDirectory: gitDir);
   }
 
   Future<GitSyncResult> pull({String? token}) async {
@@ -71,7 +73,8 @@ class GitSyncService {
   Future<GitSyncResult> push({required String message, String? token}) async {
     await _syncNotesToWorkTree();
     await _git(['add', 'notes'], workingDirectory: gitDir);
-    final status = await _git(['status', '--porcelain'], workingDirectory: gitDir);
+    final status =
+        await _git(['status', '--porcelain'], workingDirectory: gitDir);
     if (status.stdout.toString().trim().isEmpty) {
       return const GitSyncResult.ok(nothingToCommit: true);
     }

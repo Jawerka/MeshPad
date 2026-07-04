@@ -16,8 +16,7 @@ class DesktopShell with TrayListener, WindowListener {
   var _shuttingDown = false;
 
   static bool get isSupported =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux);
+      !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
   Future<void> init() async {
     if (!isSupported) return;

@@ -7,7 +7,8 @@ import 'package:test/test.dart';
 
 /// PLAN 8.2–8.3: peer B sidecar holds notes; A imports via [remote_wire_base] + wire sync.
 void main() {
-  test('Libp2pSyncTransport pulls note from remote sidecar wire store', () async {
+  test('Libp2pSyncTransport pulls note from remote sidecar wire store',
+      () async {
     final sidecarA = Libp2pSidecarServer(enableDiscovery: false);
     final sidecarB = Libp2pSidecarServer(enableDiscovery: false);
     final serverA = await serveLibp2pSidecar(server: sidecarA, port: 0);
@@ -19,7 +20,8 @@ void main() {
       await sidecarB.close();
     });
 
-    final wireB = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverB.port}');
+    final wireB =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverB.port}');
     await wireB.pushSnapshot(
       snapshot: {
         'meta': {
@@ -52,7 +54,8 @@ void main() {
     final transport = Libp2pSyncTransport(
       getEngine: () async => engine,
       getIdentity: () async => identity,
-      nativeApi: HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${serverA.port}'),
+      nativeApi:
+          HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${serverA.port}'),
       trySidecar: false,
     );
 

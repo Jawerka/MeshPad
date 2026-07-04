@@ -81,8 +81,7 @@ class PinPairingConfirm {
         if (initiatorDisplayName != null)
           'initiator_display_name': initiatorDisplayName,
         if (initiatorLanHost != null) 'initiator_lan_host': initiatorLanHost,
-        if (initiatorHttpPort != null)
-          'initiator_http_port': initiatorHttpPort,
+        if (initiatorHttpPort != null) 'initiator_http_port': initiatorHttpPort,
         if (authToken != null) 'auth_token': authToken,
         if (initiatorTlsCertSha256 != null)
           'initiator_tls_cert_sha256': initiatorTlsCertSha256,

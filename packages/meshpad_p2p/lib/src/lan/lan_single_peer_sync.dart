@@ -72,7 +72,8 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
       }
     },
     onError: (Object error, StackTrace st) {
-      MeshPadLog.warn('sync', 'transport events error for ${peer.peerId}: $error');
+      MeshPadLog.warn(
+          'sync', 'transport events error for ${peer.peerId}: $error');
       MeshPadLog.warn('sync', '$st');
       if (!completer.isCompleted) {
         completer.complete(
@@ -121,9 +122,8 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
     return LanPeerSyncResult(
       peerId: peer.peerId,
       status: LanPeerSyncStatus.failed,
-      message: e is MeshPadException
-          ? e.message
-          : meshPadExceptionUserMessage(e),
+      message:
+          e is MeshPadException ? e.message : meshPadExceptionUserMessage(e),
     );
   } finally {
     await sub.cancel();

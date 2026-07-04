@@ -12,7 +12,8 @@ void main() {
       await sidecar.close();
     });
 
-    final wire = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
+    final wire =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
     final bytes = [10, 20, 30, 40];
     expect(
       await wire.pushAttachment(noteId: 'n1', name: 'file.bin', bytes: bytes),
@@ -31,7 +32,8 @@ void main() {
       await sidecar.close();
     });
 
-    final wire = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
+    final wire =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
     final gateway = SidecarWireRemoteSyncGateway(client: wire);
     const payload = [1, 2, 3, 4, 5];
     await gateway.pushAttachment(

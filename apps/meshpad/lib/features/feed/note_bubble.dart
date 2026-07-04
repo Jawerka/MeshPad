@@ -77,12 +77,12 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     final compact = isCompactFeedLayout(context);
     final isWeb = ref.watch(isWebClientProvider);
     final conflictsAsync = ref.watch(noteConflictCopiesProvider(note.id));
-    final hasConflicts =
-        conflictsAsync.maybeWhen(data: (c) => c.isNotEmpty, orElse: () => false);
+    final hasConflicts = conflictsAsync.maybeWhen(
+        data: (c) => c.isNotEmpty, orElse: () => false);
     final metaStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: MeshPadColors.textMuted,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+      color: MeshPadColors.textMuted,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     final attachmentUriBuilder = notesService == null
         ? null
         : (AttachmentMeta attachment) =>
@@ -144,7 +144,8 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
         side: BorderSide(color: MeshPadColors.border.withValues(alpha: 0.6)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
+        padding:
+            EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -209,7 +210,8 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(AppLocalizations.of(context).noteMenuCopyAll),
+                            content: Text(
+                                AppLocalizations.of(context).noteMenuCopyAll),
                           ),
                         );
                     }

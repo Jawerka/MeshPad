@@ -56,7 +56,8 @@ class AppSettingsStore {
       // ADR 0003: libp2p removed — migrate to LAN.
       if (json['sync_transport'] == 'libp2p' ||
           settings.syncTransportKind == SyncTransportKind.libp2p) {
-        final migrated = settings.copyWith(syncTransportKind: SyncTransportKind.lan);
+        final migrated =
+            settings.copyWith(syncTransportKind: SyncTransportKind.lan);
         await saveSettings(migrated);
         return migrated;
       }

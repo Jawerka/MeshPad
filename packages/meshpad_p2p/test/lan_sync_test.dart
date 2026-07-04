@@ -4,23 +4,24 @@ import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 import 'package:test/test.dart';
 
-Future<({
-  Directory dirA,
-  Directory dirB,
-  MeshPadDatabase dbA,
-  MeshPadDatabase dbB,
-  DeviceIdentityStore storeA,
-  DeviceIdentityStore storeB,
-  SyncEngine engineA,
-  SyncEngine engineB,
-  NoteRepository repoA,
-  NoteRepository repoB,
-  LanPeerServer serverA,
-  LanPeerServer serverB,
-  int portA,
-  int portB,
-  String sharedToken,
-})> _pairingTestHarness() async {
+Future<
+    ({
+      Directory dirA,
+      Directory dirB,
+      MeshPadDatabase dbA,
+      MeshPadDatabase dbB,
+      DeviceIdentityStore storeA,
+      DeviceIdentityStore storeB,
+      SyncEngine engineA,
+      SyncEngine engineB,
+      NoteRepository repoA,
+      NoteRepository repoB,
+      LanPeerServer serverA,
+      LanPeerServer serverB,
+      int portA,
+      int portB,
+      String sharedToken,
+    })> _pairingTestHarness() async {
   final dirA = await Directory.systemTemp.createTemp('lan_a_');
   final dirB = await Directory.systemTemp.createTemp('lan_b_');
   final dbA = MeshPadDatabase.inMemory();
@@ -109,15 +110,20 @@ void main() {
       await harness.dbB.close();
       await harness.serverA.stop();
       await harness.serverB.stop();
-      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
-      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
     });
 
     await harness.repoA.createNote(markdown: 'from A');
     await harness.repoB.createNote(markdown: 'from B');
 
     final attachmentSource = File('${harness.dirA.path}/photo.png');
-    await attachmentSource.writeAsBytes(List<int>.generate(128, (i) => i % 256));
+    await attachmentSource
+        .writeAsBytes(List<int>.generate(128, (i) => i % 256));
     final noteWithFile = await harness.repoA.createNote(
       markdown: 'note with file',
       attachmentPaths: [attachmentSource.path],
@@ -155,7 +161,8 @@ void main() {
     final synced = await harness.repoB.getNote(noteWithFile.id);
     expect(synced?.attachments.length, 1);
     expect(
-      await harness.repoB.attachmentMatches(synced!.id, synced.attachments.first),
+      await harness.repoB
+          .attachmentMatches(synced!.id, synced.attachments.first),
       isTrue,
     );
   });
@@ -167,8 +174,12 @@ void main() {
       await harness.dbB.close();
       await harness.serverA.stop();
       await harness.serverB.stop();
-      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
-      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
     });
 
     final gateway = HttpRemoteSyncGateway(
@@ -182,7 +193,8 @@ void main() {
 
     expect(
       () => gateway.fetchCatalog(),
-      throwsA(isA<HttpRemoteSyncException>().having((e) => e.statusCode, 'code', 401)),
+      throwsA(isA<HttpRemoteSyncException>()
+          .having((e) => e.statusCode, 'code', 401)),
     );
   });
 
@@ -193,8 +205,12 @@ void main() {
       await harness.dbB.close();
       await harness.serverA.stop();
       await harness.serverB.stop();
-      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
-      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
     });
 
     final gateway = HttpRemoteSyncGateway(
@@ -210,7 +226,8 @@ void main() {
 
     expect(
       () => gateway.fetchCatalog(),
-      throwsA(isA<HttpRemoteSyncException>().having((e) => e.statusCode, 'code', 401)),
+      throwsA(isA<HttpRemoteSyncException>()
+          .having((e) => e.statusCode, 'code', 401)),
     );
   });
 
@@ -221,8 +238,12 @@ void main() {
       await harness.dbB.close();
       await harness.serverA.stop();
       await harness.serverB.stop();
-      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
-      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
     });
 
     final gateway = HttpRemoteSyncGateway(
@@ -238,7 +259,8 @@ void main() {
 
     expect(
       () => gateway.fetchCatalog(),
-      throwsA(isA<HttpRemoteSyncException>().having((e) => e.statusCode, 'code', 403)),
+      throwsA(isA<HttpRemoteSyncException>()
+          .having((e) => e.statusCode, 'code', 403)),
     );
   });
 
@@ -369,8 +391,12 @@ void main() {
       await harness.dbB.close();
       await harness.serverA.stop();
       await harness.serverB.stop();
-      if (await harness.dirA.exists()) await harness.dirA.delete(recursive: true);
-      if (await harness.dirB.exists()) await harness.dirB.delete(recursive: true);
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
     });
 
     final largeBytes = List<int>.generate(300 * 1024, (i) => i % 251);
@@ -397,7 +423,8 @@ void main() {
     final synced = await harness.repoB.getNote(noteWithFile.id);
     expect(synced?.attachments.length, 1);
     expect(
-      await harness.repoB.attachmentMatches(synced!.id, synced.attachments.first),
+      await harness.repoB
+          .attachmentMatches(synced!.id, synced.attachments.first),
       isTrue,
     );
   });

@@ -52,8 +52,7 @@ void main() {
     final note = await repo.createNote(title: 'Old', markdown: 'x');
     await repo.deleteNote(note.id);
 
-    final metaPath =
-        '${tempDir.path}/notes/${note.id}/meta.json';
+    final metaPath = '${tempDir.path}/notes/${note.id}/meta.json';
     final raw =
         jsonDecode(await File(metaPath).readAsString()) as Map<String, dynamic>;
     raw['deleted_at'] = DateTime.now()

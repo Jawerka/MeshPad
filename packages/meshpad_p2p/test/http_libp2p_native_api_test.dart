@@ -24,7 +24,8 @@ void main() {
 
   test('health returns ok', () async {
     final client = HttpClient();
-    final request = await client.getUrl(Uri.parse('http://127.0.0.1:$port/health'));
+    final request =
+        await client.getUrl(Uri.parse('http://127.0.0.1:$port/health'));
     final response = await request.close();
     expect(response.statusCode, 200);
     client.close();
@@ -94,7 +95,8 @@ void main() {
     final serverA = await serveLibp2pSidecar(server: sidecarA, port: 0);
     final serverB = await serveLibp2pSidecar(server: sidecarB, port: 0);
 
-    Future<int> postJson(int port, String path, Map<String, dynamic> body) async {
+    Future<int> postJson(
+        int port, String path, Map<String, dynamic> body) async {
       final client = HttpClient();
       final request =
           await client.postUrl(Uri.parse('http://127.0.0.1:$port$path'));
@@ -140,7 +142,8 @@ void main() {
     final serverA = await serveLibp2pSidecar(server: sidecarA, port: 0);
     final serverB = await serveLibp2pSidecar(server: sidecarB, port: 0);
 
-    final wireB = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverB.port}');
+    final wireB =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverB.port}');
     await wireB.pushSnapshot(
       snapshot: {
         'meta': {
@@ -156,14 +159,16 @@ void main() {
       },
     );
 
-    final apiA = HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${serverA.port}');
+    final apiA =
+        HttpLibp2pNativeApi(baseUrl: 'http://127.0.0.1:${serverA.port}');
     await apiA.start(peerId: 'peer-a', displayName: 'A');
     await apiA.requestSync(
       peerId: 'peer-b',
       remoteWireBase: 'http://127.0.0.1:${serverB.port}',
     );
 
-    final wireA = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
+    final wireA =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${serverA.port}');
     final catalogA = await wireA.fetchCatalog();
     expect(catalogA, hasLength(1));
     expect(catalogA.first.id, 'peer-b-note');

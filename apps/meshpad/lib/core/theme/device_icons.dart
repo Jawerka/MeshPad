@@ -51,9 +51,8 @@ Future<String?> showDeviceIconPicker(
               selectedIcon: Icon(peerIconFor(id), color: accent),
               icon: Icon(peerIconFor(id)),
               style: IconButton.styleFrom(
-                backgroundColor: id == selected
-                    ? accent.withValues(alpha: 0.18)
-                    : null,
+                backgroundColor:
+                    id == selected ? accent.withValues(alpha: 0.18) : null,
               ),
               onPressed: () => Navigator.pop(context, id),
             ),

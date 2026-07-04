@@ -12,11 +12,13 @@ void main() {
   });
 
   test('SyncRunStatus values cover pipeline outcomes', () {
-    expect(SyncRunStatus.values, containsAll([
-      SyncRunStatus.noPeers,
-      SyncRunStatus.completed,
-      SyncRunStatus.partial,
-      SyncRunStatus.failed,
-    ]));
+    expect(
+        SyncRunStatus.values,
+        containsAll([
+          SyncRunStatus.noPeers,
+          SyncRunStatus.completed,
+          SyncRunStatus.partial,
+          SyncRunStatus.failed,
+        ]));
   });
 }

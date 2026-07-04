@@ -33,7 +33,8 @@ Middleware apiKeyAuthMiddleware(ApiKeyAuth auth) {
       }
 
       final provided = meshPadApiKeyFromHeaders(request.headers);
-      if (!meshPadApiKeyMatches(expectedKey: auth.expectedKey, provided: provided)) {
+      if (!meshPadApiKeyMatches(
+          expectedKey: auth.expectedKey, provided: provided)) {
         return Response(
           401,
           body: jsonEncode({'error': 'unauthorized'}),

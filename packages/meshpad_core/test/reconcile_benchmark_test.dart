@@ -6,7 +6,8 @@ import 'package:meshpad_core/meshpad_core.dart';
 import 'package:test/test.dart';
 
 /// PLAN §11.1.4 — 1k benchmark: `dart test test/reconcile_benchmark_test.dart --tags benchmark`
-void main() {  Future<int> seedNotes(String dataDir, int count) async {
+void main() {
+  Future<int> seedNotes(String dataDir, int count) async {
     final db = MeshPadDatabase.inMemory();
     final repo = createNoteRepository(
       dataDir: dataDir,
@@ -47,7 +48,8 @@ void main() {  Future<int> seedNotes(String dataDir, int count) async {
     try {
       await seedNotes(dir.path, 1000);
       final ms = await benchmarkReconcile(dir.path);
-      expect(ms, lessThan(120000), reason: '1k reconcile should finish < 2 min');
+      expect(ms, lessThan(120000),
+          reason: '1k reconcile should finish < 2 min');
     } finally {
       if (await dir.exists()) await dir.delete(recursive: true);
     }

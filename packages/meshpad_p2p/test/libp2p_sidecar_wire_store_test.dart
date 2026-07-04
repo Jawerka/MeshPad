@@ -31,7 +31,8 @@ void main() {
       await sidecar.close();
     });
 
-    final remote = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
+    final remote =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
     await remote.pushSnapshot(
       snapshot: {
         'meta': {
@@ -61,7 +62,8 @@ void main() {
       await sidecar.close();
     });
 
-    final remote = Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
+    final remote =
+        Libp2pSidecarWireClient(baseUrl: 'http://127.0.0.1:${server.port}');
     final local = Libp2pSidecarWireStore();
     local.upsertSnapshot({
       'meta': {

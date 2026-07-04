@@ -7,14 +7,16 @@ import '../../core/providers/github_auth_providers.dart';
 import '../../core/services/github_device_auth_service.dart';
 import '../../core/theme/meshpad_colors.dart';
 
-Future<bool> showGitHubDeviceAuthDialog(BuildContext context, WidgetRef ref) async {
+Future<bool> showGitHubDeviceAuthDialog(
+    BuildContext context, WidgetRef ref) async {
   final controller = ref.read(githubAuthControllerProvider);
   GitHubDeviceCode? deviceCode;
   try {
     deviceCode = await controller.startDeviceFlow();
   } on GitHubDeviceAuthException catch (e) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(e.message)));
     return false;
   }
 
@@ -44,7 +46,8 @@ class _GitHubDeviceAuthDialog extends ConsumerStatefulWidget {
       _GitHubDeviceAuthDialogState();
 }
 
-class _GitHubDeviceAuthDialogState extends ConsumerState<_GitHubDeviceAuthDialog> {
+class _GitHubDeviceAuthDialogState
+    extends ConsumerState<_GitHubDeviceAuthDialog> {
   var _cancelled = false;
   String? _error;
   String? _login;
@@ -58,14 +61,15 @@ class _GitHubDeviceAuthDialogState extends ConsumerState<_GitHubDeviceAuthDialog
 
   Future<void> _poll() async {
     try {
-      final session = await ref.read(githubAuthControllerProvider).completeDeviceFlow(
-            deviceCode: widget.deviceCode,
-            onWaiting: (remaining) {
-              if (!mounted) return;
-              setState(() => _remaining = remaining);
-            },
-            isCancelled: () => _cancelled,
-          );
+      final session =
+          await ref.read(githubAuthControllerProvider).completeDeviceFlow(
+                deviceCode: widget.deviceCode,
+                onWaiting: (remaining) {
+                  if (!mounted) return;
+                  setState(() => _remaining = remaining);
+                },
+                isCancelled: () => _cancelled,
+              );
       if (!mounted) return;
       setState(() => _login = session.login);
       await Future<void>.delayed(const Duration(milliseconds: 400));

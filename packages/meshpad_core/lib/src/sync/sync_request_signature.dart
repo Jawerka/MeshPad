@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
 import '../security/device_signing.dart';
+
 /// UTC timestamp of the signed request (ISO-8601).
 const meshpadSyncTimestampHeader = 'X-MeshPad-Timestamp';
 

@@ -97,13 +97,14 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     return rows.map((row) => row.id).toList();
   }
 
-  Future<({
-    DateTime? meta,
-    DateTime? md,
-    DateTime? attachments,
-  })?> getNoteFsSignatures(String id) async {
-    final row = await (select(notes)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+  Future<
+      ({
+        DateTime? meta,
+        DateTime? md,
+        DateTime? attachments,
+      })?> getNoteFsSignatures(String id) async {
+    final row =
+        await (select(notes)..where((t) => t.id.equals(id))).getSingleOrNull();
     if (row == null) return null;
     return (
       meta: row.fsMetaModifiedAt,
@@ -189,9 +190,8 @@ class MeshPadDatabase extends _$MeshPadDatabase {
       ).get();
       return rows.map((row) => row.read<String>('tag')).toList();
     } catch (_) {
-      final rows = await (select(notes)
-            ..where((t) => t.deleted.equals(false)))
-          .get();
+      final rows =
+          await (select(notes)..where((t) => t.deleted.equals(false))).get();
       final tags = <String>{};
       for (final row in rows) {
         tags.addAll(parseTagsJson(row.tags));
@@ -280,24 +280,25 @@ class MeshPadDatabase extends _$MeshPadDatabase {
 
     final attachmentNamesByNote = <String, Set<String>>{};
     for (final row in attachmentRows) {
-      attachmentNamesByNote
-          .putIfAbsent(row.noteId, () => {})
-          .add(row.name);
+      attachmentNamesByNote.putIfAbsent(row.noteId, () => {}).add(row.name);
     }
 
     final sorted = merged.values.toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-    return sorted.take(limit).map(
-      (row) => (
-        noteId: row.id,
-        snippet: _searchLikeSnippet(
-          row: row,
-          query: query,
-          attachmentNames: attachmentNamesByNote[row.id] ?? const {},
-        ),
-      ),
-    ).toList();
+    return sorted
+        .take(limit)
+        .map(
+          (row) => (
+            noteId: row.id,
+            snippet: _searchLikeSnippet(
+              row: row,
+              query: query,
+              attachmentNames: attachmentNamesByNote[row.id] ?? const {},
+            ),
+          ),
+        )
+        .toList();
   }
 
   static String _searchLikeSnippet({
@@ -316,7 +317,8 @@ class MeshPadDatabase extends _$MeshPadDatabase {
     return previewSnippetFromMarkdown(row.markdown, maxLen: 48);
   }
 
-  Future<void> replaceAttachments(String noteId, List<NoteAttachmentsCompanion> rows) async {
+  Future<void> replaceAttachments(
+      String noteId, List<NoteAttachmentsCompanion> rows) async {
     await (delete(noteAttachments)..where((t) => t.noteId.equals(noteId))).go();
     if (rows.isNotEmpty) {
       await batch((b) => b.insertAll(noteAttachments, rows));
@@ -412,8 +414,7 @@ class MeshPadDatabase extends _$MeshPadDatabase {
   }
 
   Future<List<SyncOutboxData>> listOutboxEntries() {
-    return (select(syncOutbox)
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+    return (select(syncOutbox)..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
   }
 

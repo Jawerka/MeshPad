@@ -73,14 +73,13 @@ class GitHubAuthController {
     if (clientId == null || clientId.isEmpty) {
       throw GitHubDeviceAuthException('GitHub OAuth Client ID не настроен');
     }
-    final session = await _ref
-        .read(githubDeviceAuthServiceProvider)
-        .pollForAccessToken(
-          clientId: clientId,
-          deviceCode: deviceCode,
-          onWaiting: onWaiting,
-          isCancelled: isCancelled,
-        );
+    final session =
+        await _ref.read(githubDeviceAuthServiceProvider).pollForAccessToken(
+              clientId: clientId,
+              deviceCode: deviceCode,
+              onWaiting: onWaiting,
+              isCancelled: isCancelled,
+            );
     await _ref.read(secureGitTokenStoreProvider).writeSession(
           token: session.accessToken,
           login: session.login,

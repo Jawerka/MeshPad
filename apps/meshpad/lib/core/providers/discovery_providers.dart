@@ -49,8 +49,7 @@ class DiscoveryService {
   StreamSubscription<SyncTransportEvent>? _eventsSub;
 
   bool get _supported =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
 
   Future<void> start() => ensureRunning();
 

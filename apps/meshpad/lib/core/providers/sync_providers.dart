@@ -36,7 +36,8 @@ final localIdentityProvider = FutureProvider<LocalDeviceIdentity>((ref) async {
     throw UnsupportedError('Device identity unavailable on Web');
   }
   final store = await ref.watch(deviceStoreProvider.future);
-  return store.loadOrCreateIdentity(defaultDisplayName: defaultDeviceDisplayName());
+  return store.loadOrCreateIdentity(
+      defaultDisplayName: defaultDeviceDisplayName());
 });
 
 final trustedDevicesProvider = FutureProvider<List<Device>>((ref) async {
@@ -54,7 +55,8 @@ final syncEngineProvider = FutureProvider<SyncEngine>((ref) async {
   return SyncEngine(notes: repo, identity: identity);
 });
 
-final lanSyncCoordinatorProvider = FutureProvider<LanSyncCoordinator>((ref) async {
+final lanSyncCoordinatorProvider =
+    FutureProvider<LanSyncCoordinator>((ref) async {
   final store = await ref.watch(deviceStoreProvider.future);
   return LanSyncCoordinator(deviceStore: store);
 });
@@ -233,9 +235,8 @@ class SyncController {
     } catch (e, st) {
       MeshPadLog.warn('sync', 'runSync failed: $e');
       MeshPadLog.warn('sync', '$st');
-      final message = e is MeshPadException
-          ? e.message
-          : meshPadExceptionUserMessage(e);
+      final message =
+          e is MeshPadException ? e.message : meshPadExceptionUserMessage(e);
       return SyncRunResult(SyncRunStatus.failed, message: message);
     } finally {
       lanSyncTransferProgress.onProgress = null;

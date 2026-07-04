@@ -40,7 +40,8 @@ class _FakeNotesService implements NotesService {
   Future<List<Note>> listTrash() async => [];
 
   @override
-  Future<List<NoteSearchHit>> searchNotes(String query, {int limit = 50}) async =>
+  Future<List<NoteSearchHit>> searchNotes(String query,
+          {int limit = 50}) async =>
       [];
 
   @override

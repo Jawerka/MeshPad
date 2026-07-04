@@ -67,12 +67,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             _FeedHeader(mode: mode, count: feed.notes.length),
             Expanded(
               child: feed.notes.isEmpty
-                  ? _EmptyFeed(mode: mode, onRefresh: () async {
-                      if (!ref.read(isWebClientProvider)) {
-                        await ref.read(syncControllerProvider).runSync();
-                      }
-                      await ref.read(notesListProvider.notifier).reload();
-                    })
+                  ? _EmptyFeed(
+                      mode: mode,
+                      onRefresh: () async {
+                        if (!ref.read(isWebClientProvider)) {
+                          await ref.read(syncControllerProvider).runSync();
+                        }
+                        await ref.read(notesListProvider.notifier).reload();
+                      })
                   : _PaginatedFeedList(
                       feed: feed,
                       mode: mode,
@@ -140,7 +142,8 @@ class _PaginatedFeedListState extends ConsumerState<_PaginatedFeedList> {
 
     ref.read(notesListProvider.notifier).loadOlder().then((_) {
       if (!mounted) return;
-      _preserveScrollAfterPrepend(beforeExtent: beforeExtent, beforePixels: beforePixels);
+      _preserveScrollAfterPrepend(
+          beforeExtent: beforeExtent, beforePixels: beforePixels);
     });
   }
 
@@ -491,13 +494,15 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Корзина',
                     onPressed: () {
-                      ref.read(feedModeProvider.notifier).state = FeedMode.trash;
+                      ref.read(feedModeProvider.notifier).state =
+                          FeedMode.trash;
                       ref.invalidate(notesListProvider);
                     },
                   ),
               ],
               if (!isTrash || widget.count > 0)
-                Text('${widget.count}', style: Theme.of(context).textTheme.labelSmall),
+                Text('${widget.count}',
+                    style: Theme.of(context).textTheme.labelSmall),
               SizedBox(width: compact ? 4 : 12),
             ],
           ),
@@ -511,7 +516,8 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: MeshPadColors.chatMaxWidth),
+                constraints:
+                    const BoxConstraints(maxWidth: MeshPadColors.chatMaxWidth),
                 child: TextField(
                   controller: _searchController,
                   autofocus: true,
@@ -666,7 +672,8 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
       enabled: !_saving,
       onFilesDropped: _addPendingFiles,
       child: Container(
-        padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 12, compact ? 8 : 16, 16),
+        padding:
+            EdgeInsets.fromLTRB(compact ? 8 : 16, 12, compact ? 8 : 16, 16),
         decoration: BoxDecoration(
           color: MeshPadColors.backgroundElevated,
           border: Border(top: BorderSide(color: MeshPadColors.border)),
@@ -820,9 +827,8 @@ class _FeedSortButton extends ConsumerWidget {
     final sort = ref.watch(feedSortProvider);
     final isUpdated = sort == NoteSort.updatedAt;
     return IconButton(
-      tooltip: isUpdated
-          ? 'Сортировка: по изменению'
-          : 'Сортировка: по созданию',
+      tooltip:
+          isUpdated ? 'Сортировка: по изменению' : 'Сортировка: по созданию',
       icon: Icon(
         isUpdated ? Icons.edit_calendar_outlined : Icons.schedule_outlined,
         color: isUpdated ? MeshPadColors.primary : null,

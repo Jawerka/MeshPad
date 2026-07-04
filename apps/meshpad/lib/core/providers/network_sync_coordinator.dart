@@ -83,8 +83,7 @@ class NetworkSyncCoordinator {
   }
 
   bool get _supportedPlatform =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
 }
 
 /// Returns true when [settings] permit sync on the current network.

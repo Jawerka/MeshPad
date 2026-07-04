@@ -101,9 +101,8 @@ class NoteRepository {
       markdown: markdown,
       explicitTitle: title.isEmpty ? null : title,
     );
-    final finalTitle = resolvedTitle.isEmpty
-        ? defaultTitleFromCreatedAt(now)
-        : resolvedTitle;
+    final finalTitle =
+        resolvedTitle.isEmpty ? defaultTitleFromCreatedAt(now) : resolvedTitle;
     final meta = NoteMeta(
       schemaVersion: NoteMeta.currentSchemaVersion,
       id: id,
@@ -211,9 +210,8 @@ class NoteRepository {
     final query = _db.select(_db.notes);
     query.where((t) {
       if (includeDeleted && normalizedTag == null) return const Constant(true);
-      var expr = includeDeleted
-          ? const Constant(true)
-          : t.deleted.equals(false);
+      var expr =
+          includeDeleted ? const Constant(true) : t.deleted.equals(false);
       if (normalizedTag != null) {
         expr = expr & t.tags.like('%"$normalizedTag"%');
       }
@@ -298,12 +296,14 @@ class NoteRepository {
     return _notesFromRows(rows);
   }
 
-  Future<List<NoteSearchHit>> searchNotes(String query, {int limit = 50}) async {
+  Future<List<NoteSearchHit>> searchNotes(String query,
+      {int limit = 50}) async {
     final hits = await _db.searchFts(query, limit: limit);
     if (hits.isEmpty) return [];
 
     final ids = hits.map((h) => h.noteId).toList();
-    final rows = await (_db.select(_db.notes)..where((t) => t.id.isIn(ids))).get();
+    final rows =
+        await (_db.select(_db.notes)..where((t) => t.id.isIn(ids))).get();
     final notesById = {for (final n in await _notesFromRows(rows)) n.id: n};
 
     return [
@@ -625,7 +625,8 @@ class NoteRepository {
     if (existing == null || existing.deleted) return;
 
     final now = DateTime.now().toUtc();
-    final deleted = existing.copyWith(deleted: true, deletedAt: now, updatedAt: now);
+    final deleted =
+        existing.copyWith(deleted: true, deletedAt: now, updatedAt: now);
     await _persist(
       deleted,
       operation: NoteOperationType.deleteNote,
@@ -651,7 +652,8 @@ class NoteRepository {
   }
 
   /// Permanently removes notes in trash older than [ttl].
-  Future<int> purgeExpiredTrash({Duration ttl = const Duration(days: 7)}) async {
+  Future<int> purgeExpiredTrash(
+      {Duration ttl = const Duration(days: 7)}) async {
     final cutoff = DateTime.now().toUtc().subtract(ttl);
     final trash = await listTrash();
     var purged = 0;
@@ -831,9 +833,8 @@ class NoteRepository {
       markdown: note.markdown,
     );
     await _fs.write(folder);
-    final indexed = enqueueOutbox
-        ? note.copyWith(revision: meta.revision)
-        : note;
+    final indexed =
+        enqueueOutbox ? note.copyWith(revision: meta.revision) : note;
     await _indexNote(indexed);
     if (enqueueOutbox) {
       if (operation != null) {
@@ -869,8 +870,7 @@ class NoteRepository {
       tags: note.tags,
       fsMetaModifiedAt: signatures?.normalized().metaModifiedAt,
       fsMarkdownModifiedAt: signatures?.normalized().markdownModifiedAt,
-      fsAttachmentsModifiedAt:
-          signatures?.normalized().attachmentsModifiedAt,
+      fsAttachmentsModifiedAt: signatures?.normalized().attachmentsModifiedAt,
     );
     await _db.replaceAttachments(
       note.id,

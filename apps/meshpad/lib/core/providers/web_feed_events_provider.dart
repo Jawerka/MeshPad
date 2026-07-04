@@ -84,7 +84,8 @@ class WebFeedEventsListener {
     final client = _client;
     if (client != null && _lastEventId != null) {
       try {
-        final since = DateTime.now().toUtc().subtract(const Duration(minutes: 5));
+        final since =
+            DateTime.now().toUtc().subtract(const Duration(minutes: 5));
         await client.listNotesUpdatedSince(since);
       } catch (_) {
         // Fall back to full reload.

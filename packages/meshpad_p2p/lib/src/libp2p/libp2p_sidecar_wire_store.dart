@@ -31,7 +31,8 @@ class Libp2pSidecarWireStore {
       final meta = entry.value['meta'] as Map<String, dynamic>? ?? {};
       return {
         'id': entry.key,
-        'updated_at': meta['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
+        'updated_at':
+            meta['updated_at'] ?? DateTime.now().toUtc().toIso8601String(),
         'deleted': meta['deleted'] as bool? ?? false,
       };
     }).toList();
@@ -140,7 +141,8 @@ class Libp2pSidecarWireStore {
     if (_snapshots.isEmpty) return 0;
     var pushed = 0;
     for (final snapshot in _snapshots.values) {
-      final result = await remote.pushSnapshot(snapshot: _deepCopyMap(snapshot));
+      final result =
+          await remote.pushSnapshot(snapshot: _deepCopyMap(snapshot));
       if (result.status == 'accepted') pushed++;
     }
     return pushed;

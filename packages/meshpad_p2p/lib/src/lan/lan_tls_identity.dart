@@ -85,7 +85,8 @@ class LanTlsIdentity {
     String? expectedSha256Hex,
     bool allowUnpinned = false,
   }) {
-    final client = HttpClient(context: SecurityContext(withTrustedRoots: false));
+    final client =
+        HttpClient(context: SecurityContext(withTrustedRoots: false));
     client.badCertificateCallback = (cert, host, port) {
       if (expectedSha256Hex != null) {
         return sha256HexFromX509(cert) == expectedSha256Hex.toLowerCase();

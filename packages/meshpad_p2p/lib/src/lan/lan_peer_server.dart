@@ -15,9 +15,11 @@ import '../meshpad_log.dart';
 /// Default LAN HTTP port (stable across restarts when free).
 const meshpadPreferredLanHttpPort = 45838;
 
-typedef PairingConfirmedHandler = Future<void> Function(PinPairingConfirm confirm);
+typedef PairingConfirmedHandler = Future<void> Function(
+    PinPairingConfirm confirm);
 typedef CascadeSyncHandler = Future<void> Function(String? excludePeerId);
-typedef TrustedPeerLookup = Future<TrustedDeviceRecord?> Function(String peerId);
+typedef TrustedPeerLookup = Future<TrustedDeviceRecord?> Function(
+    String peerId);
 
 /// Local HTTP server exposing sync + pairing endpoints for LAN peers.
 class LanPeerServer {
@@ -67,7 +69,7 @@ class LanPeerServer {
       MeshPadLog.warn(
         'lan',
         'HTTP server on dynamic port ${_server!.port} '
-        '(preferred $preferredPort busy — add firewall rule or free the port)',
+            '(preferred $preferredPort busy — add firewall rule or free the port)',
       );
     }
     _server!.listen(_handleRequest);
@@ -92,7 +94,7 @@ class LanPeerServer {
         MeshPadLog.warn(
           'lan',
           'TLS server on dynamic port ${_tlsServer!.port} '
-          '(preferred $preferredTlsPort busy)',
+              '(preferred $preferredTlsPort busy)',
         );
       }
       _tlsServer!.listen(_handleRequest);
@@ -145,10 +147,8 @@ class LanPeerServer {
           authToken: request.headers.value(meshpadSyncAuthTokenHeader),
           method: method,
           path: path,
-          timestampHeader:
-              request.headers.value(meshpadSyncTimestampHeader),
-          signatureHeader:
-              request.headers.value(meshpadSyncSignatureHeader),
+          timestampHeader: request.headers.value(meshpadSyncTimestampHeader),
+          signatureHeader: request.headers.value(meshpadSyncSignatureHeader),
           lookupTrusted: lookup,
         );
         if (failure != null) {
@@ -385,7 +385,8 @@ class LanPeerServer {
     return _HttpResponse.json(status.toJson());
   }
 
-  Future<_HttpResponse> _putAttachment(HttpRequest request, String suffix) async {
+  Future<_HttpResponse> _putAttachment(
+      HttpRequest request, String suffix) async {
     if (request.headers.value(meshpadUploadOffsetHeader) != null) {
       return _putAttachmentChunk(request, suffix);
     }
@@ -417,7 +418,8 @@ class LanPeerServer {
     );
 
     if (meta == null) {
-      return _HttpResponse(statusCode: 404, body: 'attachment not in note meta');
+      return _HttpResponse(
+          statusCode: 404, body: 'attachment not in note meta');
     }
 
     try {

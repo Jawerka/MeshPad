@@ -36,7 +36,8 @@ bool lanCatalogAcceptsGzip(String? acceptEncoding) {
 }
 
 /// Decodes catalog JSON whether or not the body was gzip-compressed.
-List<NoteHead> decodeLanCatalogBody(List<int> bodyBytes, {bool gzipped = false}) {
+List<NoteHead> decodeLanCatalogBody(List<int> bodyBytes,
+    {bool gzipped = false}) {
   final jsonBytes = gzipped ? _gzipDecoder.decodeBytes(bodyBytes) : bodyBytes;
   final decoded = jsonDecode(utf8.decode(jsonBytes)) as List<dynamic>;
   return noteHeadsFromJsonList(decoded);

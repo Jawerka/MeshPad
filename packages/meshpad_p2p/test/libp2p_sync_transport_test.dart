@@ -34,7 +34,8 @@ class _FakeNativeApi implements Libp2pNativeApi {
 void main() {
   test('Libp2pSyncTransport exposes LAN fallback via lanAccess', () {
     Future<SyncEngine> getEngine() async => throw UnimplementedError();
-    Future<LocalDeviceIdentity> getIdentity() async => throw UnimplementedError();
+    Future<LocalDeviceIdentity> getIdentity() async =>
+        throw UnimplementedError();
 
     final transport = Libp2pSyncTransport(
       getEngine: getEngine,
@@ -45,7 +46,8 @@ void main() {
     expect((transport as SyncTransport).lanAccess, same(transport.lanFallback));
   });
 
-  test('Libp2pSyncTransport caches LAN endpoint from native discovery', () async {
+  test('Libp2pSyncTransport caches LAN endpoint from native discovery',
+      () async {
     final events = StreamController<Libp2pNativeEvent>.broadcast();
     final db = MeshPadDatabase.inMemory();
     addTearDown(db.close);

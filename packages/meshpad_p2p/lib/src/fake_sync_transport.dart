@@ -70,11 +70,13 @@ class FakeSyncTransport implements SyncTransport {
     }
 
     _controller.add(
-      SyncCompleted(peerId: peerId ?? remotePeerId ?? 'fake-peer', noteCount: noteCount),
+      SyncCompleted(
+          peerId: peerId ?? remotePeerId ?? 'fake-peer', noteCount: noteCount),
     );
   }
 
-  void emitPeerDiscovered({required String peerId, required String displayName}) {
+  void emitPeerDiscovered(
+      {required String peerId, required String displayName}) {
     _controller.add(PeerDiscovered(peerId: peerId, displayName: displayName));
   }
 

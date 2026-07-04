@@ -87,7 +87,8 @@ class Libp2pSidecarWireClient {
 
   /// `POST /v1/wire/batch/import` — import batch envelope.
   Future<int> importBatch(WireSyncBatch batch) async {
-    final json = await _transport.postJson('/v1/wire/batch/import', batch.toJson());
+    final json =
+        await _transport.postJson('/v1/wire/batch/import', batch.toJson());
     return json['imported'] as int? ?? 0;
   }
 

@@ -49,15 +49,15 @@ Stream<MeshPadApiEvent> parseSseEventStream(Stream<String> lineStream) async* {
 }
 
 /// Reads an SSE body from a streaming HTTP response.
-Stream<MeshPadApiEvent> meshPadEventsFromResponse(http.StreamedResponse response) {
+Stream<MeshPadApiEvent> meshPadEventsFromResponse(
+    http.StreamedResponse response) {
   if (response.statusCode != 200) {
     return Stream.error(
       MeshPadApiException.fromResponse(response.statusCode, ''),
     );
   }
 
-  final lineStream = response.stream
-      .transform(utf8.decoder)
-      .transform(const LineSplitter());
+  final lineStream =
+      response.stream.transform(utf8.decoder).transform(const LineSplitter());
   return parseSseEventStream(lineStream);
 }

@@ -22,8 +22,7 @@ class DeviceIdentityStore {
     Uuid? uuid,
   })  : _paths = paths,
         _authTokens = authTokens ?? const EmbeddedPeerAuthTokenStore(),
-        _signingKeys =
-            signingKeys ?? FileDeviceSigningKeyStore(paths),
+        _signingKeys = signingKeys ?? FileDeviceSigningKeyStore(paths),
         _uuid = uuid ?? const Uuid();
 
   final MeshPadPaths _paths;
@@ -31,8 +30,7 @@ class DeviceIdentityStore {
   final DeviceSigningKeyStore _signingKeys;
   final Uuid _uuid;
 
-  bool get usesExternalAuthTokens =>
-      _authTokens is! EmbeddedPeerAuthTokenStore;
+  bool get usesExternalAuthTokens => _authTokens is! EmbeddedPeerAuthTokenStore;
 
   MeshPadPaths get paths => _paths;
 
@@ -275,8 +273,7 @@ class DeviceIdentityStore {
     final file = File(_paths.trustedDeviceFile(peerId));
     if (!await file.exists()) return null;
 
-    final json =
-        jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     var record = TrustedDeviceRecord.fromJson(json);
 
     if (!usesExternalAuthTokens) return record;

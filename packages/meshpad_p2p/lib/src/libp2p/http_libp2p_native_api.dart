@@ -53,7 +53,8 @@ class HttpLibp2pNativeApi implements Libp2pNativeApi {
   Future<Libp2pSidecarHealth?> fetchHealth() async {
     try {
       final request = await _http.getUrl(_uri('/health'));
-      final response = await request.close().timeout(const Duration(seconds: 2));
+      final response =
+          await request.close().timeout(const Duration(seconds: 2));
       if (response.statusCode != 200) return null;
       final body = await response.transform(utf8.decoder).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
@@ -97,8 +98,7 @@ class HttpLibp2pNativeApi implements Libp2pNativeApi {
       await controller.close();
     }
     try {
-      await _post('/v1/stop', const {})
-          .timeout(const Duration(seconds: 2));
+      await _post('/v1/stop', const {}).timeout(const Duration(seconds: 2));
     } catch (_) {
       // Sidecar may already be down.
     }
@@ -182,7 +182,6 @@ class HttpLibp2pNativeApi implements Libp2pNativeApi {
     final normalized = path.startsWith('/') ? path.substring(1) : path;
     return _base.resolve(normalized);
   }
-
 }
 
 String? libp2pSidecarUrlFromEnvironment() {

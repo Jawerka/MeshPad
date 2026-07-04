@@ -15,6 +15,7 @@ class LocalDeviceIdentity {
   final String displayName;
   final String icon;
   final DateTime createdAt;
+
   /// Base64-encoded Ed25519 public key (32 bytes), when [signingKeyAlgorithm] is set.
   final String? signingPublicKey;
   final String? signingKeyAlgorithm;
@@ -52,7 +53,7 @@ class LocalDeviceIdentity {
 
 /// Trusted peer record (`devices/trusted/<peer_id>.json`).
 class TrustedDeviceRecord {
-  const   TrustedDeviceRecord({
+  const TrustedDeviceRecord({
     required this.peerId,
     required this.name,
     this.icon = 'device',

@@ -14,8 +14,7 @@ class AttachmentCopyProgress {
   final int fileIndex;
   final int fileCount;
 
-  double get fraction =>
-      totalBytes > 0 ? copiedBytes / totalBytes : 0;
+  double get fraction => totalBytes > 0 ? copiedBytes / totalBytes : 0;
 
   bool get isIndeterminate => totalBytes <= 0;
 }

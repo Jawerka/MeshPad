@@ -19,7 +19,8 @@ class WireSyncBatch {
       notes: _mapList(json['notes']),
       attachments: (json['attachments'] as List<dynamic>? ?? const [])
           .whereType<Map>()
-          .map((e) => WireBatchAttachment.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+              (e) => WireBatchAttachment.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
     );
   }

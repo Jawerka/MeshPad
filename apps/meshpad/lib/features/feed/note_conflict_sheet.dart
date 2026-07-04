@@ -39,7 +39,9 @@ Future<void> showNoteConflictSheet(
               const SizedBox(height: 16),
               for (final copy in copies)
                 ListTile(
-                  title: Text(copy.remoteTitle.isEmpty ? l10n.noteConflictUntitled : copy.remoteTitle),
+                  title: Text(copy.remoteTitle.isEmpty
+                      ? l10n.noteConflictUntitled
+                      : copy.remoteTitle),
                   subtitle: Text(
                     '${copy.remoteAuthor} · ${copy.savedAt.toLocal()}',
                   ),
@@ -71,7 +73,8 @@ Future<void> showNoteConflictSheet(
                                 copy.fileName,
                               );
                               ref.invalidate(notesListProvider);
-                              ref.invalidate(noteConflictCopiesProvider(note.id));
+                              ref.invalidate(
+                                  noteConflictCopiesProvider(note.id));
                               if (ctx.mounted) Navigator.pop(ctx);
                             },
                             child: Text(l10n.noteConflictUseRemote),

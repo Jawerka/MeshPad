@@ -26,7 +26,8 @@ void main() {
   });
 
   test('search finds note by markdown body', () async {
-    await repo.createNote(markdown: 'Уникальный текст про MeshPad синхронизацию');
+    await repo.createNote(
+        markdown: 'Уникальный текст про MeshPad синхронизацию');
     await repo.createNote(markdown: 'Другая заметка без совпадений');
 
     final hits = await repo.searchNotes('MeshPad');

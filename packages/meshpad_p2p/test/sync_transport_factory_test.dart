@@ -6,7 +6,8 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 void main() {
   group('createSyncTransport', () {
     Future<SyncEngine> getEngine() async => throw UnimplementedError();
-    Future<LocalDeviceIdentity> getIdentity() async => throw UnimplementedError();
+    Future<LocalDeviceIdentity> getIdentity() async =>
+        throw UnimplementedError();
 
     test('lan kind returns LanSyncTransport', () {
       final transport = createSyncTransport(

@@ -203,9 +203,8 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     final sort = ref.read(feedSortProvider);
     final tag = _activeTag;
     final total = await service.countActiveNotes(tag: tag);
-    final offset = total > NotesFeedState.pageSize
-        ? total - NotesFeedState.pageSize
-        : 0;
+    final offset =
+        total > NotesFeedState.pageSize ? total - NotesFeedState.pageSize : 0;
     final notes = await service.listNotesSlice(
       offset: offset,
       limit: NotesFeedState.pageSize,

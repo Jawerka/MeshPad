@@ -15,8 +15,7 @@ import 'attachment_media_source.dart';
 const videoPosterTimeFraction = 1 / 3;
 
 bool useVideoPosterInFeed() =>
-    !kIsWeb &&
-    (Platform.isWindows || Platform.isLinux);
+    !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
 class VideoAttachmentPreview extends StatelessWidget {
   const VideoAttachmentPreview({
@@ -118,7 +117,8 @@ class _VideoPosterPreviewState extends State<_VideoPosterPreview> {
       await controller.play();
       for (var i = 0; i < 40; i++) {
         if (!controller.value.isBuffering &&
-            controller.value.position >= seekTarget - const Duration(milliseconds: 500)) {
+            controller.value.position >=
+                seekTarget - const Duration(milliseconds: 500)) {
           break;
         }
         await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -163,7 +163,9 @@ class _VideoPosterPreviewState extends State<_VideoPosterPreview> {
       );
     }
 
-    if (!_posterReady || _controller == null || !_controller!.value.isInitialized) {
+    if (!_posterReady ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return _VideoLoadingBox(maxWidth: maxWidth);
     }
 
@@ -211,7 +213,8 @@ class _VideoPosterPreviewState extends State<_VideoPosterPreview> {
                     right: 4,
                     child: IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.open_in_new, color: Colors.white70),
+                      icon:
+                          const Icon(Icons.open_in_new, color: Colors.white70),
                       tooltip: 'Открыть внешним приложением',
                       onPressed: widget.onOpenExternally,
                     ),
@@ -359,7 +362,8 @@ class _VideoInlinePreviewState extends State<_VideoInlinePreview> {
                     right: 4,
                     child: IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.open_in_new, color: Colors.white70),
+                      icon:
+                          const Icon(Icons.open_in_new, color: Colors.white70),
                       tooltip: 'Открыть внешним приложением',
                       onPressed: widget.onOpenExternally,
                     ),
@@ -708,7 +712,8 @@ class _AudioAttachmentPreviewState extends State<AudioAttachmentPreview> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 2,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 5),
                     overlayShape: SliderComponentShape.noOverlay,
                   ),
                   child: Slider(

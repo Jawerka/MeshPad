@@ -61,7 +61,8 @@ void main() {
   test('resumes upload from partial state', () async {
     final bytes = List<int>.generate(300 * 1024, (i) => i % 127);
     final hash = sha256.convert(bytes).toString();
-    final meta = AttachmentMeta(name: 'resume.txt', size: bytes.length, sha256: hash);
+    final meta =
+        AttachmentMeta(name: 'resume.txt', size: bytes.length, sha256: hash);
 
     final firstChunkEnd = attachmentUploadChunkSize;
     await receiveAttachmentUploadChunk(
@@ -99,7 +100,8 @@ void main() {
   test('rejects wrong offset', () async {
     final bytes = List<int>.generate(512, (i) => i);
     final hash = sha256.convert(bytes).toString();
-    final meta = AttachmentMeta(name: 'small.txt', size: bytes.length, sha256: hash);
+    final meta =
+        AttachmentMeta(name: 'small.txt', size: bytes.length, sha256: hash);
 
     expect(
       () => receiveAttachmentUploadChunk(

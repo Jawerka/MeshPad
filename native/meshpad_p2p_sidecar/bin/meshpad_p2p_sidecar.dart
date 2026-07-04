@@ -27,6 +27,8 @@ Default: http://127.0.0.1:45839
   }
 
   final sidecar = Libp2pSidecarServer();
-  final server = await serveLibp2pSidecar(server: sidecar, host: host, port: port);
-  stdout.writeln('libp2p sidecar listening on http://${server.address.host}:${server.port}');
+  final server =
+      await serveLibp2pSidecar(server: sidecar, host: host, port: port);
+  stdout.writeln(
+      'libp2p sidecar listening on http://${server.address.host}:${server.port}');
 }

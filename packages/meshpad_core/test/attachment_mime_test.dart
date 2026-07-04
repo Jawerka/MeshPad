@@ -6,10 +6,14 @@ AttachmentMeta meta(String name, {String? mime}) =>
 
 void main() {
   test('attachmentPreviewKind detects video and audio', () {
-    expect(attachmentPreviewKind(meta('clip.mp4')), AttachmentPreviewKind.video);
-    expect(attachmentPreviewKind(meta('clip.MOV')), AttachmentPreviewKind.video);
-    expect(attachmentPreviewKind(meta('song.mp3')), AttachmentPreviewKind.audio);
-    expect(attachmentPreviewKind(meta('voice.m4a')), AttachmentPreviewKind.audio);
+    expect(
+        attachmentPreviewKind(meta('clip.mp4')), AttachmentPreviewKind.video);
+    expect(
+        attachmentPreviewKind(meta('clip.MOV')), AttachmentPreviewKind.video);
+    expect(
+        attachmentPreviewKind(meta('song.mp3')), AttachmentPreviewKind.audio);
+    expect(
+        attachmentPreviewKind(meta('voice.m4a')), AttachmentPreviewKind.audio);
     expect(attachmentPreviewKind(meta('pic.png')), AttachmentPreviewKind.image);
     expect(attachmentPreviewKind(meta('doc.pdf')), AttachmentPreviewKind.file);
   });

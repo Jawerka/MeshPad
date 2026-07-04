@@ -46,9 +46,8 @@ class UpdateChecker {
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final latest = json['latest_version'] as String? ??
-          json['version'] as String? ??
-          '';
+      final latest =
+          json['latest_version'] as String? ?? json['version'] as String? ?? '';
       final downloadUrl = json['android_apk_url'] as String? ??
           json['download_url'] as String? ??
           json['url'] as String?;

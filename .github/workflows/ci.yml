@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  analyze-test:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,12 +34,6 @@ jobs:
 
       - name: Format check
         run: melos run format
-
-      - name: Test
-        run: melos run test
-
-      - name: Flutter test
-        run: melos run flutter:test
 
   build-linux:
     name: Linux x64 compile

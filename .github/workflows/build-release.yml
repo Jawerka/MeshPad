@@ -17,8 +17,38 @@ env:
   FLUTTER_APP: apps/meshpad
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install melos
+        run: dart pub global activate melos
+
+      - name: Add pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Codegen
+        run: cd packages/meshpad_core && dart run build_runner build --delete-conflicting-outputs
+
+      - name: Test
+        run: melos run test
+
+      - name: Flutter test
+        run: melos run flutter:test
+
   build-android:
     name: Android APK
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,6 +117,7 @@ jobs:
 
   build-windows:
     name: Windows x64
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

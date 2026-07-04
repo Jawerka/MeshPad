@@ -81,12 +81,8 @@ class HubWeb {
 
   Future<Response> _index(int webPort) async {
     final status = await pairing.status(webPort: webPort);
-    final pin = status.pin ?? '------';
     final lanHost = status.lanHost ?? '…';
     final syncPort = status.httpPort?.toString() ?? '45838';
-    final qrSrc = status.qrUri == null
-        ? ''
-        : '/hub/qr.png?pin=${Uri.encodeComponent(pin)}';
 
     final html = '''
 <!DOCTYPE html>
@@ -158,7 +154,9 @@ class HubWeb {
     .dev-fail { color: var(--err); }
     .dev-idle { color: var(--muted); }
     .log time { color: var(--muted); white-space: nowrap; font-size: .75rem; }
-    .actions { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+    .actions { display: flex; gap: .5rem; margin: 1rem 0; flex-wrap: wrap; }
+    .pairing-panel[hidden] { display: none; }
+    #pairing-hint { margin-bottom: .75rem; }
     button {
       flex: 1; min-width: 120px; padding: .55rem .9rem; font-size: .9rem;
       border-radius: 8px; border: 1px solid rgba(128,128,128,.35);
@@ -187,23 +185,27 @@ class HubWeb {
       <div><strong id="stat-devices">${status.trustedCount}</strong>устройств</div>
     </div>
 
-    <p class="hint">Отсканируйте QR в MeshPad<br>или введите PIN вручную</p>
-    ${qrSrc.isEmpty ? '<p class="err">Pairing недоступен — подождите…</p>' : '<div class="qr-wrap"><img id="qr" src="$qrSrc" width="240" height="240" alt="QR pairing"></div>'}
-    <div class="pin" id="pin">$pin</div>
-    <div style="text-align:center;font-size:.82rem;color:var(--muted);margin-bottom:.5rem">
-      LAN: <strong>${_escapeHtml(lanHost)}:$syncPort</strong>
+    <p class="hint" id="pairing-hint">Нажмите «Показать PIN и QR», чтобы подключить новое устройство.</p>
+    <div id="pairing-panel" class="pairing-panel" hidden>
+      <p class="hint">Отсканируйте QR в MeshPad<br>или введите PIN вручную</p>
+      <div class="qr-wrap"><img id="qr" width="240" height="240" alt="QR pairing"></div>
+      <div class="pin" id="pin">------</div>
+      <div style="text-align:center;font-size:.82rem;color:var(--muted);margin-bottom:.5rem">
+        LAN: <strong id="lan-endpoint">${_escapeHtml(lanHost)}:$syncPort</strong>
+      </div>
     </div>
 
     <div class="section-title">Устройства</div>
     <ul class="devices" id="devices">${_devicesHtml(status)}</ul>
 
+    <div class="actions">
+      <button type="button" class="primary" id="show-pairing-btn" onclick="showPairing()">Показать PIN и QR</button>
+      <button type="button" class="primary" id="sync-btn" onclick="syncNow()">Синхронизировать</button>
+      <button type="button" id="refresh-pin-btn" onclick="refreshPin()">Новый PIN</button>
+    </div>
+
     <div class="section-title">Журнал</div>
     <ul class="log" id="log">${_logHtml(status)}</ul>
-
-    <div class="actions">
-      <button type="button" class="primary" id="sync-btn" onclick="syncNow()">Синхронизировать</button>
-      <button type="button" onclick="refreshPin()">Новый PIN</button>
-    </div>
   </main>
   <script>
     function fmtTime(iso) {
@@ -239,10 +241,27 @@ class HubWeb {
     function escapeHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
+    function pairingVisible() {
+      const panel = document.getElementById('pairing-panel');
+      return panel && !panel.hidden;
+    }
+    function showPairing() {
+      document.getElementById('pairing-panel').hidden = false;
+      document.getElementById('pairing-hint').hidden = true;
+      document.getElementById('show-pairing-btn').hidden = true;
+      refreshStatus();
+    }
     function applyStatus(s) {
-      if (s.pin) document.getElementById('pin').textContent = s.pin;
-      const img = document.getElementById('qr');
-      if (img && s.pin) img.src = '/hub/qr.png?pin=' + encodeURIComponent(s.pin) + '&t=' + Date.now();
+      if (pairingVisible()) {
+        if (s.pin) document.getElementById('pin').textContent = s.pin;
+        const img = document.getElementById('qr');
+        if (img && s.pin) {
+          img.src = '/hub/qr.png?pin=' + encodeURIComponent(s.pin) + '&t=' + Date.now();
+        }
+        if (s.lan_host && s.http_port) {
+          document.getElementById('lan-endpoint').textContent = s.lan_host + ':' + s.http_port;
+        }
+      }
       document.getElementById('stat-notes').textContent = s.note_count ?? 0;
       document.getElementById('stat-outbox').textContent = s.pending_outbox ?? 0;
       document.getElementById('stat-devices').textContent = s.trusted_count ?? 0;
@@ -259,6 +278,7 @@ class HubWeb {
     }
     async function refreshPin() {
       await fetch('/hub/pairing/refresh', { method: 'POST' });
+      showPairing();
       await refreshStatus();
     }
     async function syncNow() {

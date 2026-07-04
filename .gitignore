@@ -53,6 +53,10 @@ apps/meshpad/linux/runner/native/*.so
 apps/meshpad/linux/runner/native/*.dylib
 apps/meshpad/android/app/src/main/jniLibs/**/libmeshpad_p2p_native.so
 
+# Release / deploy artifacts
+dist/
+meshpad-hub-src.tgz
+
 # Web server runtime (Linux headless)
 var/
 

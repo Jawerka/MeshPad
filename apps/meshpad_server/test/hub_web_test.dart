@@ -108,7 +108,7 @@ void main() {
     expect(png.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
   });
 
-  test('GET / renders pairing page with img qr', () async {
+  test('GET / renders pairing page with hidden pairing panel', () async {
     final response = await hubHandler()(
       Request('GET', Uri.parse('http://localhost/')),
     );
@@ -116,8 +116,14 @@ void main() {
     final html = await response.readAsString();
     expect(html, contains('MeshPad Hub'));
     expect(html, contains('Test Hub'));
-    expect(html, contains('/hub/qr.png'));
+    expect(html, contains('id="show-pairing-btn"'));
+    expect(html, contains('id="pairing-panel"'));
+    expect(html, contains('pairing-panel" hidden'));
     expect(html, contains('id="sync-badge"'));
     expect(html, contains('Синхронизировать'));
+    final actionsPos = html.indexOf('class="actions"');
+    final logPos = html.indexOf('class="log"');
+    expect(actionsPos, greaterThan(0));
+    expect(logPos, greaterThan(actionsPos));
   });
 }

@@ -95,12 +95,21 @@ jobs:
         shell: pwsh
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $setup = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
-          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $installPath) { throw "Visual Studio C++ tools not found on runner" }
-          Write-Host "Adding VC ATL to $installPath"
-          & $setup modify --installPath $installPath --add Microsoft.VisualStudio.Component.VC.ATL --quiet --norestart --wait
-          if ($LASTEXITCODE -ne 0) { throw "setup.exe modify failed with $LASTEXITCODE" }
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+          if (-not (Test-Path $installer)) {
+            $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          }
+          $installPath = & $vswhere -latest -products * -property installationPath
+          if (-not $installPath) { throw "Visual Studio not found on runner" }
+          Write-Host "Adding VC ATL/ATLMFC to $installPath"
+          & $installer modify --installPath $installPath `
+            --add Microsoft.VisualStudio.Component.VC.ATL `
+            --add Microsoft.VisualStudio.Component.VC.ATLMFC `
+            --quiet --wait --norestart
+          if ($LASTEXITCODE -ne 0) { throw "Visual Studio modify failed with $LASTEXITCODE" }
+          $atl = Get-ChildItem "$installPath\VC\Tools\MSVC\*\ATLMFC\include\atlstr.h" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $atl) { throw "atlstr.h still missing after ATL install" }
+          Write-Host "Found $($atl.FullName)"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -144,7 +153,13 @@ jobs:
           $zipName = "meshpad-$version-windows-x64.zip"
           Compress-Archive -Path $releaseDir -DestinationPath $zipName -Force
           Write-Host "Created $zipName"
-          choco install innosetup -y --no-progress
+          winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements --silent
+          $iscc = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+            "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install" }
           & .\scripts\package-windows-installer.ps1 `
             -Version $version `
             -ReleaseDir $releaseDir `

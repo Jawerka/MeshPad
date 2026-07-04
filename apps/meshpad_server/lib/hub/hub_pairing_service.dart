@@ -71,6 +71,29 @@ class HubPairingService {
 
   Future<LanSyncRunResult> runSyncNow() => lanSync.runSync();
 
+  Future<bool> revokeTrustedDevice(String peerId) async {
+    final trusted = await deviceStore.listTrustedDevices();
+    final device = trusted.where((p) => p.peerId == peerId).firstOrNull;
+    if (device == null) return false;
+
+    await deviceStore.revokeTrust(peerId);
+    lanSync.transport.forgetPeer(peerId);
+    syncTracker.recordDeviceRevoked(deviceName: device.name);
+    return true;
+  }
+
+  Future<int> revokeAllTrustedDevices() async {
+    final trusted = await deviceStore.listTrustedDevices();
+    if (trusted.isEmpty) return 0;
+
+    final revoked = await deviceStore.revokeAllTrusted();
+    for (final peerId in revoked) {
+      lanSync.transport.forgetPeer(peerId);
+    }
+    syncTracker.recordAllDevicesRevoked(revoked.length);
+    return revoked.length;
+  }
+
   Future<HubStatus> status({int? webPort}) async {
     final offer = _offer;
     if (offer != null && offer.isExpired) {

@@ -72,6 +72,9 @@ class _FakeNotesService implements NotesService {
   Future<void> restoreNote(String id) async {}
 
   @override
+  Future<int> emptyTrash() async => 0;
+
+  @override
   Future<int> pendingOutboxCount() async => 0;
 
   @override

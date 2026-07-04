@@ -43,6 +43,22 @@ class HubSyncTracker {
     ));
   }
 
+  void recordDeviceRevoked({required String deviceName}) {
+    _push(HubSyncEvent(
+      at: DateTime.now().toUtc(),
+      kind: HubSyncEventKind.revoked,
+      message: 'Отвязано устройство: $deviceName',
+    ));
+  }
+
+  void recordAllDevicesRevoked(int count) {
+    _push(HubSyncEvent(
+      at: DateTime.now().toUtc(),
+      kind: HubSyncEventKind.revoked,
+      message: 'Отвязано устройств: $count',
+    ));
+  }
+
   void _push(HubSyncEvent event) {
     events.insert(0, event);
     if (events.length > maxEvents) {
@@ -91,6 +107,7 @@ enum HubSyncEventKind {
   failed,
   noPeers,
   pairing,
+  revoked,
 }
 
 class HubSyncEvent {

@@ -1214,6 +1214,30 @@ abstract class AppLocalizations {
   /// **'Восстановить'**
   String get noteMenuRestore;
 
+  /// No description provided for @trashEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Очистить корзину'**
+  String get trashEmpty;
+
+  /// No description provided for @trashEmptyTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Очистить корзину?'**
+  String get trashEmptyTitle;
+
+  /// No description provided for @trashEmptyBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Все заметки в корзине будут удалены без возможности восстановления.'**
+  String get trashEmptyBody;
+
+  /// No description provided for @trashEmptyDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалено заметок: {count}'**
+  String trashEmptyDone(int count);
+
   /// No description provided for @noteMenuConflicts.
   ///
   /// In ru, this message translates to:

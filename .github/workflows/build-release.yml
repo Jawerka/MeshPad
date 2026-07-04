@@ -52,6 +52,48 @@ jobs:
       - name: Flutter test
         run: melos run flutter:test
 
+  build-hub-linux:
+    name: Linux hub AOT
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install melos
+        run: dart pub global activate melos
+
+      - name: Add pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Codegen
+        run: cd packages/meshpad_core && dart run build_runner build --delete-conflicting-outputs
+
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' apps/meshpad/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build hub AOT binary
+        run: |
+          cd apps/meshpad_server
+          dart compile exe bin/meshpad_server.dart -o meshpad-hub
+          mv meshpad-hub "../../meshpad-hub-${{ steps.version.outputs.version }}-linux-x64"
+
+      - name: Upload hub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshpad-hub-linux
+          path: meshpad-hub-*-linux-x64
+          retention-days: 90
+
   build-linux:
     name: Linux x64 compile
     needs: validate
@@ -249,7 +291,7 @@ jobs:
 
   publish-release:
     name: GitHub Release
-    needs: [validate, build-linux, build-android, build-windows]
+    needs: [validate, build-hub-linux, build-linux, build-android, build-windows]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:

@@ -44,3 +44,7 @@ melos:
     build:android:
       run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1
       description: Release APK build; copies meshpad.apk to the phone sync folder.
+
+    build:hub:
+      run: cd apps/meshpad_server && dart compile exe bin/meshpad_server.dart -o meshpad-hub
+      description: Compile Linux/macOS/Windows AOT hub binary (platform-native).

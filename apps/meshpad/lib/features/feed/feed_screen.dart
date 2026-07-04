@@ -18,6 +18,7 @@ import '../../core/providers/sync_providers.dart';
 import '../../core/services/notes_service.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../l10n/app_localizations.dart';
 import '../../platform/desktop_shell.dart';
 import '../devices/devices_sheet.dart';
 import '../settings/settings_sheet.dart';
@@ -378,6 +379,34 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
     ref.invalidate(searchResultsProvider);
   }
 
+  Future<void> _confirmEmptyTrash(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.trashEmptyTitle),
+        content: Text(l10n.trashEmptyBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.trashEmpty),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final purged = await ref.read(notesListProvider.notifier).emptyTrash();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.trashEmptyDone(purged))),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchOpen = ref.watch(feedSearchOpenProvider);
@@ -416,6 +445,14 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   'Корзина',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+              if (isTrash && widget.count > 0) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  tooltip: AppLocalizations.of(context).trashEmpty,
+                  onPressed: () => _confirmEmptyTrash(context),
+                ),
+              ],
               const Spacer(),
               if (!isTrash) ...[
                 if (!compact) const _FeedSortButton(),

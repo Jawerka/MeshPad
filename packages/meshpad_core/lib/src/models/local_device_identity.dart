@@ -57,6 +57,7 @@ class TrustedDeviceRecord {
     required this.peerId,
     required this.name,
     this.icon = 'device',
+    this.nameCustomized = false,
     required this.trustedAt,
     this.lastSeenAt,
     this.lanHost,
@@ -70,6 +71,10 @@ class TrustedDeviceRecord {
   final String peerId;
   final String name;
   final String icon;
+
+  /// When true, [name] was set locally and must not be overwritten by remote
+  /// display name updates from LAN discovery or sync.
+  final bool nameCustomized;
   final DateTime trustedAt;
   final DateTime? lastSeenAt;
   final String? lanHost;
@@ -93,6 +98,7 @@ class TrustedDeviceRecord {
         'peer_id': peerId,
         'name': name,
         'icon': icon,
+        if (nameCustomized) 'name_customized': true,
         'trusted_at': trustedAt.toUtc().toIso8601String(),
         'last_seen_at': lastSeenAt?.toUtc().toIso8601String(),
         if (lanHost != null) 'lan_host': lanHost,
@@ -109,6 +115,7 @@ class TrustedDeviceRecord {
       peerId: json['peer_id'] as String,
       name: json['name'] as String? ?? 'Устройство',
       icon: json['icon'] as String? ?? 'device',
+      nameCustomized: json['name_customized'] as bool? ?? false,
       trustedAt: DateTime.parse(json['trusted_at'] as String).toUtc(),
       lastSeenAt: json['last_seen_at'] != null
           ? DateTime.parse(json['last_seen_at'] as String).toUtc()
@@ -125,6 +132,7 @@ class TrustedDeviceRecord {
   TrustedDeviceRecord copyWith({
     String? name,
     String? icon,
+    bool? nameCustomized,
     DateTime? trustedAt,
     DateTime? lastSeenAt,
     String? lanHost,
@@ -141,6 +149,7 @@ class TrustedDeviceRecord {
       peerId: peerId,
       name: name ?? this.name,
       icon: icon ?? this.icon,
+      nameCustomized: nameCustomized ?? this.nameCustomized,
       trustedAt: trustedAt ?? this.trustedAt,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       lanHost: clearLanHost ? null : (lanHost ?? this.lanHost),

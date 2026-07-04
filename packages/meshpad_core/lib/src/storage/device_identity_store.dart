@@ -110,17 +110,7 @@ class DeviceIdentityStore {
     if (record == null) return;
 
     await _writeTrustedRecord(
-      TrustedDeviceRecord(
-        peerId: record.peerId,
-        name: name,
-        icon: record.icon,
-        trustedAt: record.trustedAt,
-        lastSeenAt: record.lastSeenAt,
-        lanHost: record.lanHost,
-        lanHttpPort: record.lanHttpPort,
-        authToken: record.authToken,
-        tlsCertSha256: record.tlsCertSha256,
-      ),
+      record.copyWith(name: name, nameCustomized: true),
     );
   }
 
@@ -131,19 +121,26 @@ class DeviceIdentityStore {
     final record = await _loadTrustedRecord(peerId);
     if (record == null) return;
 
-    await _writeTrustedRecord(
-      TrustedDeviceRecord(
-        peerId: record.peerId,
-        name: record.name,
-        icon: icon,
-        trustedAt: record.trustedAt,
-        lastSeenAt: record.lastSeenAt,
-        lanHost: record.lanHost,
-        lanHttpPort: record.lanHttpPort,
-        authToken: record.authToken,
-        tlsCertSha256: record.tlsCertSha256,
-      ),
-    );
+    await _writeTrustedRecord(record.copyWith(icon: icon));
+  }
+
+  /// Applies the peer's self-assigned display name when the user has not
+  /// renamed this device locally.
+  ///
+  /// Returns true when the stored name was updated.
+  Future<bool> syncRemoteDisplayNameIfAllowed({
+    required String peerId,
+    required String remoteDisplayName,
+  }) async {
+    final trimmed = remoteDisplayName.trim();
+    if (trimmed.isEmpty) return false;
+
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null || record.nameCustomized) return false;
+    if (record.name == trimmed) return false;
+
+    await _writeTrustedRecord(record.copyWith(name: trimmed));
+    return true;
   }
 
   Future<void> _saveIdentity(LocalDeviceIdentity identity) async {
@@ -190,6 +187,7 @@ class DeviceIdentityStore {
       peerId: peerId,
       name: name,
       icon: icon,
+      nameCustomized: false,
       trustedAt: DateTime.now().toUtc(),
       lastSeenAt: DateTime.now().toUtc(),
       lanHost: lanHost,
@@ -219,16 +217,10 @@ class DeviceIdentityStore {
     if (record == null) return;
 
     await _writeTrustedRecord(
-      TrustedDeviceRecord(
-        peerId: record.peerId,
-        name: record.name,
-        icon: record.icon,
-        trustedAt: record.trustedAt,
+      record.copyWith(
         lastSeenAt: DateTime.now().toUtc(),
         lanHost: lanHost,
         lanHttpPort: lanHttpPort,
-        authToken: record.authToken,
-        tlsCertSha256: record.tlsCertSha256,
       ),
     );
   }
@@ -271,17 +263,7 @@ class DeviceIdentityStore {
     if (record == null) return;
 
     await _writeTrustedRecord(
-      TrustedDeviceRecord(
-        peerId: record.peerId,
-        name: record.name,
-        icon: record.icon,
-        trustedAt: record.trustedAt,
-        lastSeenAt: DateTime.now().toUtc(),
-        lanHost: record.lanHost,
-        lanHttpPort: record.lanHttpPort,
-        authToken: record.authToken,
-        tlsCertSha256: record.tlsCertSha256,
-      ),
+      record.copyWith(lastSeenAt: DateTime.now().toUtc()),
     );
   }
 

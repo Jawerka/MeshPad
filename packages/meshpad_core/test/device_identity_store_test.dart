@@ -132,4 +132,54 @@ void main() {
     expect(revoked.length, 2);
     expect(await store.listTrustedDevices(), isEmpty);
   });
+
+  test('syncRemoteDisplayNameIfAllowed updates name from peer device',
+      () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'Old Phone');
+
+    final updated = await store.syncRemoteDisplayNameIfAllowed(
+      peerId: 'peer-1',
+      remoteDisplayName: '  My Pixel  ',
+    );
+
+    expect(updated, isTrue);
+    final devices = await store.listTrustedDevices();
+    expect(devices.single.name, 'My Pixel');
+  });
+
+  test('syncRemoteDisplayNameIfAllowed skips locally customized name',
+      () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'Old Phone');
+    await store.updateTrustedDeviceName(peerId: 'peer-1', name: 'Work phone');
+
+    final updated = await store.syncRemoteDisplayNameIfAllowed(
+      peerId: 'peer-1',
+      remoteDisplayName: 'My Pixel',
+    );
+
+    expect(updated, isFalse);
+    final devices = await store.listTrustedDevices();
+    expect(devices.single.name, 'Work phone');
+
+    final file = File(MeshPadPaths(tempDir.path).trustedDeviceFile('peer-1'));
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(json['name_customized'], isTrue);
+  });
+
+  test('trustDevice resets customized name on re-pairing', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone');
+    await store.updateTrustedDeviceName(peerId: 'peer-1', name: 'Alias');
+
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone again');
+
+    final devices = await store.listTrustedDevices();
+    expect(devices.single.name, 'Phone again');
+
+    final file = File(MeshPadPaths(tempDir.path).trustedDeviceFile('peer-1'));
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(json.containsKey('name_customized'), isFalse);
+  });
 }

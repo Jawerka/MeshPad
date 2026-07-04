@@ -61,6 +61,16 @@ void main() {
     expect(await repo.listTrash(), isEmpty);
   });
 
+  test('emptyTrash permanently removes all trashed notes', () async {
+    await repo.createNote(title: 'a');
+    final b = await repo.createNote(title: 'b');
+    await repo.deleteNote(b.id);
+
+    expect(await repo.emptyTrash(), 1);
+    expect(await repo.listTrash(), isEmpty);
+    expect((await repo.listNotes()).length, 1);
+  });
+
   test('purgeExpiredTrash removes notes older than ttl', () async {
     final note = await repo.createNote(title: 'old trash');
     await repo.deleteNote(note.id);

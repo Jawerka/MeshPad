@@ -23,8 +23,37 @@ class HubWeb {
       await pairing.refreshPairing();
       return _status(webPort);
     });
+    router.post('/hub/devices/<peerId>/revoke',
+        (Request request, String peerId) {
+      return _revokeDevice(webPort, peerId);
+    });
+    router.post('/hub/devices/revoke-all', (_) {
+      return _revokeAllDevices(webPort);
+    });
 
     return router;
+  }
+
+  Future<Response> _revokeDevice(int webPort, String peerId) async {
+    final ok = await pairing.revokeTrustedDevice(peerId);
+    if (!ok) {
+      return Response.notFound(
+        jsonEncode({'error': 'device_not_found'}),
+        headers: _jsonHeaders,
+      );
+    }
+    return _status(webPort);
+  }
+
+  Future<Response> _revokeAllDevices(int webPort) async {
+    final count = await pairing.revokeAllTrustedDevices();
+    return Response.ok(
+      jsonEncode({
+        'revoked': count,
+        'status': (await pairing.status(webPort: webPort)).toJson(),
+      }),
+      headers: _jsonHeaders,
+    );
   }
 
   Future<Response> _status(int webPort) async {
@@ -147,8 +176,14 @@ class HubWeb {
     .devices, .log { list-style: none; padding: 0; margin: 0; font-size: .82rem; }
     .devices li, .log li {
       padding: .45rem 0; border-bottom: 1px solid rgba(128,128,128,.15);
-      display: flex; justify-content: space-between; gap: .5rem;
+      display: flex; justify-content: space-between; align-items: center; gap: .5rem;
     }
+    .dev-actions { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+    .dev-revoke {
+      padding: .2rem .45rem; font-size: .72rem; min-width: auto; flex: none;
+      border-radius: 6px; color: var(--err); border-color: rgba(220,38,38,.35);
+    }
+    .dev-revoke:hover { background: rgba(220,38,38,.08); }
     .devices li:last-child, .log li:last-child { border-bottom: none; }
     .dev-ok { color: var(--ok); }
     .dev-fail { color: var(--err); }
@@ -197,6 +232,9 @@ class HubWeb {
 
     <div class="section-title">Устройства</div>
     <ul class="devices" id="devices">${_devicesHtml(status)}</ul>
+    <div class="actions" id="device-actions" style="margin-top:.35rem;margin-bottom:.75rem;${status.trustedCount == 0 ? 'display:none' : ''}">
+      <button type="button" class="dev-revoke" id="revoke-all-btn" onclick="revokeAllDevices()">Отвязать все</button>
+    </div>
 
     <div class="actions">
       <button type="button" class="primary" id="show-pairing-btn" onclick="showPairing()">Показать PIN и QR</button>
@@ -220,12 +258,19 @@ class HubWeb {
     }
     function renderDevices(list) {
       const el = document.getElementById('devices');
+      const actions = document.getElementById('device-actions');
       if (!list || !list.length) {
         el.innerHTML = '<li><span class="dev-idle">Пока нет — подключите через QR</span></li>';
+        if (actions) actions.style.display = 'none';
         return;
       }
+      if (actions) actions.style.display = '';
       el.innerHTML = list.map(d =>
-        '<li><span>' + escapeHtml(d.name) + '</span>' + devIcon(d.last_sync_ok) + '</li>'
+        '<li><span>' + escapeHtml(d.name) + '</span><span class="dev-actions">' +
+        devIcon(d.last_sync_ok) +
+        '<button type="button" class="dev-revoke" onclick="revokeDevice(' +
+        JSON.stringify(d.peer_id) + ',' + JSON.stringify(d.name) + ')">Отвязать</button>' +
+        '</span></li>'
       ).join('');
     }
     function renderLog(events) {
@@ -294,6 +339,19 @@ class HubWeb {
         btn.disabled = false;
       }
     }
+    async function revokeDevice(peerId, name) {
+      if (!confirm('Отвязать устройство «' + name + '»? Его нужно будет подключить заново.')) return;
+      const r = await fetch('/hub/devices/' + encodeURIComponent(peerId) + '/revoke', { method: 'POST' });
+      if (r.ok) applyStatus(await r.json());
+    }
+    async function revokeAllDevices() {
+      if (!confirm('Отвязать все устройства? Для синхронизации потребуется сопряжение заново.')) return;
+      const r = await fetch('/hub/devices/revoke-all', { method: 'POST' });
+      if (r.ok) {
+        const body = await r.json();
+        if (body.status) applyStatus(body.status);
+      }
+    }
     setInterval(refreshStatus, 10000);
   </script>
 </body>
@@ -318,7 +376,11 @@ class HubWeb {
         null => '<span class="dev-idle">—</span>',
       };
       sb.writeln(
-        '<li><span>${_escapeHtml(d.name)}</span>$mark</li>',
+        '<li><span>${_escapeHtml(d.name)}</span>'
+        '<span class="dev-actions">$mark'
+        '<button type="button" class="dev-revoke" '
+        'onclick="revokeDevice(\'${_escapeHtml(d.peerId)}\', \'${_escapeHtml(d.name)}\')">'
+        'Отвязать</button></span></li>',
       );
     }
     return sb.toString();

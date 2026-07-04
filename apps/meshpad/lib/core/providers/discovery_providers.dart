@@ -155,10 +155,14 @@ class DiscoveryService {
           if (lan == null) return;
           final coordinator =
               await _ref.read(lanSyncCoordinatorProvider.future);
-          await coordinator.rememberDiscoveredTrustedEndpoint(
+          final nameUpdated =
+              await coordinator.rememberDiscoveredTrustedEndpoint(
             transport: lan,
             peerId: event.peerId,
           );
+          if (nameUpdated) {
+            _ref.invalidate(trustedDevicesProvider);
+          }
         } catch (e, st) {
           MeshPadLog.warn('discovery', 'peer discovered handler failed: $e');
           MeshPadLog.warn('discovery', '$st');

@@ -126,4 +126,41 @@ void main() {
     expect(actionsPos, greaterThan(0));
     expect(logPos, greaterThan(actionsPos));
   });
+
+  test('POST /hub/devices/<id>/revoke removes trusted device', () async {
+    final paths = MeshPadPaths(tempDir.path);
+    final store = DeviceIdentityStore(paths: paths);
+    await store.trustDevice(peerId: 'peer-guest', name: 'Guest Phone');
+
+    final response = await hubHandler()(
+      Request(
+        'POST',
+        Uri.parse('http://localhost/hub/devices/peer-guest/revoke'),
+      ),
+    );
+    expect(response.statusCode, 200);
+    final body =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(body['trusted_count'], 0);
+    expect(await store.listTrustedDevices(), isEmpty);
+  });
+
+  test('POST /api/trash/empty permanently clears trash', () async {
+    final note = await repo.createNote(title: 'trash me', markdown: 'x');
+    await repo.deleteNote(note.id);
+    expect((await repo.listTrash()).length, 1);
+
+    final router = MeshPadHttpServer(
+      repository: repo,
+      defaultAuthor: 'test',
+    ).buildRouter();
+    final response = await router.call(
+      Request('POST', Uri.parse('http://localhost/api/trash/empty')),
+    );
+    expect(response.statusCode, 200);
+    final body =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(body['purged'], 1);
+    expect(await repo.listTrash(), isEmpty);
+  });
 }

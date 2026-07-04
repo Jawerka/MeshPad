@@ -56,6 +56,8 @@ abstract class NotesService {
 
   Future<void> restoreNote(String id);
 
+  Future<int> emptyTrash();
+
   Future<int> pendingOutboxCount();
 
   Future<Set<String>> pendingOutboxNoteIds();
@@ -151,6 +153,9 @@ class LocalNotesService implements NotesService {
 
   @override
   Future<void> restoreNote(String id) => repository.restoreNote(id);
+
+  @override
+  Future<int> emptyTrash() => repository.emptyTrash();
 
   @override
   Future<int> pendingOutboxCount() => repository.pendingOutboxCount();
@@ -301,6 +306,9 @@ class RemoteNotesService implements NotesService {
   Future<void> restoreNote(String id) async {
     await _client.restoreNote(id);
   }
+
+  @override
+  Future<int> emptyTrash() => _client.emptyTrash();
 
   @override
   Future<int> pendingOutboxCount() async => 0;

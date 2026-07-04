@@ -668,6 +668,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noteMenuRestore => 'Восстановить';
 
   @override
+  String get trashEmpty => 'Очистить корзину';
+
+  @override
+  String get trashEmptyTitle => 'Очистить корзину?';
+
+  @override
+  String get trashEmptyBody =>
+      'Все заметки в корзине будут удалены без возможности восстановления.';
+
+  @override
+  String trashEmptyDone(int count) {
+    return 'Удалено заметок: $count';
+  }
+
+  @override
   String get noteMenuConflicts => 'Конфликт версий';
 
   @override

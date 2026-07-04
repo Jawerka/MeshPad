@@ -99,6 +99,11 @@ dart run build_runner build --delete-conflicting-outputs
 
 # Collect logs after session
 .\scripts\collect-logs.ps1 -Source both
+
+# Hub: deploy to production LAN host (build AOT on server)
+.\scripts\deploy-hub.ps1
+# Local hub AOT (same platform as host):
+dart run melos run build:hub
 ```
 
 ## Release pre-flight (required before tag/push)
@@ -145,10 +150,11 @@ After hub-related changes in a release, also redeploy hub per [LAN hub deploymen
 After changes under `apps/meshpad_server/` or hub dependencies (`meshpad_core`, `meshpad_p2p`):
 
 1. Run hub tests: `cd apps/meshpad_server && dart test`
-2. Pack source (see `scripts/hub-workspace-pubspec.yaml`), copy to server, build AOT:
-   `dart compile exe bin/meshpad_server.dart -o meshpad-hub`
-3. Install + restart: `install -m 0755 meshpad-hub /usr/local/bin/meshpad-hub && systemctl restart meshpad-hub`
-4. Smoke-check: `curl http://127.0.0.1:8787/hub/status` and open `/` (QR + sync badge)
+2. Deploy: `.\scripts\deploy-hub.ps1` (packs workspace, builds AOT on server, restarts systemd)
+   - Or manually: pack source per `scripts/hub-workspace-pubspec.yaml`, `dart compile exe bin/meshpad_server.dart -o meshpad-hub`, `install-hub-ubuntu.sh`
+3. Smoke-check: `curl http://127.0.0.1:8787/hub/status` and open `/` (QR + sync badge)
+
+Release CI also produces `meshpad-hub-<version>-linux-x64` (job `build-hub-linux`).
 
 Full guide: [docs/HUB.md](docs/HUB.md). Install script: [scripts/install-hub-ubuntu.sh](scripts/install-hub-ubuntu.sh).
 

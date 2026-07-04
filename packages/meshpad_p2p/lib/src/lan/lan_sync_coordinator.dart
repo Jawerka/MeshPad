@@ -171,15 +171,23 @@ class LanSyncCoordinator {
     }
   }
 
-  Future<void> rememberDiscoveredTrustedEndpoint({
+  Future<bool> rememberDiscoveredTrustedEndpoint({
     required LanSyncTransport transport,
     required String peerId,
   }) async {
     final trusted = await deviceStore.listTrustedDevices();
-    if (!trusted.any((device) => device.peerId == peerId)) return;
+    if (!trusted.any((device) => device.peerId == peerId)) return false;
 
     final endpoint = transport.endpointFor(peerId);
-    if (endpoint == null) return;
+    if (endpoint == null) return false;
+
+    var changed = false;
+    if (await deviceStore.syncRemoteDisplayNameIfAllowed(
+      peerId: peerId,
+      remoteDisplayName: endpoint.displayName,
+    )) {
+      changed = true;
+    }
 
     MeshPadLog.discovery(
       'update trusted endpoint $peerId ${endpoint.host}:${endpoint.httpPort}',
@@ -189,6 +197,7 @@ class LanSyncCoordinator {
       lanHost: endpoint.host,
       lanHttpPort: endpoint.httpPort,
     );
+    return changed;
   }
 }
 

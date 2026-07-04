@@ -667,6 +667,15 @@ class NoteRepository {
     return purged;
   }
 
+  /// Permanently removes every note currently in trash.
+  Future<int> emptyTrash() async {
+    final trash = await listTrash();
+    for (final note in trash) {
+      await _purgeNote(note.id);
+    }
+    return trash.length;
+  }
+
   /// Rebuild Drift index from file system (FS wins).
   ///
   /// When [thumbCacheMaxMb] is set, evicts oldest `.thumbs/` files over the budget

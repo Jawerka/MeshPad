@@ -105,10 +105,19 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
     await deviceStore.markPeerSeen(peer.peerId);
     final live = transport.endpointFor(peer.peerId);
     if (live != null) {
+      await deviceStore.syncRemoteDisplayNameIfAllowed(
+        peerId: peer.peerId,
+        remoteDisplayName: live.displayName,
+      );
       await deviceStore.updateLanEndpoint(
         peerId: peer.peerId,
         lanHost: live.host,
         lanHttpPort: live.httpPort,
+      );
+    } else {
+      await deviceStore.syncRemoteDisplayNameIfAllowed(
+        peerId: peer.peerId,
+        remoteDisplayName: endpoint.displayName,
       );
     }
 

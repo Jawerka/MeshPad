@@ -4,7 +4,17 @@
 
 ### Added
 
-- **MeshPad 1.0 (ADR 0003):** production sync = LAN only; Git sync (desktop); payload encryption; network-aware discovery
+- **Hub CI:** `build-hub-linux` job — AOT `meshpad-hub-<version>-linux-x64` in release pipeline
+- **Hub deploy:** `scripts/deploy-hub.ps1` — pack, build on server, restart systemd
+- **Hub web:** отвязка доверенных устройств (по одному и все)
+- **Empty trash:** `NoteRepository.emptyTrash()`, API `POST /api/trash/empty`, кнопка в ленте
+- **Device names:** актуализация с удалённого устройства, если не переименовано локально (`name_customized`)
+
+### Changed
+
+- README: секция «Сервер / LAN Hub»; таблица CI-артефактов
+- ROADMAP: аудит проекта, test matrix, debt register C9–C10
+- AGENTS.md: `deploy-hub.ps1`, `melos run build:hub`
 - **GitHub OAuth:** Device Flow для Git sync — [docs/GIT_SYNC.md](docs/GIT_SYNC.md)
 - **UI:** заголовок заметки по дате/времени; «Скопировать всё» (desktop)
 

@@ -311,6 +311,13 @@ class NotesListNotifier extends AsyncNotifier<NotesFeedState> {
     await _afterLocalMutation();
   }
 
+  Future<int> emptyTrash() async {
+    final service = await ref.read(notesServiceProvider.future);
+    final purged = await service.emptyTrash();
+    await _afterLocalMutation();
+    return purged;
+  }
+
   Future<void> _afterLocalMutation() async {
     await reload();
     ref.read(pendingLocalSyncProvider.notifier).state++;

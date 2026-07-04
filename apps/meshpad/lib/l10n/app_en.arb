@@ -284,6 +284,17 @@
   "noteMenuTags": "Tags",
   "noteMenuTrash": "Move to trash",
   "noteMenuRestore": "Restore",
+  "trashEmpty": "Empty trash",
+  "trashEmptyTitle": "Empty trash?",
+  "trashEmptyBody": "All notes in trash will be permanently deleted. This cannot be undone.",
+  "trashEmptyDone": "Removed {count} note(s)",
+  "@trashEmptyDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noteMenuConflicts": "Conflicting versions",
   "noteConflictBadge": "Conflict",
   "noteConflictTitle": "Conflicting versions",

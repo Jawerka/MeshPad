@@ -51,6 +51,7 @@ class MeshPadHttpServer {
     router.put('/api/notes/<noteId>/attachments/<fileName>', _putAttachment);
     router.get('/api/tags', _listTags);
     router.get('/api/trash', _listTrash);
+    router.post('/api/trash/empty', _emptyTrash);
     router.get('/api/search', _searchNotes);
     router.get('/api/events', _streamEvents);
 
@@ -156,6 +157,15 @@ class MeshPadHttpServer {
     final notes = await repository.listTrash();
     final body = notes.map(_noteJson).toList();
     return Response.ok(jsonEncode(body), headers: _jsonHeaders);
+  }
+
+  Future<Response> _emptyTrash(Request request) async {
+    final purged = await repository.emptyTrash();
+    changeHub.feedChanged();
+    return Response.ok(
+      jsonEncode({'purged': purged}),
+      headers: _jsonHeaders,
+    );
   }
 
   Future<Response> _searchNotes(Request request) async {

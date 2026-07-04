@@ -118,6 +118,13 @@ class MeshPadApiClient {
     return notesFromApiList(response.body);
   }
 
+  Future<int> emptyTrash() async {
+    final response = await _post('/api/trash/empty');
+    _ensureOk(response);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['purged'] as int? ?? 0;
+  }
+
   Future<List<NoteSearchHit>> searchNotes(String query) async {
     final response = await _get(
       '/api/search',

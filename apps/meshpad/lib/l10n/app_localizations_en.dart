@@ -668,6 +668,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteMenuRestore => 'Restore';
 
   @override
+  String get trashEmpty => 'Empty trash';
+
+  @override
+  String get trashEmptyTitle => 'Empty trash?';
+
+  @override
+  String get trashEmptyBody =>
+      'All notes in trash will be permanently deleted. This cannot be undone.';
+
+  @override
+  String trashEmptyDone(int count) {
+    return 'Removed $count note(s)';
+  }
+
+  @override
   String get noteMenuConflicts => 'Conflicting versions';
 
   @override

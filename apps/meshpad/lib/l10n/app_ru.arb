@@ -376,6 +376,17 @@
   "noteMenuTags": "Теги",
   "noteMenuTrash": "В корзину",
   "noteMenuRestore": "Восстановить",
+  "trashEmpty": "Очистить корзину",
+  "trashEmptyTitle": "Очистить корзину?",
+  "trashEmptyBody": "Все заметки в корзине будут удалены без возможности восстановления.",
+  "trashEmptyDone": "Удалено заметок: {count}",
+  "@trashEmptyDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noteMenuConflicts": "Конфликт версий",
   "noteConflictBadge": "Конфликт",
   "noteConflictTitle": "Конфликт версий",

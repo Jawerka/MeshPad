@@ -122,18 +122,18 @@ API endpoints:
     );
 
     if (hubMode) {
-      hubPairing = HubPairingService(
+      final pairing = HubPairingService(
         lanSync: lanSync,
         deviceStore: deviceStore,
         repository: opened.repository,
         identity: identity,
       );
-      hub = hubPairing!;
+      hub = pairing;
+      hubPairing = pairing;
       await lanSync.start();
-      await hubPairing!.start();
-      hubHandler = HubWeb(pairing: hubPairing!)
-          .buildRouter(webPort: port)
-          .call;
+      await pairing.start();
+      hubHandler =
+          HubWeb(pairing: pairing).buildRouter(webPort: port).call;
     } else {
       hub = HubPairingService(
         lanSync: lanSync,

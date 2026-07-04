@@ -78,7 +78,7 @@ void main() {
     final body =
         jsonDecode(await response.readAsString()) as Map<String, dynamic>;
     expect(body['result'], isA<String>());
-    expect(body['status'], isA<Map>());
+    expect(body['status'], isA<Map<String, dynamic>>());
   });
 
   test('GET /hub/qr.png returns PNG bytes', () async {

@@ -34,12 +34,25 @@ class NoteFsSignatures {
     );
   }
 
+  /// Drift/SQLite stores datetimes at second precision; FS stat may include ms.
+  static int _epochSeconds(DateTime value) =>
+      value.toUtc().millisecondsSinceEpoch ~/ 1000;
+
+  static bool _sameMtime(DateTime a, DateTime b) =>
+      _epochSeconds(a) == _epochSeconds(b);
+
+  static bool _sameOptionalMtime(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return _sameMtime(a, b);
+  }
+
   bool matches(NoteFsSignatures other) {
     final a = normalized();
     final b = other.normalized();
-    return a.metaModifiedAt == b.metaModifiedAt &&
-        a.markdownModifiedAt == b.markdownModifiedAt &&
-        a.attachmentsModifiedAt == b.attachmentsModifiedAt;
+    return _sameMtime(a.metaModifiedAt, b.metaModifiedAt) &&
+        _sameMtime(a.markdownModifiedAt, b.markdownModifiedAt) &&
+        _sameOptionalMtime(a.attachmentsModifiedAt, b.attachmentsModifiedAt);
   }
 }
 

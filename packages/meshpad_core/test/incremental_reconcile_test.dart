@@ -1,10 +1,37 @@
 import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
+import 'package:meshpad_core/src/storage/note_fs_signatures.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
+  test('NoteFsSignatures.matches ignores sub-second drift', () {
+    final cached = NoteFsSignatures(
+      metaModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0, 100),
+      markdownModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0, 100),
+    );
+    final onDisk = NoteFsSignatures(
+      metaModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0, 900),
+      markdownModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0, 500),
+    );
+
+    expect(cached.matches(onDisk), isTrue);
+  });
+
+  test('NoteFsSignatures.matches detects second-level changes', () {
+    final cached = NoteFsSignatures(
+      metaModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0),
+      markdownModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0),
+    );
+    final onDisk = NoteFsSignatures(
+      metaModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 1),
+      markdownModifiedAt: DateTime.utc(2026, 1, 1, 12, 0, 0),
+    );
+
+    expect(cached.matches(onDisk), isFalse);
+  });
+
   late Directory tempDir;
   late MeshPadDatabase db;
   late NoteRepository repo;

@@ -29,8 +29,10 @@ class SharePayload {
   factory SharePayload.fromMap(Map<dynamic, dynamic> map) {
     final rawPaths = map['filePaths'];
     final paths = switch (rawPaths) {
-      List<dynamic> list =>
-        list.map((entry) => entry.toString()).where((p) => p.isNotEmpty).toList(),
+      List<dynamic> list => list
+          .map((entry) => entry.toString())
+          .where((p) => p.isNotEmpty)
+          .toList(),
       _ => const <String>[],
     };
 

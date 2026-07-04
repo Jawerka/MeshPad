@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:meshpad_core/meshpad_core.dart';
-import 'package:meshpad_core/src/storage/note_fs_signatures.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

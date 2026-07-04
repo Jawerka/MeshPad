@@ -204,7 +204,7 @@ class _FileChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.attach_file,
+                Icons.save_alt_outlined,
                 size: 16,
                 color: onTap == null
                     ? MeshPadColors.textMuted

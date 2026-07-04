@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/feed/attachment_grid.dart';
+import 'save_attachment_file.dart';
 
 Future<void> openExternalUrl(String href) async {
   final uri = _normalizeExternalUri(href);
@@ -104,6 +105,24 @@ Future<void> openNoteAttachment({
   String? dataDir,
   Uri? remoteUri,
 }) async {
+  if (!kIsWeb &&
+      !isImageAttachment(attachment) &&
+      !isVideoAttachment(attachment) &&
+      !isAudioAttachment(attachment)) {
+    final saved = await saveNoteAttachment(
+      note: note,
+      attachment: attachment,
+      dataDir: dataDir,
+      remoteUri: remoteUri,
+    );
+    if (!saved) {
+      throw SyncTransportException(
+        'Не удалось сохранить файл: ${attachment.name}',
+      );
+    }
+    return;
+  }
+
   final localPath =
       dataDir == null ? null : noteAttachmentPath(note, attachment, dataDir);
   if (localPath != null && await File(localPath).exists()) {
@@ -125,6 +144,31 @@ Future<void> openNoteAttachment({
     }
     await openExternalUrl(remoteUri.toString());
   }
+}
+
+Future<bool> saveNoteAttachment({
+  required Note note,
+  required AttachmentMeta attachment,
+  String? dataDir,
+  Uri? remoteUri,
+}) async {
+  if (kIsWeb) return false;
+
+  final localPath =
+      dataDir == null ? null : noteAttachmentPath(note, attachment, dataDir);
+  if (localPath != null && await File(localPath).exists()) {
+    return saveAttachmentFile(source: localPath, fileName: attachment.name);
+  }
+
+  if (remoteUri != null &&
+      (remoteUri.scheme == 'http' || remoteUri.scheme == 'https')) {
+    return saveAttachmentFile(
+      source: remoteUri.toString(),
+      fileName: attachment.name,
+    );
+  }
+
+  return false;
 }
 
 Future<void> _openLocalPath(String path) async {

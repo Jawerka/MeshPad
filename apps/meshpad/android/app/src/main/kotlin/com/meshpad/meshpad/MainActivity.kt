@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -16,7 +17,7 @@ class MainActivity : FlutterActivity() {
     private val methodChannelName = "com.meshpad/share"
     private val eventChannelName = "com.meshpad/share_events"
 
-    private var pendingShare: Map<String, String?>? = null
+    private var pendingShare: Map<String, Any?>? = null
     private var shareEventSink: EventChannel.EventSink? = null
     private var multicastLock: WifiManager.MulticastLock? = null
 
@@ -115,7 +116,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun buildSendPayload(intent: Intent): Map<String, String?>? {
+    private fun buildSendPayload(intent: Intent): Map<String, Any?>? {
         val mime = intent.type
 
         if (mime != null && mime.startsWith("text/")) {
@@ -127,7 +128,7 @@ class MainActivity : FlutterActivity() {
         }
 
         val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) ?: return null
-        val path = copyUriToCache(stream, mime) ?: return null
+        val path = copyUriToCache(stream, mime, displayName(stream)) ?: return null
         return mapOf(
             "type" to "file",
             "filePath" to path,
@@ -135,28 +136,47 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    private fun buildSendMultiplePayload(intent: Intent): Map<String, String?>? {
+    private fun buildSendMultiplePayload(intent: Intent): Map<String, Any?>? {
         val mime = intent.type
         val streams = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-        val first = streams?.firstOrNull() ?: return null
-        val path = copyUriToCache(first, mime) ?: return null
-        return mapOf(
-            "type" to "file",
-            "filePath" to path,
-            "mimeType" to mime,
-        )
+            ?: return null
+
+        val paths = streams.mapNotNull { uri ->
+            copyUriToCache(uri, mime, displayName(uri))
+        }
+        if (paths.isEmpty()) return null
+
+        return if (paths.size == 1) {
+            mapOf(
+                "type" to "file",
+                "filePath" to paths.first(),
+                "mimeType" to mime,
+            )
+        } else {
+            mapOf(
+                "type" to "files",
+                "filePaths" to paths,
+                "mimeType" to mime,
+            )
+        }
     }
 
-    private fun copyUriToCache(uri: Uri, mime: String?): String? {
+    private fun displayName(uri: Uri): String? {
+        return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index < 0 || !cursor.moveToFirst()) return@use null
+            cursor.getString(index)
+        }
+    }
+
+    private fun copyUriToCache(uri: Uri, mime: String?, preferredName: String?): String? {
         return try {
-            val extension = when {
-                mime?.startsWith("image/") == true -> ".jpg"
-                mime != null && mime.contains('/') -> ".${mime.substringAfter('/')}"
-                else -> ".bin"
-            }
+            val safeName = sanitizeFileName(
+                preferredName ?: fallbackName(mime),
+            )
             val cacheDir = File(cacheDir, "shared")
             cacheDir.mkdirs()
-            val outFile = File(cacheDir, "share_${System.currentTimeMillis()}$extension")
+            val outFile = File(cacheDir, "${System.currentTimeMillis()}_$safeName")
 
             contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(outFile).use { output ->
@@ -168,5 +188,18 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun fallbackName(mime: String?): String {
+        val extension = when {
+            mime?.startsWith("image/") == true -> ".jpg"
+            mime != null && mime.contains('/') -> ".${mime.substringAfter('/')}"
+            else -> ".bin"
+        }
+        return "shared$extension"
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(180)
     }
 }

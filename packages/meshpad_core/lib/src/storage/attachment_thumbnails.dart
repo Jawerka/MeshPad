@@ -23,7 +23,7 @@ Future<void> ensureImageThumbnail({
   int maxEdge = defaultThumbMaxEdge,
 }) async {
   final mime = mimeFromFileName(attachmentName);
-  if (mime == null || !mime.startsWith('image/')) return;
+  if (!mime.startsWith('image/')) return;
   if (mime == 'image/svg+xml' || mime == 'image/gif') return;
 
   final source = File(attachmentPath);
@@ -63,7 +63,7 @@ Future<File?> resolveImageThumbnailFile({
   int maxEdge = defaultThumbMaxEdge,
 }) async {
   final mime = mimeFromFileName(attachmentName);
-  if (mime == null || !mime.startsWith('image/')) return null;
+  if (!mime.startsWith('image/')) return null;
   if (mime == 'image/svg+xml' || mime == 'image/gif') return null;
 
   final source = File(attachmentPath);

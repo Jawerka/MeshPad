@@ -4,6 +4,8 @@
   "settingsTitle": "Настройки",
   "cancel": "Отмена",
   "save": "Сохранить",
+  "fileSaved": "Файл сохранён",
+  "fileSaveFailed": "Не удалось сохранить файл",
   "close": "Закрыть",
   "change": "Сменить",
   "reset": "Сбросить",

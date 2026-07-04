@@ -4,6 +4,8 @@
   "settingsTitle": "Settings",
   "cancel": "Cancel",
   "save": "Save",
+  "fileSaved": "File saved",
+  "fileSaveFailed": "Could not save file",
   "close": "Close",
   "change": "Change",
   "reset": "Reset",

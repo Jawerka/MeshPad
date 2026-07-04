@@ -12,6 +12,16 @@ void main() {
     );
   });
 
+  test('allows archive extension', () {
+    expect(
+      () => validateAttachmentUpload(
+        fileName: 'archive.zip',
+        byteLength: 1024,
+      ),
+      returnsNormally,
+    );
+  });
+
   test('rejects disallowed extension', () {
     expect(
       () => validateAttachmentUpload(

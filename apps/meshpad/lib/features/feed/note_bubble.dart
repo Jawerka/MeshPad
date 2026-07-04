@@ -111,6 +111,11 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     }
 
     Future<void> openAttachment(AttachmentMeta attachment) async {
+      final l10n = AppLocalizations.of(context);
+      final savesOnTap = !kIsWeb &&
+          !isImageAttachment(attachment) &&
+          !isVideoAttachment(attachment) &&
+          !isAudioAttachment(attachment);
       try {
         await openNoteAttachment(
           note: note,
@@ -118,10 +123,18 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
           dataDir: dataDir,
           remoteUri: attachmentUriBuilder?.call(attachment),
         );
+        if (!context.mounted || !savesOnTap) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.fileSaved)),
+        );
       } catch (e) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+          SnackBar(
+            content: Text(
+              savesOnTap ? l10n.fileSaveFailed : userFacingError(e),
+            ),
+          ),
         );
       }
     }

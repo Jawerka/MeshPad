@@ -21,6 +21,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
 
   @override
+  String get fileSaved => 'File saved';
+
+  @override
+  String get fileSaveFailed => 'Could not save file';
+
+  @override
   String get close => 'Close';
 
   @override

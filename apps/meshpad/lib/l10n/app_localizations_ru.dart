@@ -21,6 +21,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get save => 'Сохранить';
 
   @override
+  String get fileSaved => 'Файл сохранён';
+
+  @override
+  String get fileSaveFailed => 'Не удалось сохранить файл';
+
+  @override
   String get close => 'Закрыть';
 
   @override

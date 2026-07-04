@@ -63,14 +63,22 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
       return;
     }
 
-    if (payload.isFile &&
-        payload.filePath != null &&
-        await File(payload.filePath!).exists()) {
+    if (payload.isFile || payload.isFiles) {
+      final paths = <String>[];
+      for (final path in payload.resolvedFilePaths) {
+        if (await File(path).exists()) paths.add(path);
+      }
+      if (paths.isEmpty) return;
+
       await notifier.createNote(
         markdown: '',
-        attachmentPaths: [payload.filePath!],
+        attachmentPaths: paths,
       );
-      _showSnack('Заметка создана из файла');
+      _showSnack(
+        paths.length == 1
+            ? 'Заметка создана из файла'
+            : 'Заметка создана из ${paths.length} файлов',
+      );
     }
   }
 

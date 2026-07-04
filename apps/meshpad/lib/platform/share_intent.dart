@@ -6,22 +6,39 @@ class SharePayload {
     required this.type,
     this.text,
     this.filePath,
+    this.filePaths = const [],
     this.mimeType,
   });
 
   final String type;
   final String? text;
   final String? filePath;
+  final List<String> filePaths;
   final String? mimeType;
 
   bool get isText => type == 'text';
   bool get isFile => type == 'file';
+  bool get isFiles => type == 'files';
+
+  List<String> get resolvedFilePaths {
+    if (filePaths.isNotEmpty) return filePaths;
+    if (filePath != null && filePath!.isNotEmpty) return [filePath!];
+    return const [];
+  }
 
   factory SharePayload.fromMap(Map<dynamic, dynamic> map) {
+    final rawPaths = map['filePaths'];
+    final paths = switch (rawPaths) {
+      List<dynamic> list =>
+        list.map((entry) => entry.toString()).where((p) => p.isNotEmpty).toList(),
+      _ => const <String>[],
+    };
+
     return SharePayload(
       type: map['type'] as String? ?? 'text',
       text: map['text'] as String?,
       filePath: map['filePath'] as String?,
+      filePaths: paths,
       mimeType: map['mimeType'] as String?,
     );
   }

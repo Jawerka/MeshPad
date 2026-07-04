@@ -122,6 +122,18 @@ abstract class AppLocalizations {
   /// **'Сохранить'**
   String get save;
 
+  /// No description provided for @fileSaved.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл сохранён'**
+  String get fileSaved;
+
+  /// No description provided for @fileSaveFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить файл'**
+  String get fileSaveFailed;
+
   /// No description provided for @close.
   ///
   /// In ru, this message translates to:

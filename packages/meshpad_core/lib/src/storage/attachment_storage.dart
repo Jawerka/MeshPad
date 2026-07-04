@@ -10,8 +10,11 @@ import '../security/attachment_upload_policy.dart';
 import 'attachment_thumbnails.dart';
 
 /// MIME guess from file extension (MVP — no magic bytes).
-String? mimeFromFileName(String name) {
-  return switch (p.extension(name).toLowerCase()) {
+String mimeFromFileName(String name) {
+  final ext = p.extension(name).toLowerCase();
+  if (ext.isEmpty) return 'application/octet-stream';
+
+  return switch (ext) {
     '.jpg' || '.jpeg' => 'image/jpeg',
     '.png' => 'image/png',
     '.gif' => 'image/gif',
@@ -21,6 +24,26 @@ String? mimeFromFileName(String name) {
     '.pdf' => 'application/pdf',
     '.txt' => 'text/plain',
     '.md' => 'text/markdown',
+    '.html' || '.htm' => 'text/html',
+    '.csv' => 'text/csv',
+    '.json' => 'application/json',
+    '.xml' => 'application/xml',
+    '.zip' => 'application/zip',
+    '.7z' => 'application/x-7z-compressed',
+    '.rar' => 'application/vnd.rar',
+    '.tar' => 'application/x-tar',
+    '.gz' => 'application/gzip',
+    '.doc' => 'application/msword',
+    '.docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls' => 'application/vnd.ms-excel',
+    '.xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt' => 'application/vnd.ms-powerpoint',
+    '.pptx' =>
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.rtf' => 'application/rtf',
+    '.apk' => 'application/vnd.android.package-archive',
     '.mp4' => 'video/mp4',
     '.webm' => 'video/webm',
     '.mov' => 'video/quicktime',
@@ -35,18 +58,17 @@ String? mimeFromFileName(String name) {
     '.flac' => 'audio/flac',
     '.aac' => 'audio/aac',
     '.weba' => 'audio/webm',
-    _ => null,
+    _ => 'application/octet-stream',
   };
 }
 
-String? attachmentMime(AttachmentMeta attachment) =>
+String attachmentMime(AttachmentMeta attachment) =>
     attachment.mime ?? mimeFromFileName(attachment.name);
 
 enum AttachmentPreviewKind { image, video, audio, file }
 
 AttachmentPreviewKind attachmentPreviewKind(AttachmentMeta attachment) {
   final mime = attachmentMime(attachment);
-  if (mime == null) return AttachmentPreviewKind.file;
   if (mime.startsWith('image/')) return AttachmentPreviewKind.image;
   if (mime.startsWith('video/')) return AttachmentPreviewKind.video;
   if (mime.startsWith('audio/')) return AttachmentPreviewKind.audio;
@@ -78,6 +100,10 @@ Future<AttachmentMeta> copyAttachmentIntoNote({
   await Directory(attachmentsDir).create(recursive: true);
 
   final baseName = preferredName ?? p.basename(sourcePath);
+  validateAttachmentUpload(
+    fileName: baseName,
+    byteLength: await source.length(),
+  );
   final safeName = _uniqueName(attachmentsDir, baseName);
   final dest = File(p.join(attachmentsDir, safeName));
   final totalBytes = await source.length();

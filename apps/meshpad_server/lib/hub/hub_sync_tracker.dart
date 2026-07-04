@@ -78,8 +78,7 @@ class HubSyncTracker {
               .join(', ');
           return 'Частично — $notePhrase; недоступно: $failed';
         }(),
-      LanSyncRunStatus.failed =>
-        result.message ?? 'Ошибка синхронизации',
+      LanSyncRunStatus.failed => result.message ?? 'Ошибка синхронизации',
       LanSyncRunStatus.noPeers => 'Нет доверенных устройств',
     };
   }
@@ -116,8 +115,7 @@ class HubSyncEvent {
         'kind': kind.name,
         'message': message,
         if (noteCount != null) 'note_count': noteCount,
-        if (succeededPeerIds.isNotEmpty)
-          'succeeded_peer_ids': succeededPeerIds,
+        if (succeededPeerIds.isNotEmpty) 'succeeded_peer_ids': succeededPeerIds,
         if (failedPeerIds.isNotEmpty) 'failed_peer_ids': failedPeerIds,
       };
 }

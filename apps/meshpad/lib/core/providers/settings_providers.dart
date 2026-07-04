@@ -85,7 +85,8 @@ class SettingsController {
     final next = current.copyWith(
       networkProfile: profile,
       autoSyncIntervalMinutes: profile == LanNetworkProfile.gentle &&
-              current.autoSyncIntervalMinutes < defaults.defaultAutoSyncIntervalMinutes
+              current.autoSyncIntervalMinutes <
+                  defaults.defaultAutoSyncIntervalMinutes
           ? defaults.defaultAutoSyncIntervalMinutes
           : current.autoSyncIntervalMinutes,
     );

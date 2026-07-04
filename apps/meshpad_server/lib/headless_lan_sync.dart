@@ -71,7 +71,8 @@ class HeadlessLanSyncService {
     });
 
     _timer = Timer.periodic(syncInterval, (_) => unawaited(runSync()));
-    _startupTimer = Timer(const Duration(seconds: 8), () => unawaited(runSync()));
+    _startupTimer =
+        Timer(const Duration(seconds: 8), () => unawaited(runSync()));
   }
 
   Future<void> _onTransportEvent(SyncTransportEvent event) async {

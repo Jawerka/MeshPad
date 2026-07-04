@@ -86,8 +86,7 @@ API endpoints:
   }
 
   apiKey ??= Platform.environment['MESHPAD_API_KEY'];
-  hubDisplayName =
-      Platform.environment['MESHPAD_HUB_NAME'] ?? hubDisplayName;
+  hubDisplayName = Platform.environment['MESHPAD_HUB_NAME'] ?? hubDisplayName;
 
   final opened = await openRepository(dataDir: dataDir);
   final auth = ApiKeyAuth(apiKey: apiKey);
@@ -118,7 +117,8 @@ API endpoints:
       networkProfile: LanNetworkProfile.normal,
       onSyncStarted: () => hub.recordSyncStarted(),
       onSyncCompleted: (result) => unawaited(hub.recordSyncResult(result)),
-      onPairingConfirmed: (peerId) => unawaited(hub.recordPairing(peerId: peerId)),
+      onPairingConfirmed: (peerId) =>
+          unawaited(hub.recordPairing(peerId: peerId)),
     );
 
     if (hubMode) {
@@ -132,8 +132,7 @@ API endpoints:
       hubPairing = pairing;
       await lanSync.start();
       await pairing.start();
-      hubHandler =
-          HubWeb(pairing: pairing).buildRouter(webPort: port).call;
+      hubHandler = HubWeb(pairing: pairing).buildRouter(webPort: port).call;
     } else {
       hub = HubPairingService(
         lanSync: lanSync,

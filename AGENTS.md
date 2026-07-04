@@ -76,9 +76,11 @@ Pairing trust helpers (`packages/meshpad_p2p/lib/src/pairing_trust_handler.dart`
 # Daily dev (Windows)
 .\dev.ps1
 
-# Full local CI
+# Full local CI (day-to-day)
 .\dev.ps1 -Test
-# or: dart run melos run check
+# Release validate (includes format check — matches GitHub Release CI):
+.\dev.ps1 -Test -WithFormat
+# or: dart run melos run check   # analyze + tests only; no format
 
 # Drift codegen after schema changes
 cd packages/meshpad_core
@@ -98,6 +100,35 @@ dart run build_runner build --delete-conflicting-outputs
 # Collect logs after session
 .\scripts\collect-logs.ps1 -Source both
 ```
+
+## Release pre-flight (required before tag/push)
+
+**Before creating or moving a release tag (`v*`), run the full validate pipeline locally and fix every failure.** Do not push a tag hoping CI will catch issues — release CI matches these steps exactly (see `.github/workflows/build-release.yml` job `validate`).
+
+```powershell
+# One command (bootstrap + codegen + l10n via Ensure-MeshPadBootstrapped)
+.\dev.ps1 -Test -WithFormat
+
+# Or step-by-step (same as GitHub Release validate):
+dart run melos bootstrap
+cd packages/meshpad_core; dart run build_runner build --delete-conflicting-outputs
+cd ../../apps/meshpad; flutter gen-l10n
+cd ../..
+dart run melos run analyze    # --fatal-infos: warnings fail
+dart run melos run format     # --set-exit-if-changed
+dart run melos run test
+dart run melos run flutter:test
+```
+
+Checklist:
+
+1. **Analyze** — all 6 packages, zero issues (`unnecessary_import`, `strict_raw_type`, etc. count as errors with `--fatal-infos`)
+2. **Format** — run `dart run melos run format:fix` if format check fails, then re-check
+3. **Tests** — `meshpad_core`, `meshpad_p2p`, `meshpad_server`, then Flutter app tests
+4. **Version** — `apps/meshpad/pubspec.yaml`, `kAppVersion` in `app_info.dart`, `CHANGELOG.md` section for the release
+5. **Tag** — only after steps 1–4 pass; if CI fails after tag push, fix on `master`, then move the tag (`git tag -f vX.Y.Z`) and force-push the tag
+
+After hub-related changes in a release, also redeploy hub per [LAN hub deployment](#lan-hub-deployment-1921688848).
 
 ## LAN hub deployment (192.168.88.48)
 

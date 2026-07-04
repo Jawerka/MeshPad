@@ -63,6 +63,7 @@ class AppSettings {
     this.gitRepoUrl,
     this.gitPullIntervalMinutes = 5,
     this.githubOAuthClientId,
+    this.networkProfile = LanNetworkProfile.normal,
   });
 
   static const minAutoSyncIntervalMinutes = 5;
@@ -89,6 +90,7 @@ class AppSettings {
   final String? gitRepoUrl;
   final int gitPullIntervalMinutes;
   final String? githubOAuthClientId;
+  final LanNetworkProfile networkProfile;
 
   AppSettings copyWith({
     String? dataDir,
@@ -114,6 +116,7 @@ class AppSettings {
     int? gitPullIntervalMinutes,
     String? githubOAuthClientId,
     bool clearGithubOAuthClientId = false,
+    LanNetworkProfile? networkProfile,
   }) {
     return AppSettings(
       dataDir: clearDataDir ? null : (dataDir ?? this.dataDir),
@@ -145,6 +148,7 @@ class AppSettings {
       githubOAuthClientId: clearGithubOAuthClientId
           ? null
           : (githubOAuthClientId ?? this.githubOAuthClientId),
+      networkProfile: networkProfile ?? this.networkProfile,
     );
   }
 
@@ -186,6 +190,9 @@ class AppSettings {
         _parseGitPullMinutes(json['git_pull_interval_minutes']),
       ),
       githubOAuthClientId: _parseOptionalString(json['github_oauth_client_id']),
+      networkProfile: lanNetworkProfileFromWire(
+        json['network_profile'] as String?,
+      ),
     );
   }
 
@@ -213,6 +220,8 @@ class AppSettings {
         'git_pull_interval_minutes': gitPullIntervalMinutes,
       if (githubOAuthClientId != null && githubOAuthClientId!.isNotEmpty)
         'github_oauth_client_id': githubOAuthClientId,
+      if (networkProfile != LanNetworkProfile.normal)
+        'network_profile': lanNetworkProfileToWire(networkProfile),
     };
     if (dataDir != null && dataDir!.trim().isNotEmpty) {
       final normalizedDefault = defaultDataDir.replaceAll('\\', '/');

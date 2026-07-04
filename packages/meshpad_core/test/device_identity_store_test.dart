@@ -120,4 +120,15 @@ void main() {
     expect(token, isNotNull);
     expect(token!.length, greaterThan(10));
   });
+
+  test('revokeAllTrusted removes every trusted peer file', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'A');
+    await store.trustDevice(peerId: 'peer-2', name: 'B');
+
+    final revoked = await store.revokeAllTrusted();
+
+    expect(revoked, ['peer-1', 'peer-2']);
+    expect(await store.listTrustedDevices(), isEmpty);
+  });
 }

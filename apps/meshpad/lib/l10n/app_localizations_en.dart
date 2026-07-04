@@ -222,6 +222,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoSyncOff => 'Off';
 
   @override
+  String get gentleNetworkMode => 'Gentle network mode';
+
+  @override
+  String get gentleNetworkModeHint =>
+      'Less discovery traffic — easier on Wi‑Fi';
+
+  @override
   String minutesShort(int minutes) {
     return '$minutes min';
   }
@@ -480,6 +487,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devicesOnLan => 'On local network';
+
+  @override
+  String devicesDiscoveredLan(String host, int port) {
+    return 'On LAN · $host:$port';
+  }
+
+  @override
+  String get devicesRevokeAllTrusted => 'Remove all trusted';
+
+  @override
+  String get devicesRevokeAllTrustedTitle => 'Remove all trusted devices?';
+
+  @override
+  String get devicesRevokeAllTrustedBody =>
+      'This PC will forget every paired device. You will need to pair again to sync.';
+
+  @override
+  String devicesRevokeAllTrustedDone(int count) {
+    return 'Removed $count trusted device(s)';
+  }
 
   @override
   String get devicesPinPairing => 'PIN pairing';

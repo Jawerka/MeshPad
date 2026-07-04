@@ -60,6 +60,8 @@
   "autoSync": "Auto-sync",
   "autoSyncEvery": "Every {minutes} min.",
   "autoSyncOff": "Off",
+  "gentleNetworkMode": "Gentle network mode",
+  "gentleNetworkModeHint": "Less discovery traffic — easier on Wi‑Fi",
   "minutesShort": "{minutes} min",
   "themeSection": "Theme",
   "themeDark": "Dark",
@@ -187,6 +189,22 @@
   "devicesTrustedEmpty": "No trusted devices yet.\nAdd one via PIN pairing.",
   "devicesDiscovering": "Searching for devices on the local network…",
   "devicesOnLan": "On local network",
+  "devicesDiscoveredLan": "On LAN · {host}:{port}",
+  "@devicesDiscoveredLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesRevokeAllTrusted": "Remove all trusted",
+  "devicesRevokeAllTrustedTitle": "Remove all trusted devices?",
+  "devicesRevokeAllTrustedBody": "This PC will forget every paired device. You will need to pair again to sync.",
+  "devicesRevokeAllTrustedDone": "Removed {count} trusted device(s)",
+  "@devicesRevokeAllTrustedDone": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "devicesPinPairing": "PIN pairing",
   "devicesPinShort": "PIN",
   "devicesThisDevice": "This device",

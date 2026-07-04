@@ -1,0 +1,12 @@
+name: meshpad_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+workspace:
+  - apps/meshpad_server
+  - packages/meshpad_api_client
+  - packages/meshpad_core
+  - packages/meshpad_p2p
+  - native/meshpad_p2p_sidecar

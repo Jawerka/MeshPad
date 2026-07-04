@@ -24,6 +24,8 @@ export 'src/lan/lan_sync_codec.dart';
 export 'src/lan/manual_lan_peer.dart';
 export 'src/lan/composite_lan_discovery.dart';
 export 'src/lan/lan_discovery.dart';
+export 'src/lan/lan_network_profile.dart';
+export 'src/lan/lan_discovered_peer_policy.dart';
 export 'src/lan/mdns_lan_discovery.dart';
 export 'src/lan/lan_sync_coordinator.dart';
 export 'src/lan/lan_single_peer_sync.dart';

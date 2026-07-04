@@ -493,16 +493,33 @@ Future<HttpServer> serveMeshPadHttp({
   required String host,
   required int port,
   ApiKeyAuth? apiKeyAuth,
+  Handler? hubHandler,
 }) {
-  var pipeline = Pipeline()
-      .addMiddleware(corsHeaders())
-      .addMiddleware(apiRateLimitMiddleware());
-  if (apiKeyAuth != null && apiKeyAuth.isEnabled) {
-    pipeline = pipeline.addMiddleware(apiKeyAuthMiddleware(apiKeyAuth));
+  Handler apiHandler() {
+    var pipeline = Pipeline()
+        .addMiddleware(corsHeaders())
+        .addMiddleware(apiRateLimitMiddleware());
+    if (apiKeyAuth != null && apiKeyAuth.isEnabled) {
+      pipeline = pipeline.addMiddleware(apiKeyAuthMiddleware(apiKeyAuth));
+    }
+    return pipeline
+        .addMiddleware(logRequests())
+        .addHandler(server.buildRouter().call);
   }
-  final handler = pipeline
-      .addMiddleware(logRequests())
-      .addHandler(server.buildRouter().call);
+
+  final handler = hubHandler == null
+      ? apiHandler()
+      : (Request request) {
+          final path = request.url.path;
+          if (path.isEmpty ||
+              path == '/' ||
+              path.startsWith('hub/') ||
+              path.startsWith('hub')) {
+            return hubHandler(request);
+          }
+          return apiHandler()(request);
+        };
+
   return shelf_io.serve(handler, host, port);
 }
 

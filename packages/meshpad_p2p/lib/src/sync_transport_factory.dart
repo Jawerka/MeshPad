@@ -1,5 +1,6 @@
 import 'package:meshpad_core/meshpad_core.dart';
 
+import 'lan/lan_network_profile.dart';
 import 'lan/lan_peer_server.dart';
 import 'lan/lan_sync_transport.dart';
 import 'sync_transport.dart';
@@ -14,6 +15,7 @@ SyncTransport createSyncTransport({
   String? announceHost,
   RemoteTrustedHandler? onRemoteTrusted,
   CascadeSyncHandler? onCascadeSync,
+  LanNetworkProfile networkProfile = LanNetworkProfile.normal,
 }) {
   return LanSyncTransport(
     getEngine: getEngine,
@@ -22,5 +24,6 @@ SyncTransport createSyncTransport({
     announceHost: announceHost,
     onRemoteTrusted: onRemoteTrusted,
     onCascadeSync: onCascadeSync,
+    networkProfile: networkProfile,
   );
 }

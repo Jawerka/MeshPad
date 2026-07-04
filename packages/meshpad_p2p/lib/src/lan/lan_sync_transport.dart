@@ -15,6 +15,10 @@ import 'http_remote_sync_gateway.dart';
 import 'lan_broadcast.dart';
 import 'lan_discovery.dart';
 
+import 'lan_discovered_peer_policy.dart';
+
+import 'lan_network_profile.dart';
+
 import 'lan_peer_server.dart';
 
 import 'lan_sync_codec.dart';
@@ -24,6 +28,7 @@ import 'lan_tls_identity.dart';
 
 import '../meshpad_log.dart';
 
+import 'mdns_lan_discovery.dart';
 import 'udp_lan_discovery.dart';
 
 typedef RemoteTrustedHandler = Future<void> Function(PinPairingConfirm confirm);
@@ -39,6 +44,7 @@ class LanSyncTransport implements SyncTransport {
     this.onRemoteTrusted,
     this.onCascadeSync,
     this.enableTls = true,
+    this.networkProfile = LanNetworkProfile.normal,
   })  : _getEngine = getEngine,
         _getIdentity = getIdentity;
 
@@ -56,9 +62,15 @@ class LanSyncTransport implements SyncTransport {
 
   final bool enableTls;
 
+  final LanNetworkProfile networkProfile;
+
   final _controller = StreamController<SyncTransportEvent>.broadcast();
 
   final _peers = <String, LanPeerEndpoint>{};
+
+  final _peerLastSeen = <String, DateTime>{};
+
+  Timer? _pruneTimer;
 
   LanPeerServer? _server;
 
@@ -83,6 +95,7 @@ class LanSyncTransport implements SyncTransport {
 
   void rememberEndpoint(LanPeerEndpoint endpoint) {
     _peers[endpoint.peerId] = endpoint;
+    _peerLastSeen[endpoint.peerId] = DateTime.now().toUtc();
 
     MeshPadLog.lan(
       'remember endpoint ${endpoint.peerId} '
@@ -92,11 +105,7 @@ class LanSyncTransport implements SyncTransport {
 
   /// Drops cached peer state after trust is revoked (PLAN §5.3).
 
-  void forgetPeer(String peerId) {
-    if (_peers.remove(peerId) != null) {
-      MeshPadLog.lan('forget peer $peerId');
-    }
-  }
+  void forgetPeer(String peerId) => _removePeer(peerId);
 
   Map<String, LanPeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
 
@@ -162,11 +171,25 @@ class LanSyncTransport implements SyncTransport {
 
     _tlsPort = _server!.tlsPort;
 
-    _discovery = CompositeLanDiscovery();
+    final profile = LanNetworkProfileSettings.forProfile(networkProfile);
+    _discovery = CompositeLanDiscovery(
+      mdns: MdnsLanDiscovery(
+        browseInterval: profile.mdnsBrowseInterval,
+        browseTimeout: profile.mdnsBrowseTimeout,
+      ),
+      udp: UdpLanDiscovery(
+        announceInterval: profile.udpAnnounceInterval,
+      ),
+    );
 
     _discovery!.onPeerDiscovered = _handleAnnouncement;
 
     await _discovery!.start(buildAnnouncement: _buildAnnouncement);
+
+    _pruneTimer?.cancel();
+    _pruneTimer = Timer.periodic(profile.mdnsBrowseInterval, (_) {
+      _pruneStalePeers();
+    });
 
     _running = true;
 
@@ -234,6 +257,9 @@ class LanSyncTransport implements SyncTransport {
           );
 
     _peers[announcement.peerId] = merged;
+    _peerLastSeen[merged.peerId] = DateTime.now().toUtc();
+    _resolveHostCollisions(merged.host);
+    _pruneStalePeers();
 
     if (existing == null ||
         existing.host != merged.host ||
@@ -247,14 +273,56 @@ class LanSyncTransport implements SyncTransport {
         PeerDiscovered(
           peerId: merged.peerId,
           displayName: merged.displayName,
+          lanHost: merged.host,
+          httpPort: merged.httpPort,
         ),
       );
+    }
+  }
+
+  void _removePeer(String peerId) {
+    if (_peers.remove(peerId) == null) return;
+    _peerLastSeen.remove(peerId);
+    MeshPadLog.lan('forget peer $peerId');
+    _controller.add(PeerExpired(peerId: peerId));
+  }
+
+  void _resolveHostCollisions(String host) {
+    if (host.isEmpty) return;
+
+    final onHost =
+        _peers.entries.where((entry) => entry.value.host == host).toList();
+    if (onHost.length <= 1) return;
+
+    final keep = pickPreferredPeerOnHost(
+      onHost,
+      lastSeenByPeerId: _peerLastSeen,
+    );
+    for (final entry in onHost) {
+      if (entry.key == keep.peerId) continue;
+      _removePeer(entry.key);
+    }
+  }
+
+  void _pruneStalePeers() {
+    final ttl =
+        LanNetworkProfileSettings.forProfile(networkProfile).discoveryPeerTtl;
+    final stale = stalePeerIds(
+      lastSeenByPeerId: _peerLastSeen,
+      ttl: ttl,
+      now: DateTime.now().toUtc(),
+    ).toList();
+    for (final peerId in stale) {
+      _removePeer(peerId);
     }
   }
 
   @override
   Future<void> stop() async {
     if (!_running) return;
+
+    _pruneTimer?.cancel();
+    _pruneTimer = null;
 
     await _discovery?.stop();
 
@@ -545,6 +613,7 @@ class LanSyncTransport implements SyncTransport {
   Future<void> refreshDiscovery() async {
     if (!_running) return;
     await _discovery?.refresh();
+    _pruneStalePeers();
   }
 
   void dispose() {

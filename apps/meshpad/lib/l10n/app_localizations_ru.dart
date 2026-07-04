@@ -222,6 +222,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get autoSyncOff => 'Выключена';
 
   @override
+  String get gentleNetworkMode => 'Щадящий режим сети';
+
+  @override
+  String get gentleNetworkModeHint =>
+      'Реже discovery и broadcast — меньше нагрузка на Wi‑Fi';
+
+  @override
   String minutesShort(int minutes) {
     return '$minutes мин';
   }
@@ -478,6 +485,27 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get devicesOnLan => 'В локальной сети';
+
+  @override
+  String devicesDiscoveredLan(String host, int port) {
+    return 'В LAN · $host:$port';
+  }
+
+  @override
+  String get devicesRevokeAllTrusted => 'Удалить все доверенные';
+
+  @override
+  String get devicesRevokeAllTrustedTitle =>
+      'Удалить все доверенные устройства?';
+
+  @override
+  String get devicesRevokeAllTrustedBody =>
+      'Этот ПК забудет все сопряжённые устройства. Для синхронизации потребуется сопряжение заново.';
+
+  @override
+  String devicesRevokeAllTrustedDone(int count) {
+    return 'Удалено доверенных устройств: $count';
+  }
 
   @override
   String get devicesPinPairing => 'Сопряжение по PIN';

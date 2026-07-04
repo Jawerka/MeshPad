@@ -458,6 +458,18 @@ abstract class AppLocalizations {
   /// **'Выключена'**
   String get autoSyncOff;
 
+  /// No description provided for @gentleNetworkMode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Щадящий режим сети'**
+  String get gentleNetworkMode;
+
+  /// No description provided for @gentleNetworkModeHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Реже discovery и broadcast — меньше нагрузка на Wi‑Fi'**
+  String get gentleNetworkModeHint;
+
   /// No description provided for @minutesShort.
   ///
   /// In ru, this message translates to:
@@ -889,6 +901,36 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'В локальной сети'**
   String get devicesOnLan;
+
+  /// No description provided for @devicesDiscoveredLan.
+  ///
+  /// In ru, this message translates to:
+  /// **'В LAN · {host}:{port}'**
+  String devicesDiscoveredLan(String host, int port);
+
+  /// No description provided for @devicesRevokeAllTrusted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить все доверенные'**
+  String get devicesRevokeAllTrusted;
+
+  /// No description provided for @devicesRevokeAllTrustedTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить все доверенные устройства?'**
+  String get devicesRevokeAllTrustedTitle;
+
+  /// No description provided for @devicesRevokeAllTrustedBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Этот ПК забудет все сопряжённые устройства. Для синхронизации потребуется сопряжение заново.'**
+  String get devicesRevokeAllTrustedBody;
+
+  /// No description provided for @devicesRevokeAllTrustedDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалено доверенных устройств: {count}'**
+  String devicesRevokeAllTrustedDone(int count);
 
   /// No description provided for @devicesPinPairing.
   ///

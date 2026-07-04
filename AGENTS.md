@@ -17,7 +17,7 @@ Supported: **Windows**, **Android**, Linux (CI compile). Not supported: iOS, mac
 | `packages/meshpad_core` | Pure Dart: FS, Drift DB, sync engine, outbox, Git — **no Flutter** |
 | `packages/meshpad_p2p` | LAN transport, discovery, pairing, coordinator |
 | `apps/meshpad` | Flutter UI (Riverpod) |
-| `apps/meshpad_server` | Headless REST/SSE (dev only) |
+| `apps/meshpad_server` | Headless hub (`--hub`) + REST/SSE (dev) |
 | `packages/meshpad_api_client` | HTTP client for Web dev stubs |
 | `native/meshpad_p2p_*` | Archived libp2p experiments — **not production** |
 
@@ -99,6 +99,30 @@ dart run build_runner build --delete-conflicting-outputs
 .\scripts\collect-logs.ps1 -Source both
 ```
 
+## LAN hub deployment (192.168.88.48)
+
+**Always keep the production LAN hub in sync** with hub-related changes in this repo. Do not leave hub work only on the dev machine — redeploy to the server before finishing the task (or explicitly report why deploy was skipped).
+
+| Item | Value |
+|------|--------|
+| Host | `192.168.88.48` (SSH alias `pve-meshpad.48`, user `root`) |
+| Service | `meshpad-hub.service` |
+| Web UI | `http://192.168.88.48:8787/` |
+| Data | `/var/lib/meshpad-hub` |
+| Binary | `/usr/local/bin/meshpad-hub` |
+
+After changes under `apps/meshpad_server/` or hub dependencies (`meshpad_core`, `meshpad_p2p`):
+
+1. Run hub tests: `cd apps/meshpad_server && dart test`
+2. Pack source (see `scripts/hub-workspace-pubspec.yaml`), copy to server, build AOT:
+   `dart compile exe bin/meshpad_server.dart -o meshpad-hub`
+3. Install + restart: `install -m 0755 meshpad-hub /usr/local/bin/meshpad-hub && systemctl restart meshpad-hub`
+4. Smoke-check: `curl http://127.0.0.1:8787/hub/status` and open `/` (QR + sync badge)
+
+Full guide: [docs/HUB.md](docs/HUB.md). Install script: [scripts/install-hub-ubuntu.sh](scripts/install-hub-ubuntu.sh).
+
+If SSH to `192.168.88.48` is unavailable, say so in the task summary — do not assume deploy succeeded.
+
 ## Testing
 
 | Layer | Command | Location |
@@ -144,5 +168,6 @@ Benchmark tests (opt-in): `cd packages/meshpad_core && dart test --tags benchmar
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers and data flow
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, troubleshooting
 - [docs/SYNC_WIRE.md](docs/SYNC_WIRE.md) — LAN protocol
+- [docs/HUB.md](docs/HUB.md) — Ubuntu LAN hub install and ops
 - [ROADMAP.md](ROADMAP.md) — waves and debt register
 - [CHANGELOG.md](CHANGELOG.md) — release history

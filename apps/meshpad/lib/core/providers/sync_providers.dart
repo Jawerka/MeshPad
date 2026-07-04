@@ -72,6 +72,9 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
     return transport;
   }
 
+  final settings = ref.watch(appSettingsProvider).valueOrNull;
+  final networkProfile = settings?.networkProfile ?? LanNetworkProfile.normal;
+
   final transportKind = SyncTransportKind.lan;
 
   final engineFuture = ref.watch(syncEngineProvider.future);
@@ -97,6 +100,7 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
             propagateCascade: false,
           );
     },
+    networkProfile: networkProfile,
   );
   ref.onDispose(transport.dispose);
   return transport;
@@ -161,7 +165,7 @@ class SyncController {
 
   Future<SyncRunResult> runSync({
     String? excludePeerId,
-    bool propagateCascade = true,
+    bool? propagateCascade,
   }) async {
     if (_ref.read(isWebClientProvider)) {
       return const SyncRunResult(
@@ -196,6 +200,11 @@ class SyncController {
         localAuthorLabels: localAuthorLabels(identity.displayName),
       );
 
+      final settings = await _ref.read(appSettingsProvider.future);
+      final cascade = propagateCascade ??
+          LanNetworkProfileSettings.forProfile(settings.networkProfile)
+              .propagateCascade;
+
       final LanSyncRunResult result;
       final lan = transport.lanAccess;
       if (lan == null) {
@@ -210,7 +219,7 @@ class SyncController {
         trusted: trusted,
         excludePeerId: excludePeerId,
         localPeerId: identity.peerId,
-        propagateCascade: propagateCascade,
+        propagateCascade: cascade,
         onPeerProgress: ({required peer, required completed, required total}) {
           activity.setPeer(
             label: 'Синхронизация с ${peer.name}',

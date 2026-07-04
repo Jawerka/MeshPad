@@ -51,17 +51,23 @@ class DiscoveredPeer {
     required this.peerId,
     required this.displayName,
     required this.discoveredAt,
+    this.lanHost,
+    this.httpPort,
   });
 
   final String peerId;
   final String displayName;
   final DateTime discoveredAt;
+  final String? lanHost;
+  final int? httpPort;
 
   factory DiscoveredPeer.fromEvent(PeerDiscovered event) {
     return DiscoveredPeer(
       peerId: event.peerId,
       displayName: event.displayName,
       discoveredAt: DateTime.now().toUtc(),
+      lanHost: event.lanHost,
+      httpPort: event.httpPort,
     );
   }
 }

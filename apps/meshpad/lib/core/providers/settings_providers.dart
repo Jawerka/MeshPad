@@ -77,6 +77,31 @@ class SettingsController {
     await BackgroundSyncRegistrar.applySettings(next);
   }
 
+  Future<void> setNetworkProfile(LanNetworkProfile profile) async {
+    final current = await _store.loadSettings();
+    if (current.networkProfile == profile) return;
+
+    final defaults = LanNetworkProfileSettings.forProfile(profile);
+    final next = current.copyWith(
+      networkProfile: profile,
+      autoSyncIntervalMinutes: profile == LanNetworkProfile.gentle &&
+              current.autoSyncIntervalMinutes < defaults.defaultAutoSyncIntervalMinutes
+          ? defaults.defaultAutoSyncIntervalMinutes
+          : current.autoSyncIntervalMinutes,
+    );
+
+    final discovery = _ref.read(discoveryServiceProvider);
+    await discovery.prepareForTransportChange();
+    await _store.saveSettings(next);
+    _ref.invalidate(appSettingsProvider);
+    _ref.invalidate(syncTransportProvider);
+    await _ref.read(syncLoopProvider).reloadSettings();
+    await BackgroundSyncRegistrar.applySettings(next);
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      unawaited(discovery.ensureRunning());
+    });
+  }
+
   Future<void> setSyncOnlyOnAllowedWifi(bool enabled) async {
     final current = await _store.loadSettings();
     final next = current.copyWith(syncOnlyOnAllowedWifi: enabled);
@@ -340,6 +365,18 @@ class SettingsController {
       icon: normalizeDeviceIcon(icon),
     );
     _ref.invalidate(trustedDevicesProvider);
+  }
+
+  Future<int> revokeAllTrustedDevices() async {
+    final store = await _ref.read(deviceStoreProvider.future);
+    final revoked = await store.revokeAllTrusted();
+    final lan = _ref.read(syncTransportProvider).lanAccess;
+    for (final peerId in revoked) {
+      lan?.forgetPeer(peerId);
+      _ref.read(discoveredPeersProvider.notifier).remove(peerId);
+    }
+    _ref.invalidate(trustedDevicesProvider);
+    return revoked.length;
   }
 
   Future<int> purgeExhaustedOutbox() async {

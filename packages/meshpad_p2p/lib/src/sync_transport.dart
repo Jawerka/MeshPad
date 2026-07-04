@@ -12,9 +12,22 @@ abstract class SyncTransport {
 sealed class SyncTransportEvent {}
 
 class PeerDiscovered extends SyncTransportEvent {
-  PeerDiscovered({required this.peerId, required this.displayName});
+  PeerDiscovered({
+    required this.peerId,
+    required this.displayName,
+    this.lanHost,
+    this.httpPort,
+  });
   final String peerId;
   final String displayName;
+  final String? lanHost;
+  final int? httpPort;
+}
+
+/// Emitted when a previously discovered peer is dropped (TTL or host dedupe).
+class PeerExpired extends SyncTransportEvent {
+  PeerExpired({required this.peerId});
+  final String peerId;
 }
 
 class SyncCompleted extends SyncTransportEvent {

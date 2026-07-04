@@ -137,6 +137,8 @@
     }
   },
   "autoSyncOff": "Выключена",
+  "gentleNetworkMode": "Щадящий режим сети",
+  "gentleNetworkModeHint": "Реже discovery и broadcast — меньше нагрузка на Wi‑Fi",
   "minutesShort": "{minutes} мин",
   "@minutesShort": {
     "placeholders": {
@@ -279,6 +281,22 @@
   "devicesTrustedEmpty": "Нет доверенных устройств.\nДобавьте через PIN-pairing.",
   "devicesDiscovering": "Поиск устройств в локальной сети…",
   "devicesOnLan": "В локальной сети",
+  "devicesDiscoveredLan": "В LAN · {host}:{port}",
+  "@devicesDiscoveredLan": {
+    "placeholders": {
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+  "devicesRevokeAllTrusted": "Удалить все доверенные",
+  "devicesRevokeAllTrustedTitle": "Удалить все доверенные устройства?",
+  "devicesRevokeAllTrustedBody": "Этот ПК забудет все сопряжённые устройства. Для синхронизации потребуется сопряжение заново.",
+  "devicesRevokeAllTrustedDone": "Удалено доверенных устройств: {count}",
+  "@devicesRevokeAllTrustedDone": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "devicesPinPairing": "Сопряжение по PIN",
   "devicesPinShort": "PIN",
   "devicesThisDevice": "Это устройство",

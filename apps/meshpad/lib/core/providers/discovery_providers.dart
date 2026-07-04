@@ -20,7 +20,9 @@ class DiscoveredPeersNotifier extends Notifier<List<DiscoveredPeer>> {
     final index = state.indexWhere((p) => p.peerId == peer.peerId);
     if (index >= 0) {
       final existing = state[index];
-      if (existing.displayName == peer.displayName) {
+      if (existing.displayName == peer.displayName &&
+          existing.lanHost == peer.lanHost &&
+          existing.httpPort == peer.httpPort) {
         return;
       }
       final next = List<DiscoveredPeer>.of(state);
@@ -139,6 +141,10 @@ class DiscoveryService {
     await _eventsSub?.cancel();
     _eventsSub = transport.events.listen(
       (event) async {
+        if (event is PeerExpired) {
+          _ref.read(discoveredPeersProvider.notifier).remove(event.peerId);
+          return;
+        }
         if (event is! PeerDiscovered) return;
         try {
           _ref.read(discoveredPeersProvider.notifier).upsert(
@@ -178,6 +184,8 @@ class DiscoveryService {
           peerId: endpoint.peerId,
           displayName: endpoint.displayName,
           discoveredAt: DateTime.now().toUtc(),
+          lanHost: endpoint.host,
+          httpPort: endpoint.httpPort,
         ),
       );
     }

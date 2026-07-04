@@ -184,6 +184,19 @@ class DevicesSheet extends ConsumerWidget {
                                   },
                                 ),
                               ),
+                            if (devices.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () => _revokeAllTrusted(
+                                    sheetContext,
+                                    ref,
+                                  ),
+                                  child: Text(l10n.devicesRevokeAllTrusted),
+                                ),
+                              ),
+                            ],
                           ],
                         );
                       },
@@ -216,7 +229,7 @@ class DevicesSheet extends ConsumerWidget {
                           for (final peer in visibleDiscovered)
                             _DeviceCard(
                               name: peer.displayName,
-                              subtitle: l10n.devicesOnLan,
+                              subtitle: _discoveredLanSubtitle(l10n, peer),
                               peerId: peer.peerId,
                               icon: Icons.wifi_tethering,
                               accent: peerAccentColor(peer.peerId),
@@ -279,6 +292,50 @@ class DevicesSheet extends ConsumerWidget {
       return l10n.devicesTrustedLan(device.lanHost!, device.lanHttpPort!);
     }
     return l10n.devicesTrustedLanUnknown;
+  }
+
+  static String _discoveredLanSubtitle(
+    AppLocalizations l10n,
+    DiscoveredPeer peer,
+  ) {
+    final host = peer.lanHost;
+    final port = peer.httpPort;
+    if (host != null && port != null) {
+      return l10n.devicesDiscoveredLan(host, port);
+    }
+    return l10n.devicesOnLan;
+  }
+
+  Future<void> _revokeAllTrusted(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.devicesRevokeAllTrustedTitle),
+        content: Text(l10n.devicesRevokeAllTrustedBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.devicesRevokeAllTrusted),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final removed =
+        await ref.read(settingsControllerProvider).revokeAllTrustedDevices();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.devicesRevokeAllTrustedDone(removed))),
+    );
   }
 
   Future<void> _pickLocalIcon(

@@ -250,6 +250,21 @@ class DeviceIdentityStore {
     await _authTokens.delete(peerId);
   }
 
+  Future<List<String>> revokeAllTrusted() async {
+    final trustedDir = Directory(p.join(_paths.devicesRoot, 'trusted'));
+    if (!await trustedDir.exists()) return const [];
+
+    final revoked = <String>[];
+    await for (final entity in trustedDir.list()) {
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      final peerId = p.basenameWithoutExtension(entity.path);
+      await entity.delete();
+      await _authTokens.delete(peerId);
+      revoked.add(peerId);
+    }
+    return revoked;
+  }
+
   Future<void> markPeerSeen(String peerId) async {
     final record = await _loadTrustedRecord(peerId);
     if (record == null) return;

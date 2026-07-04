@@ -895,6 +895,24 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                               ],
                             ),
                           ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.gentleNetworkMode),
+                          subtitle: Text(l10n.gentleNetworkModeHint),
+                          value: settings.networkProfile ==
+                              LanNetworkProfile.gentle,
+                          onChanged: _busy
+                              ? null
+                              : (value) async {
+                                  await ref
+                                      .read(settingsControllerProvider)
+                                      .setNetworkProfile(
+                                        value
+                                            ? LanNetworkProfile.gentle
+                                            : LanNetworkProfile.normal,
+                                      );
+                                },
+                        ),
                         if (!kIsWeb && Platform.isAndroid)
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,

@@ -1,6 +1,6 @@
 # MeshPad
 
-[![CI](https://github.com/Jawerka/MeshPad/actions/workflows/ci.yml/badge.svg)](https://github.com/Jawerka/MeshPad/actions/workflows/ci.yml)
+[![Build Release](https://github.com/Jawerka/MeshPad/actions/workflows/build-release.yml/badge.svg)](https://github.com/Jawerka/MeshPad/actions/workflows/build-release.yml)
 
 Local-first Markdown-блокнот в формате chat-ленты с синхронизацией между **доверенными** устройствами.
 

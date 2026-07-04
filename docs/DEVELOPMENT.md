@@ -187,8 +187,7 @@ dart pub global activate melos
 
 | Workflow | Когда | Результат |
 |----------|-------|-----------|
-| **CI** (`.github/workflows/ci.yml`) | push/PR в `main`/`master` | analyze, format, test, `build-linux`, `build-windows` |
-| **Build Release** | тег `v*` | APK + Windows zip + Inno Setup |
+| **Build Release** (`.github/workflows/build-release.yml`) | тег `v*` или `workflow_dispatch` | analyze, format, test, `build-linux`, APK + Windows zip + Inno Setup |
 
 ```powershell
 git tag v0.2.0

@@ -400,70 +400,40 @@ class DevicesSheet extends ConsumerWidget {
     await transport.start();
     final lan = transport.lanAccess;
 
-    if (lan != null) {
-      final stored = peer.hasLanEndpoint
-          ? LanPeerEndpoint(
-              peerId: peer.peerId,
-              displayName: peer.name,
-              host: peer.lanHost!,
-              httpPort: peer.lanHttpPort!,
-            )
-          : null;
-      final endpoint = await lan.resolvePeerEndpoint(
-        peerId: peer.peerId,
-        stored: stored,
+    if (lan == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.devicesPeerUnreachable)),
       );
-      if (endpoint == null) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.devicesPeerUnreachable)),
-        );
-        return;
-      }
-      lan.rememberEndpoint(endpoint);
+      return;
     }
 
-    final completer = Completer<SyncTransportEvent>();
-    late final StreamSubscription<SyncTransportEvent> sub;
-    sub = transport.events.listen((event) {
-      if (event is SyncCompleted && event.peerId == peer.peerId) {
-        if (!completer.isCompleted) completer.complete(event);
-      } else if (event is SyncFailed &&
-          (event.peerId == null || event.peerId == peer.peerId)) {
-        if (!completer.isCompleted) completer.complete(event);
-      }
-    });
-
-    await transport.requestSync(peerId: peer.peerId);
-    final event = await completer.future.timeout(
-      const Duration(seconds: 120),
-      onTimeout: () => SyncFailed(message: l10n.devicesSyncTimeout),
+    final store = await ref.read(deviceStoreProvider.future);
+    final peerResult = await syncSingleTrustedPeer(
+      transport: lan,
+      deviceStore: store,
+      peer: peer,
+      timeout: const Duration(seconds: 120),
     );
-    await sub.cancel();
 
     if (!context.mounted) return;
 
-    final message = switch (event) {
-      SyncCompleted(:final noteCount) => noteCount > 0
-          ? l10n.devicesSyncNotesCount(noteCount)
-          : l10n.devicesSyncCompleted,
-      SyncFailed(:final message) => message,
-      _ => l10n.devicesSyncCompleted,
+    if (peerResult.status == LanPeerSyncStatus.unreachable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.devicesPeerUnreachable)),
+      );
+      return;
+    }
+
+    final message = switch (peerResult.status) {
+      LanPeerSyncStatus.completed when peerResult.noteCount > 0 =>
+        l10n.devicesSyncNotesCount(peerResult.noteCount),
+      LanPeerSyncStatus.completed => l10n.devicesSyncCompleted,
+      LanPeerSyncStatus.failed || LanPeerSyncStatus.unreachable =>
+        peerResult.message ?? l10n.devicesSyncTimeout,
     };
 
-    if (event is SyncCompleted) {
-      final store = await ref.read(deviceStoreProvider.future);
-      await store.markPeerSeen(peer.peerId);
-      if (lan != null) {
-        final endpoint = lan.endpointFor(peer.peerId);
-        if (endpoint != null) {
-          await store.updateLanEndpoint(
-            peerId: peer.peerId,
-            lanHost: endpoint.host,
-            lanHttpPort: endpoint.httpPort,
-          );
-        }
-      }
+    if (peerResult.status == LanPeerSyncStatus.completed) {
       ref.invalidate(trustedDevicesProvider);
       ref.invalidate(notesListProvider);
     }
@@ -483,6 +453,9 @@ class DevicesSheet extends ConsumerWidget {
       SyncRunStatus.completed => result.noteCount > 0
           ? l10n.devicesSyncNotesCount(result.noteCount)
           : l10n.devicesSyncCompleted,
+      SyncRunStatus.partial => result.noteCount > 0
+          ? l10n.devicesSyncNotesCount(result.noteCount)
+          : (result.message ?? l10n.devicesSyncCompleted),
       SyncRunStatus.failed =>
         result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };

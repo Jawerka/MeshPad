@@ -38,6 +38,9 @@ jobs:
       - name: Test
         run: melos run test
 
+      - name: Flutter test
+        run: melos run flutter:test
+
   build-linux:
     name: Linux x64 compile
     runs-on: ubuntu-latest

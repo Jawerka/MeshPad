@@ -34,23 +34,10 @@ class HeadlessLanSyncService {
       getEngine: () async => engine,
       getIdentity: () async => identity,
       getDeviceStore: () async => deviceStore,
-      onRemoteTrusted: (confirm) async {
-        final initiatorId = confirm.initiatorPeerId;
-        final host = confirm.initiatorLanHost;
-        final port = confirm.initiatorHttpPort;
-        if (initiatorId == null || host == null || port == null) return;
-
-        await deviceStore.trustDevice(
-          peerId: initiatorId,
-          name: confirm.initiatorDisplayName ?? 'Устройство',
-          lanHost: host,
-          lanHttpPort: port,
-          authToken: confirm.authToken,
-          tlsCertSha256: confirm.initiatorTlsCertSha256,
-          signingPublicKey: confirm.initiatorSigningPublicKey,
-          signingKeyAlgorithm: confirm.initiatorSigningKeyAlgorithm,
-        );
-      },
+      onRemoteTrusted: (confirm) => trustDeviceFromPairingConfirm(
+        store: deviceStore,
+        confirm: confirm,
+      ),
     );
   }
 
@@ -91,6 +78,9 @@ class HeadlessLanSyncService {
         repository: repository,
       );
       if (result.status == LanSyncRunStatus.completed && result.noteCount > 0) {
+        changeHub?.feedChanged();
+      }
+      if (result.status == LanSyncRunStatus.partial && result.noteCount > 0) {
         changeHub?.feedChanged();
       }
       return result;

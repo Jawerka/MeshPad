@@ -8,6 +8,7 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../storage/app_settings.dart';
 import '../../platform/wifi_info.dart';
+import '../network/lan_connectivity.dart';
 import 'discovery_providers.dart';
 import 'notes_providers.dart';
 import 'sync_providers.dart';
@@ -40,7 +41,7 @@ class NetworkSyncCoordinator {
   Future<bool> isSyncAllowed() async {
     if (kIsWeb) return false;
     final results = await Connectivity().checkConnectivity();
-    if (!_hasLanTransport(results)) return false;
+    if (!hasLanTransport(results)) return false;
 
     final settings = await _ref.read(appSettingsProvider.future);
     if (!settings.syncOnlyOnAllowedWifi) return true;
@@ -80,15 +81,6 @@ class NetworkSyncCoordinator {
   bool get _supportedPlatform =>
       !kIsWeb &&
       (Platform.isWindows || Platform.isLinux || Platform.isAndroid);
-
-  bool _hasLanTransport(List<ConnectivityResult> results) {
-    return results.any(
-      (r) =>
-          r == ConnectivityResult.wifi ||
-          r == ConnectivityResult.ethernet ||
-          r == ConnectivityResult.vpn,
-    );
-  }
 }
 
 /// Returns true when [settings] permit sync on the current network.
@@ -98,13 +90,7 @@ Future<bool> syncAllowedForSettings(
   required Future<List<ConnectivityResult>> Function() connectivity,
 }) async {
   final results = await connectivity();
-  final hasLan = results.any(
-    (r) =>
-        r == ConnectivityResult.wifi ||
-        r == ConnectivityResult.ethernet ||
-        r == ConnectivityResult.vpn,
-  );
-  if (!hasLan) return false;
+  if (!hasLanTransport(results)) return false;
   if (!settings.syncOnlyOnAllowedWifi) return true;
   if (settings.allowedWifiSsids.isEmpty) return true;
   final ssid = await currentSsid();

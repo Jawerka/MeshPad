@@ -69,9 +69,7 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
   Future<RemoteNoteSnapshot?> fetchNote(String id) async {
     try {
       final body = await _get('/meshpad/p2p/notes/$id');
-      return remoteSnapshotFromJson(
-        jsonDecode(body) as Map<String, dynamic>,
-      );
+      return tryParseRemoteSnapshotJson(jsonDecode(body));
     } on HttpRemoteSyncException catch (e) {
       if (e.statusCode == 404) return null;
       rethrow;

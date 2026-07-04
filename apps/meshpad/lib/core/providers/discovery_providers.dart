@@ -53,7 +53,7 @@ class DiscoveryService {
     await transport.lanAccess?.refreshDiscovery();
   }
 
-  /// Decodes a pairing QR and probes the host (PLAN §11.4.3).
+  /// Decodes a pairing QR and probes the host.
   Future<({PairingQrPayload payload, ManualLanPeerProbeSuccess probe})?>
       probePairingQr(String raw) async {
     final payload = PairingQrPayload.tryDecode(raw);
@@ -69,7 +69,7 @@ class DiscoveryService {
     return null;
   }
 
-  /// Manual IP:port probe (PLAN §11.4.2); adds peer to discovery list on success.
+  /// Manual IP:port probe; adds peer to discovery list on success.
   Future<ManualLanPeerProbeResult> probeManualPeer({
     required String host,
     required int httpPort,
@@ -128,20 +128,32 @@ class DiscoveryService {
     }
 
     await _eventsSub?.cancel();
-    _eventsSub = transport.events.listen((event) async {
-      if (event is! PeerDiscovered) return;
-      _ref.read(discoveredPeersProvider.notifier).upsert(
-            DiscoveredPeer.fromEvent(event),
-          );
+    _eventsSub = transport.events.listen(
+      (event) async {
+        if (event is! PeerDiscovered) return;
+        try {
+          _ref.read(discoveredPeersProvider.notifier).upsert(
+                DiscoveredPeer.fromEvent(event),
+              );
 
-      final lan = transport.lanAccess;
-      if (lan == null) return;
-      final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
-      await coordinator.rememberDiscoveredTrustedEndpoint(
-        transport: lan,
-        peerId: event.peerId,
-      );
-    });
+          final lan = transport.lanAccess;
+          if (lan == null) return;
+          final coordinator =
+              await _ref.read(lanSyncCoordinatorProvider.future);
+          await coordinator.rememberDiscoveredTrustedEndpoint(
+            transport: lan,
+            peerId: event.peerId,
+          );
+        } catch (e, st) {
+          MeshPadLog.warn('discovery', 'peer discovered handler failed: $e');
+          MeshPadLog.warn('discovery', '$st');
+        }
+      },
+      onError: (Object error, StackTrace st) {
+        MeshPadLog.warn('discovery', 'transport events error: $error');
+        MeshPadLog.warn('discovery', '$st');
+      },
+    );
 
     _syncKnownPeers(transport);
     await transport.lanAccess?.refreshDiscovery();

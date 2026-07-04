@@ -1,4 +1,4 @@
-/// UI-facing sync state for a note card (see PLAN.md §4.3).
+/// UI-facing sync state for a note card (see docs/ARCHITECTURE.md).
 enum NoteSyncStatus {
   /// Saved locally, not in the outbound sync queue.
   synced,

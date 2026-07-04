@@ -2,7 +2,7 @@ import 'package:path/path.dart' as p;
 
 import 'attachment_thumbnails.dart';
 
-/// Standard data directory layout (see PLAN.md).
+/// Standard data directory layout (see docs/DATA_LAYOUT.md).
 class MeshPadPaths {
   MeshPadPaths(this.root);
 

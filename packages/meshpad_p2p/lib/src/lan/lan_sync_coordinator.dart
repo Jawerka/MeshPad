@@ -1,20 +1,25 @@
-import 'dart:async';
-
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../meshpad_log.dart';
-import '../sync_transport.dart';
-import 'lan_sync_codec.dart';
+import 'lan_single_peer_sync.dart';
 import 'lan_sync_transport.dart';
 
-enum LanSyncRunStatus { noPeers, completed, failed }
+enum LanSyncRunStatus { noPeers, completed, partial, failed }
 
 class LanSyncRunResult {
-  const LanSyncRunResult(this.status, {this.noteCount = 0, this.message});
+  const LanSyncRunResult(
+    this.status, {
+    this.noteCount = 0,
+    this.message,
+    this.failedPeerIds = const [],
+    this.succeededPeerIds = const [],
+  });
 
   final LanSyncRunStatus status;
   final int noteCount;
   final String? message;
+  final List<String> failedPeerIds;
+  final List<String> succeededPeerIds;
 }
 
 typedef LanSyncPeerProgress = void Function({
@@ -60,6 +65,10 @@ class LanSyncCoordinator {
       await transport.start();
 
       var total = 0;
+      final succeededPeerIds = <String>[];
+      final failedPeerIds = <String>[];
+      final failureMessages = <String>[];
+
       for (var index = 0; index < peers.length; index++) {
         final peer = peers[index];
         onPeerProgress?.call(
@@ -70,78 +79,37 @@ class LanSyncCoordinator {
 
         MeshPadLog.sync('sync trusted peer ${peer.peerId} (${peer.name})');
 
-        final stored = peer.hasLanEndpoint
-            ? LanPeerEndpoint(
-                peerId: peer.peerId,
-                displayName: peer.name,
-                host: peer.lanHost!,
-                httpPort: peer.lanHttpPort!,
-              )
-            : null;
-
-        final endpoint = await transport.resolvePeerEndpoint(
-          peerId: peer.peerId,
-          stored: stored,
+        final peerResult = await syncSingleTrustedPeer(
+          transport: transport,
+          deviceStore: deviceStore,
+          peer: peer,
         );
-        if (endpoint == null) {
-          if (stored != null) {
-            await deviceStore.clearLanEndpoint(peer.peerId);
+
+        if (peerResult.status == LanPeerSyncStatus.completed) {
+          total += peerResult.noteCount;
+          succeededPeerIds.add(peer.peerId);
+          if (propagateCascade && localPeerId != null) {
+            try {
+              final gateway = await transport.gatewayForPeer(peer.peerId);
+              await gateway.requestCascadeSync(
+                excludePeerId: localPeerId,
+              );
+            } catch (e) {
+              MeshPadLog.warn(
+                'sync',
+                'cascade request to ${peer.peerId} failed: $e',
+              );
+            }
           }
-          throw SyncTransportException(
-            'Устройство «${peer.name}» недоступно в сети. '
-            'Проверьте Wi‑Fi и откройте MeshPad на обоих устройствах.',
+        } else {
+          failedPeerIds.add(peer.peerId);
+          if (peerResult.message != null) {
+            failureMessages.add(peerResult.message!);
+          }
+          MeshPadLog.warn(
+            'sync',
+            'peer ${peer.peerId} sync skipped: ${peerResult.message}',
           );
-        }
-        transport.rememberEndpoint(endpoint);
-
-        final completer = Completer<SyncTransportEvent>();
-        late final StreamSubscription<SyncTransportEvent> sub;
-        sub = transport.events.listen((event) {
-          if (event is SyncCompleted && event.peerId == peer.peerId) {
-            if (!completer.isCompleted) completer.complete(event);
-          } else if (event is SyncFailed &&
-              (event.peerId == null || event.peerId == peer.peerId)) {
-            if (!completer.isCompleted) completer.complete(event);
-          }
-        });
-
-        await transport.requestSync(peerId: peer.peerId);
-        final event = await completer.future.timeout(
-          const Duration(seconds: 120),
-          onTimeout: () => SyncFailed(
-            peerId: peer.peerId,
-            message: 'Таймаут синхронизации',
-          ),
-        );
-        await sub.cancel();
-
-        if (event is SyncFailed) {
-          throw SyncTransportException(event.message);
-        }
-        if (event is SyncCompleted) total += event.noteCount;
-
-        await deviceStore.markPeerSeen(peer.peerId);
-        final live = transport.endpointFor(peer.peerId);
-        if (live != null) {
-          await deviceStore.updateLanEndpoint(
-            peerId: peer.peerId,
-            lanHost: live.host,
-            lanHttpPort: live.httpPort,
-          );
-        }
-
-        if (propagateCascade && localPeerId != null) {
-          try {
-            final gateway = await transport.gatewayForPeer(peer.peerId);
-            await gateway.requestCascadeSync(
-              excludePeerId: localPeerId,
-            );
-          } catch (e) {
-            MeshPadLog.warn(
-              'sync',
-              'cascade request to ${peer.peerId} failed: $e',
-            );
-          }
         }
       }
 
@@ -152,13 +120,47 @@ class LanSyncCoordinator {
       );
 
       batchStopwatch.stop();
-      MeshPadLog.metric('sync_duration_ms', '${batchStopwatch.elapsedMilliseconds}');
-      MeshPadLog.sync('sync batch completed totalNotes=$total');
-      return LanSyncRunResult(LanSyncRunStatus.completed, noteCount: total);
-    } catch (e) {
-      if (e is! SyncTransportException) {
-        await outboxProcessor.recordSyncFailure(repository);
+      MeshPadLog.metric(
+        'sync_duration_ms',
+        '${batchStopwatch.elapsedMilliseconds}',
+      );
+
+      if (succeededPeerIds.isEmpty && failedPeerIds.isNotEmpty) {
+        MeshPadLog.sync('sync batch failed all peers');
+        return LanSyncRunResult(
+          LanSyncRunStatus.failed,
+          message: failureMessages.isNotEmpty
+              ? failureMessages.first
+              : 'Синхронизация не удалась',
+          failedPeerIds: failedPeerIds,
+          succeededPeerIds: succeededPeerIds,
+        );
       }
+
+      if (failedPeerIds.isNotEmpty) {
+        MeshPadLog.sync(
+          'sync batch partial: ok=${succeededPeerIds.length} '
+          'failed=${failedPeerIds.length} totalNotes=$total',
+        );
+        return LanSyncRunResult(
+          LanSyncRunStatus.partial,
+          noteCount: total,
+          message: failureMessages.isNotEmpty
+              ? failureMessages.first
+              : null,
+          failedPeerIds: failedPeerIds,
+          succeededPeerIds: succeededPeerIds,
+        );
+      }
+
+      MeshPadLog.sync('sync batch completed totalNotes=$total');
+      return LanSyncRunResult(
+        LanSyncRunStatus.completed,
+        noteCount: total,
+        succeededPeerIds: succeededPeerIds,
+      );
+    } catch (e) {
+      await outboxProcessor.recordSyncFailure(repository);
       final message = e is MeshPadException
           ? e.message
           : meshPadExceptionUserMessage(e);
@@ -195,14 +197,8 @@ void rememberPeerEndpoint(LanSyncTransport transport, Device peer) {
   final live = transport.endpointFor(peer.peerId);
   if (live != null) return;
 
-  if (peer.hasLanEndpoint) {
-    transport.rememberEndpoint(
-      LanPeerEndpoint(
-        peerId: peer.peerId,
-        displayName: peer.name,
-        host: peer.lanHost!,
-        httpPort: peer.lanHttpPort!,
-      ),
-    );
+  final stored = storedEndpointForPeer(peer);
+  if (stored != null) {
+    transport.rememberEndpoint(stored);
   }
 }

@@ -61,6 +61,9 @@ class SyncLoopController {
       await repo.purgeExpiredTrash();
       MeshPadLog.sync('auto-sync tick (${trusted.length} trusted peer(s))');
       await _ref.read(syncControllerProvider).runSync();
+    } catch (e, st) {
+      MeshPadLog.warn('sync', 'auto-sync tick failed: $e');
+      MeshPadLog.warn('sync', '$st');
     } finally {
       _syncInProgress = false;
     }

@@ -82,23 +82,12 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
     getIdentity: () => identityFuture,
     getDeviceStore: () => deviceStoreFuture,
     onRemoteTrusted: (confirm) async {
-      final initiatorId = confirm.initiatorPeerId;
-      final host = confirm.initiatorLanHost;
-      final port = confirm.initiatorHttpPort;
-      if (initiatorId == null || host == null || port == null) return;
-
       final store = await deviceStoreFuture;
-      await store.trustDevice(
-        peerId: initiatorId,
-        name: confirm.initiatorDisplayName ?? 'Устройство',
-        lanHost: host,
-        lanHttpPort: port,
-        authToken: confirm.authToken,
-        tlsCertSha256: confirm.initiatorTlsCertSha256,
-        signingPublicKey: confirm.initiatorSigningPublicKey,
-        signingKeyAlgorithm: confirm.initiatorSigningKeyAlgorithm,
+      await trustDeviceFromPairingConfirm(
+        store: store,
+        confirm: confirm,
+        onTrusted: () => ref.invalidate(trustedDevicesProvider),
       );
-      ref.invalidate(trustedDevicesProvider);
     },
     onCascadeSync: (excludePeerId) async {
       await ref.read(syncControllerProvider).runSync(
@@ -117,7 +106,7 @@ final outboxFailedCountProvider = FutureProvider<int>((ref) async {
   return _outboxProcessor.failedCount(repo);
 });
 
-enum SyncRunStatus { noPeers, completed, failed }
+enum SyncRunStatus { noPeers, completed, partial, failed }
 
 class SyncRunResult {
   const SyncRunResult(this.status, {this.noteCount = 0, this.message});
@@ -235,11 +224,19 @@ class SyncController {
         switch (result.status) {
           LanSyncRunStatus.noPeers => SyncRunStatus.noPeers,
           LanSyncRunStatus.completed => SyncRunStatus.completed,
+          LanSyncRunStatus.partial => SyncRunStatus.partial,
           LanSyncRunStatus.failed => SyncRunStatus.failed,
         },
         noteCount: result.noteCount,
         message: result.message,
       );
+    } catch (e, st) {
+      MeshPadLog.warn('sync', 'runSync failed: $e');
+      MeshPadLog.warn('sync', '$st');
+      final message = e is MeshPadException
+          ? e.message
+          : meshPadExceptionUserMessage(e);
+      return SyncRunResult(SyncRunStatus.failed, message: message);
     } finally {
       lanSyncTransferProgress.onProgress = null;
       activity.finish();

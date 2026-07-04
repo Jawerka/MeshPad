@@ -44,7 +44,8 @@ cd D:\Documents\Projects\MeshPad
 | Цель | Команда |
 |------|---------|
 | Windows | `.\dev.ps1` или `.\scripts\run.ps1 -Device windows` |
-| Android | `.\scripts\launch-emulator.ps1` → `.\dev.ps1 -Device android` |
+| Android release APK | `.\scripts\build-android.ps1` |
+| Install APK on phone | `.\scripts\install-android-apk.ps1 -Build` |
 | Linux | `cd apps/meshpad && flutter run -d linux` |
 | Dual (Win+Android) | `.\dev.ps1 -Device dual` |
 | Headless server (dev) | `.\scripts\run-server.ps1` — не продуктовая платформа |

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
+import 'lan_attachment_path.dart';
 import 'lan_sync_auth.dart';
 import 'lan_catalog_body.dart';
 import 'lan_sync_codec.dart';
@@ -121,6 +122,9 @@ class LanPeerServer {
       } else if (response.bodyBytes != null) {
         request.response.add(response.bodyBytes!);
       }
+    } on FormatException catch (_) {
+      request.response.statusCode = 400;
+      request.response.write('bad request');
     } catch (_) {
       request.response.statusCode = 500;
       request.response.write('internal error');
@@ -226,8 +230,10 @@ class LanPeerServer {
       final engine = await _getEngine();
       final localPeerId = engine.identity.peerId;
       final clearBody = await _decryptRequestBody(request, body, localPeerId);
-      final json = jsonDecode(clearBody) as Map<String, dynamic>;
-      final snapshot = remoteSnapshotFromJson(json);
+      final snapshot = tryParseRemoteSnapshotJson(jsonDecode(clearBody));
+      if (snapshot == null) {
+        return _HttpResponse(statusCode: 400, body: 'invalid note payload');
+      }
       if (snapshot.meta.id != id) {
         return _HttpResponse(statusCode: 400, body: 'id mismatch');
       }
@@ -278,9 +284,19 @@ class LanPeerServer {
       }
 
       final body = await utf8.decoder.bind(request).join();
-      final confirm = PinPairingConfirm.fromJson(
-        jsonDecode(body) as Map<String, dynamic>,
-      );
+      Map<String, dynamic>? confirmJson;
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map<String, dynamic>) {
+          confirmJson = decoded;
+        }
+      } on Object {
+        return _HttpResponse(statusCode: 400, body: 'invalid pairing payload');
+      }
+      if (confirmJson == null) {
+        return _HttpResponse(statusCode: 400, body: 'invalid pairing payload');
+      }
+      final confirm = PinPairingConfirm.fromJson(confirmJson);
       final offer = _pairingOffer;
       if (offer == null ||
           offer.isExpired ||
@@ -309,20 +325,18 @@ class LanPeerServer {
   }
 
   Future<_HttpResponse> _getAttachment(String suffix) async {
-    const uploadSuffix = '/upload';
-    if (suffix.endsWith(uploadSuffix)) {
-      return _getAttachmentUploadStatus(
-        suffix.substring(0, suffix.length - uploadSuffix.length),
-      );
+    final withoutUpload = attachmentPathWithoutUploadSuffix(suffix);
+    if (withoutUpload != suffix) {
+      return _getAttachmentUploadStatus(withoutUpload);
     }
 
-    final parts = suffix.split('/attachments/');
-    if (parts.length != 2) {
+    final parsed = parseLanAttachmentPath(suffix);
+    if (parsed == null) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
     }
 
-    final noteId = parts[0];
-    final fileName = Uri.decodeComponent(parts[1]);
+    final noteId = parsed.noteId;
+    final fileName = parsed.fileName;
     final engine = await _getEngine();
     final note = await engine.notes.getNote(noteId);
     if (note == null) {
@@ -355,13 +369,13 @@ class LanPeerServer {
   }
 
   Future<_HttpResponse> _getAttachmentUploadStatus(String suffix) async {
-    final parts = suffix.split('/attachments/');
-    if (parts.length != 2) {
+    final parsed = parseLanAttachmentPath(suffix);
+    if (parsed == null) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
     }
 
-    final noteId = parts[0];
-    final fileName = Uri.decodeComponent(parts[1]);
+    final noteId = parsed.noteId;
+    final fileName = parsed.fileName;
     final engine = await _getEngine();
     final status = await engine.notes.attachmentUploadStatus(noteId, fileName);
     if (status == null) {
@@ -376,13 +390,13 @@ class LanPeerServer {
       return _putAttachmentChunk(request, suffix);
     }
 
-    final parts = suffix.split('/attachments/');
-    if (parts.length != 2) {
+    final parsed = parseLanAttachmentPath(suffix);
+    if (parsed == null) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
     }
 
-    final noteId = parts[0];
-    final fileName = Uri.decodeComponent(parts[1]);
+    final noteId = parsed.noteId;
+    final fileName = parsed.fileName;
     final engine = await _getEngine();
     final note = await engine.notes.getNote(noteId);
     if (note == null) {
@@ -423,13 +437,13 @@ class LanPeerServer {
     HttpRequest request,
     String suffix,
   ) async {
-    final parts = suffix.split('/attachments/');
-    if (parts.length != 2) {
+    final parsed = parseLanAttachmentPath(suffix);
+    if (parsed == null) {
       return _HttpResponse(statusCode: 400, body: 'invalid attachment path');
     }
 
-    final noteId = parts[0];
-    final fileName = Uri.decodeComponent(parts[1]);
+    final noteId = parsed.noteId;
+    final fileName = parsed.fileName;
     final offset = int.tryParse(
       request.headers.value(meshpadUploadOffsetHeader) ?? '',
     );

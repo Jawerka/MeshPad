@@ -83,4 +83,99 @@ void main() {
     expect(outbox.every((entry) => entry.retryCount == 0), isTrue);
     transport.dispose();
   });
+
+  test('syncTrustedPeers continues when one peer is unreachable', () async {
+    final dirLocal = await Directory.systemTemp.createTemp('lan_coord_local_');
+    final dirRemote = await Directory.systemTemp.createTemp('lan_coord_remote_');
+    addTearDown(() async {
+      if (await dirLocal.exists()) await dirLocal.delete(recursive: true);
+      if (await dirRemote.exists()) await dirRemote.delete(recursive: true);
+    });
+
+    final store = DeviceIdentityStore(paths: MeshPadPaths(dirLocal.path));
+    final dbLocal = MeshPadDatabase.inMemory();
+    final dbRemote = MeshPadDatabase.inMemory();
+    addTearDown(() async {
+      await dbLocal.close();
+      await dbRemote.close();
+    });
+
+    final sharedToken = generateSyncAuthToken();
+    await store.trustDevice(
+      peerId: 'peer-good',
+      name: 'Good',
+      authToken: sharedToken,
+    );
+    await store.trustDevice(
+      peerId: 'peer-missing',
+      name: 'Missing',
+      lanHost: '127.0.0.1',
+      lanHttpPort: 1,
+    );
+
+    final repoLocal = createNoteRepository(
+      dataDir: dirLocal.path,
+      defaultAuthor: 'local',
+      database: dbLocal,
+    );
+    final repoRemote = createNoteRepository(
+      dataDir: dirRemote.path,
+      defaultAuthor: 'remote',
+      database: dbRemote,
+    );
+
+    final identity = await store.loadOrCreateIdentity();
+    final engineLocal = SyncEngine(notes: repoLocal, identity: identity);
+    final engineRemote = SyncEngine(
+      notes: repoRemote,
+      identity: LocalDeviceIdentity(
+        peerId: 'peer-good',
+        displayName: 'Good',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    final storeRemote = DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
+    await storeRemote.trustDevice(
+      peerId: identity.peerId,
+      name: 'Local',
+      authToken: sharedToken,
+    );
+
+    final server = LanPeerServer(
+      preferredPort: 0,
+      getEngine: () async => engineRemote,
+      lookupTrustedPeer: storeRemote.trustedRecordFor,
+    );
+    final port = await server.start();
+    addTearDown(server.stop);
+
+    await repoLocal.createNote(markdown: 'sync me');
+
+    final transport = LanSyncTransport(
+      getEngine: () async => engineLocal,
+      getIdentity: () async => identity,
+      getDeviceStore: () async => store,
+    );
+    transport.rememberEndpoint(
+      LanPeerEndpoint(
+        peerId: 'peer-good',
+        displayName: 'Good',
+        host: InternetAddress.loopbackIPv4.address,
+        httpPort: port,
+      ),
+    );
+
+    final coordinator = LanSyncCoordinator(deviceStore: store);
+    final result = await coordinator.syncTrustedPeers(
+      transport: transport,
+      repository: repoLocal,
+    );
+
+    expect(result.status, LanSyncRunStatus.partial);
+    expect(result.succeededPeerIds, contains('peer-good'));
+    expect(result.failedPeerIds, contains('peer-missing'));
+    expect((await repoRemote.listNotes()).length, 1);
+    transport.dispose();
+  });
 }

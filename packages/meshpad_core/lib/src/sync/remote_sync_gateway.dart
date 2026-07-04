@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../models/note_head.dart';
 import '../models/note_meta.dart';
 import 'catalog_delta.dart';
@@ -111,7 +113,11 @@ extension SyncEngineRemote on SyncEngine {
         if (result == NoteApplyResult.applied) pushed++;
         await syncAttachmentsTo(remote, snapshot.meta);
         await tryAckOutboxForRemoteNote(remote, head.id);
-      } catch (_) {
+      } on Object catch (e) {
+        developer.log(
+          'push note ${head.id} failed: $e',
+          name: 'meshpad.sync',
+        );
         failedNoteIds.add(head.id);
       }
     }
@@ -124,12 +130,19 @@ extension SyncEngineRemote on SyncEngine {
     NoteMeta meta,
   ) async {
     for (final attachment in meta.attachments) {
-      if (await notes.attachmentMatches(meta.id, attachment)) continue;
+      try {
+        if (await notes.attachmentMatches(meta.id, attachment)) continue;
 
-      final bytes = await remote.fetchAttachment(meta.id, attachment.name);
-      if (bytes == null) continue;
+        final bytes = await remote.fetchAttachment(meta.id, attachment.name);
+        if (bytes == null) continue;
 
-      await notes.storeRemoteAttachment(meta.id, attachment, bytes);
+        await notes.storeRemoteAttachment(meta.id, attachment, bytes);
+      } on Object catch (e) {
+        developer.log(
+          'pull attachment ${meta.id}/${attachment.name} failed: $e',
+          name: 'meshpad.sync',
+        );
+      }
     }
   }
 
@@ -138,10 +151,17 @@ extension SyncEngineRemote on SyncEngine {
     NoteMeta meta,
   ) async {
     for (final attachment in meta.attachments) {
-      final bytes = await notes.readAttachmentBytes(meta.id, attachment.name);
-      if (bytes == null) continue;
+      try {
+        final bytes = await notes.readAttachmentBytes(meta.id, attachment.name);
+        if (bytes == null) continue;
 
-      await remote.pushAttachment(meta.id, attachment, bytes);
+        await remote.pushAttachment(meta.id, attachment, bytes);
+      } on Object catch (e) {
+        developer.log(
+          'push attachment ${meta.id}/${attachment.name} failed: $e',
+          name: 'meshpad.sync',
+        );
+      }
     }
   }
 }

@@ -68,6 +68,7 @@ class AttachmentGrid extends StatelessWidget {
                           for (final image in images)
                             _mediaSource(note, image).primary,
                         ],
+                        fileNames: [for (final image in images) image.name],
                         initialIndex: i,
                       );
                     }

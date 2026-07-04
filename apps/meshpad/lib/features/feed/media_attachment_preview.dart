@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import 'attachment_media_source.dart';
+import 'media_viewer_top_bar.dart';
 
 /// Fraction of video duration used for feed poster frame (desktop).
 const videoPosterTimeFraction = 1 / 3;
@@ -207,16 +208,29 @@ class _VideoPosterPreviewState extends State<_VideoPosterPreview> {
                     ),
                   ),
                 ),
-                if (widget.onOpenExternally != null)
+                if (widget.onOpenExternally != null ||
+                    widget.source.isAvailable)
                   Positioned(
-                    top: 4,
-                    right: 4,
-                    child: IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon:
-                          const Icon(Icons.open_in_new, color: Colors.white70),
-                      tooltip: 'Открыть внешним приложением',
-                      onPressed: widget.onOpenExternally,
+                    top: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SaveMediaIconButton(
+                          source: widget.source.primary,
+                          fileName: widget.attachment.name,
+                        ),
+                        if (widget.onOpenExternally != null)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.open_in_new,
+                              color: Colors.white70,
+                            ),
+                            tooltip: 'Открыть внешним приложением',
+                            onPressed: widget.onOpenExternally,
+                          ),
+                      ],
                     ),
                   ),
               ],
@@ -356,16 +370,29 @@ class _VideoInlinePreviewState extends State<_VideoInlinePreview> {
                     ),
                   ),
                 ),
-                if (widget.onOpenExternally != null)
+                if (widget.onOpenExternally != null ||
+                    widget.source.isAvailable)
                   Positioned(
-                    top: 4,
-                    right: 4,
-                    child: IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon:
-                          const Icon(Icons.open_in_new, color: Colors.white70),
-                      tooltip: 'Открыть внешним приложением',
-                      onPressed: widget.onOpenExternally,
+                    top: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SaveMediaIconButton(
+                          source: widget.source.primary,
+                          fileName: widget.attachment.name,
+                        ),
+                        if (widget.onOpenExternally != null)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.open_in_new,
+                              color: Colors.white70,
+                            ),
+                            tooltip: 'Открыть внешним приложением',
+                            onPressed: widget.onOpenExternally,
+                          ),
+                      ],
                     ),
                   ),
               ],
@@ -490,24 +517,13 @@ class _VideoPlaybackDialogState extends State<_VideoPlaybackDialog> {
               ),
             ),
           Positioned(
-            top: 8,
-            left: 8,
-            right: 8,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.attachment.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            top: 0,
+            left: 0,
+            right: 0,
+            child: MediaViewerTopBar(
+              title: widget.attachment.name,
+              source: widget.source.primary,
+              fileName: widget.attachment.name,
             ),
           ),
         ],

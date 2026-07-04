@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import 'lightbox_image.dart';
+import 'media_viewer_top_bar.dart';
 
 Future<void> showImageLightbox(
   BuildContext context,
   List<String> imageSources, {
   int initialIndex = 0,
+  List<String>? fileNames,
 }) {
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black87,
     builder: (context) => _LightboxDialog(
       imageSources: imageSources,
+      fileNames: fileNames,
       initialIndex: initialIndex,
     ),
   );
@@ -21,9 +25,11 @@ class _LightboxDialog extends StatefulWidget {
   const _LightboxDialog({
     required this.imageSources,
     required this.initialIndex,
+    this.fileNames,
   });
 
   final List<String> imageSources;
+  final List<String>? fileNames;
   final int initialIndex;
 
   @override
@@ -57,9 +63,25 @@ class _LightboxDialogState extends State<_LightboxDialog> {
     );
   }
 
+  String _fileNameFor(int index) {
+    final names = widget.fileNames;
+    if (names != null && index >= 0 && index < names.length) {
+      final name = names[index].trim();
+      if (name.isNotEmpty) return name;
+    }
+    final source = widget.imageSources[index];
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      final segment = Uri.parse(source).pathSegments;
+      if (segment.isNotEmpty) return segment.last;
+    }
+    return p.basename(source);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasMultiple = widget.imageSources.length > 1;
+    final source = widget.imageSources[_index];
+    final fileName = _fileNameFor(_index);
 
     return Stack(
       alignment: Alignment.center,
@@ -88,11 +110,13 @@ class _LightboxDialogState extends State<_LightboxDialog> {
           },
         ),
         Positioned(
-          top: 16,
-          right: 16,
-          child: IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
+          top: 0,
+          left: 0,
+          right: 0,
+          child: MediaViewerTopBar(
+            title: fileName,
+            source: source,
+            fileName: fileName,
           ),
         ),
         if (hasMultiple) ...[

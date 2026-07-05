@@ -75,7 +75,8 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
           defaultTargetPlatform == TargetPlatform.linux ||
           defaultTargetPlatform == TargetPlatform.macOS);
 
-  List<PopupMenuEntry<String>> _menuItems(BuildContext context, bool hasConflicts) {
+  List<PopupMenuEntry<String>> _menuItems(
+      BuildContext context, bool hasConflicts) {
     return buildNoteContextMenuItems(
       context: context,
       isTrash: widget.isTrash,
@@ -121,9 +122,9 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     final isWeb = ref.watch(isWebClientProvider);
     final hasConflicts = _hasConflicts;
     final metaStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: MeshPadColors.textMuted,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+      color: MeshPadColors.textMuted,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     final attachmentUriBuilder = notesService == null
         ? null
         : (AttachmentMeta attachment) =>
@@ -187,8 +188,7 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     );
 
     final cardContent = Padding(
-      padding:
-          EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
+      padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

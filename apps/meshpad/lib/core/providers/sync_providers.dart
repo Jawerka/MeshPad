@@ -196,9 +196,8 @@ class SyncController {
         ...excludePeerIds,
         if (excludePeerId != null) excludePeerId,
       };
-      final peers = trusted
-          .where((peer) => !excluded.contains(peer.peerId))
-          .toList();
+      final peers =
+          trusted.where((peer) => !excluded.contains(peer.peerId)).toList();
       if (peers.isEmpty) {
         return const SyncRunResult(
           SyncRunStatus.noPeers,

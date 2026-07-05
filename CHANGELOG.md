@@ -31,6 +31,27 @@
 
 ---
 
+## [0.2.6] — 2026-07-06
+
+### Added
+
+- **Multi-device LAN sync:** тихий skip offline-пиров; multi-hop cascade (`excludePeerIds`, `hopLimit`); параллельный sync (2 пира в normal profile); hub-first ordering
+- **Feed UX:** Ctrl+Enter в composer; контекстное меню заметки (ПКМ/long-press); выделение текста в Markdown
+- **Windows release:** `scripts/build-windows.ps1` — exe, zip и Inno Setup installer в CI и локально
+- **Android release:** `meshpad-<version>.apk` копируется в корень репозитория при сборке
+
+### Changed
+
+- Синхронизация снова на main isolate (исправлен stale Drift index после isolate sync)
+- Snackbar при sync только для actionable ошибок (auth, timeout), не для спящих устройств
+- Документация cascade и multi-peer orchestration в `docs/SYNC_WIRE.md`, `docs/ARCHITECTURE.md`
+
+### Fixed
+
+- Синхронизация переставала обновлять ленту после переноса sync в worker isolate
+
+---
+
 ## [0.2.5] — 2026-07-04
 
 ### Added

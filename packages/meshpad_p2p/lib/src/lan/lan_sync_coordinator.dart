@@ -60,7 +60,8 @@ class LanSyncCoordinator {
       ...excludePeerIds,
       if (excludePeerId != null) excludePeerId,
     };
-    var peers = allPeers.where((peer) => !excluded.contains(peer.peerId)).toList();
+    var peers =
+        allPeers.where((peer) => !excluded.contains(peer.peerId)).toList();
 
     if (peers.isEmpty) {
       MeshPadLog.sync('no trusted peers');

@@ -94,8 +94,7 @@ Widget _wrap(Widget child, Note note) {
       notesServiceProvider.overrideWith(
         (ref) async => _FakeNotesService(),
       ),
-      noteConflictCopiesProvider(note.id)
-          .overrideWith((ref) async => const []),
+      noteConflictCopiesProvider(note.id).overrideWith((ref) async => const []),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -111,7 +110,8 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('note bubble exposes SelectionArea for markdown body', (tester) async {
+  testWidgets('note bubble exposes SelectionArea for markdown body',
+      (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);

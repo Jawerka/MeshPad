@@ -75,7 +75,8 @@ Future<BackgroundSyncPassResult> runBackgroundSyncPass({
     );
     final coordinator = LanSyncCoordinator(deviceStore: deviceStore);
 
-    final profile = LanNetworkProfileSettings.forProfile(LanNetworkProfile.normal);
+    final profile =
+        LanNetworkProfileSettings.forProfile(LanNetworkProfile.normal);
     await transport.start();
     try {
       final lanResult = await coordinator.syncTrustedPeers(

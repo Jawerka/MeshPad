@@ -183,7 +183,8 @@ void main() {
     transport.dispose();
   });
 
-  test('syncTrustedPeers returns completed when all peers are unreachable', () async {
+  test('syncTrustedPeers returns completed when all peers are unreachable',
+      () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     await store.trustDevice(
       peerId: 'peer-missing-a',
@@ -220,7 +221,8 @@ void main() {
     );
 
     expect(result.status, LanSyncRunStatus.completed);
-    expect(result.skippedPeerIds, containsAll(['peer-missing-a', 'peer-missing-b']));
+    expect(result.skippedPeerIds,
+        containsAll(['peer-missing-a', 'peer-missing-b']));
     expect(result.failedPeerIds, isEmpty);
     transport.dispose();
   });

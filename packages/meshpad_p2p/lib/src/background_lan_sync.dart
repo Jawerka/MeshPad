@@ -1,5 +1,6 @@
 import 'package:meshpad_core/meshpad_core.dart';
 
+import 'lan/lan_network_profile.dart';
 import 'lan/lan_sync_coordinator.dart';
 import 'lan/lan_sync_transport.dart';
 import 'meshpad_log.dart';
@@ -74,13 +75,16 @@ Future<BackgroundSyncPassResult> runBackgroundSyncPass({
     );
     final coordinator = LanSyncCoordinator(deviceStore: deviceStore);
 
+    final profile = LanNetworkProfileSettings.forProfile(LanNetworkProfile.normal);
     await transport.start();
     try {
       final lanResult = await coordinator.syncTrustedPeers(
         transport: transport,
         repository: repo,
         localPeerId: identity.peerId,
-        propagateCascade: false,
+        propagateCascade: true,
+        hopLimit: profile.backgroundCascadeHopLimit,
+        maxConcurrentPeers: 1,
       );
       MeshPadLog.sync(
         'background LAN sync ${lanResult.status.name} notes=${lanResult.noteCount}',

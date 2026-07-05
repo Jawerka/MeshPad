@@ -23,7 +23,7 @@
   Только с -Test: собрать Windows debug после тестов.
 
 .PARAMETER Release
-  Release-сборка Windows и запуск meshpad.exe (без hot reload).
+  Release-сборка Windows (exe + zip + установщик) и запуск meshpad.exe.
 
 .PARAMETER CollectLogs
   Только с -Device dual: писать объединённые логи в logs/latest-dual.log.
@@ -119,23 +119,7 @@ try {
             throw "-Release supports Windows only. For Android use .\scripts\build-android.ps1"
         }
 
-        Ensure-WindowsCppAtlHeaders
-
-        $releaseExe = Join-Path $paths.AppDir "build\windows\x64\runner\Release\meshpad.exe"
-
-        Invoke-Step "flutter build windows --release" {
-            Invoke-InDirectory $paths.AppDir {
-                flutter build windows --release
-            }
-        }
-
-        if (-not (Test-Path $releaseExe)) {
-            throw "Release binary not found: $releaseExe"
-        }
-
-        Write-Host ""
-        Write-Host "Starting release build: $releaseExe" -ForegroundColor Green
-        & $releaseExe
+        & "$PSScriptRoot\build-windows.ps1" -Run
         exit $LASTEXITCODE
     }
 

@@ -45,6 +45,7 @@ class LanSyncTransport implements SyncTransport {
     this.onCascadeSync,
     this.enableTls = true,
     this.networkProfile = LanNetworkProfile.normal,
+    this.outboundOnly = false,
   })  : _getEngine = getEngine,
         _getIdentity = getIdentity;
 
@@ -63,6 +64,9 @@ class LanSyncTransport implements SyncTransport {
   final bool enableTls;
 
   final LanNetworkProfile networkProfile;
+
+  /// Outbound HTTP client only — no local [LanPeerServer] or discovery.
+  final bool outboundOnly;
 
   final _controller = StreamController<SyncTransportEvent>.broadcast();
 
@@ -118,6 +122,7 @@ class LanSyncTransport implements SyncTransport {
   String? get localTlsCertSha256 => _tlsIdentity?.certSha256Hex;
 
   Future<void> setPairingOffer(PinPairingOffer? offer) async {
+    if (outboundOnly) return;
     await _ensureStarted();
 
     _server?.setPairingOffer(offer);
@@ -146,6 +151,14 @@ class LanSyncTransport implements SyncTransport {
     _identity = await _getIdentity();
 
     _announceHost = announceHost ?? await detectLanHost();
+
+    if (outboundOnly) {
+      _running = true;
+      MeshPadLog.lan(
+        'outbound transport started peer=${_identity!.peerId} host=$_announceHost',
+      );
+      return;
+    }
 
     if (enableTls && getDeviceStore != null) {
       final store = await getDeviceStore!();
@@ -379,16 +392,18 @@ class LanSyncTransport implements SyncTransport {
 
     MeshPadLog.sync('refreshing discovery for $peerId');
 
-    await _discovery?.refresh();
+    if (!outboundOnly) {
+      await _discovery?.refresh();
 
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
 
-    final discovered = _peers[peerId];
+      final discovered = _peers[peerId];
 
-    if (discovered != null) {
-      final live = await probe(discovered);
+      if (discovered != null) {
+        final live = await probe(discovered);
 
-      if (live != null) return live;
+        if (live != null) return live;
+      }
     }
 
     if (stored != null) {

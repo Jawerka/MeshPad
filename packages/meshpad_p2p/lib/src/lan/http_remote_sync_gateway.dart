@@ -7,6 +7,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
 import '../meshpad_log.dart';
+import 'cascade_sync_request.dart';
 import 'lan_sync_auth.dart';
 import 'lan_catalog_body.dart';
 import 'lan_sync_codec.dart';
@@ -278,12 +279,10 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     );
   }
 
-  Future<void> requestCascadeSync({String? excludePeerId}) async {
+  Future<void> requestCascadeSync(CascadeSyncRequest cascade) async {
     await _post(
       '/meshpad/p2p/sync/cascade',
-      {
-        if (excludePeerId != null) 'excludePeerId': excludePeerId,
-      },
+      cascade.toWire(),
     );
   }
 

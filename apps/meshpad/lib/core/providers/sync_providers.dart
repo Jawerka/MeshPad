@@ -13,6 +13,8 @@ import 'sync_activity_provider.dart';
 
 final _outboxProcessor = OutboxProcessor();
 
+var _syncInProgress = false;
+
 final deviceStoreProvider = FutureProvider<DeviceIdentityStore>((ref) async {
   if (ref.watch(isWebClientProvider)) {
     throw UnsupportedError('Device store unavailable on Web');
@@ -90,10 +92,11 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
         onTrusted: () => ref.invalidate(trustedDevicesProvider),
       );
     },
-    onCascadeSync: (excludePeerId) async {
+    onCascadeSync: (cascade) async {
       await ref.read(syncControllerProvider).runSync(
-            excludePeerId: excludePeerId,
-            propagateCascade: false,
+            excludePeerIds: cascade.excludePeerIds,
+            propagateCascade: cascade.hopLimit > 0,
+            hopLimit: cascade.hopLimit,
           );
     },
     networkProfile: networkProfile,
@@ -161,7 +164,9 @@ class SyncController {
 
   Future<SyncRunResult> runSync({
     String? excludePeerId,
+    List<String> excludePeerIds = const [],
     bool? propagateCascade,
+    int? hopLimit,
   }) async {
     if (_ref.read(isWebClientProvider)) {
       return const SyncRunResult(
@@ -170,6 +175,14 @@ class SyncController {
       );
     }
 
+    if (_syncInProgress) {
+      return const SyncRunResult(
+        SyncRunStatus.failed,
+        message: 'Синхронизация уже выполняется',
+      );
+    }
+
+    _syncInProgress = true;
     final activity = _ref.read(syncActivityProvider.notifier);
     final transferReporter = _ref.read(syncTransferReporterProvider);
     lanSyncTransferProgress.onProgress = transferReporter.onProgress;
@@ -179,9 +192,13 @@ class SyncController {
       final transport = _ref.read(syncTransportProvider);
 
       final trusted = await _ref.read(trustedDevicesProvider.future);
-      final peers = excludePeerId == null
-          ? trusted
-          : trusted.where((p) => p.peerId != excludePeerId).toList();
+      final excluded = {
+        ...excludePeerIds,
+        if (excludePeerId != null) excludePeerId,
+      };
+      final peers = trusted
+          .where((peer) => !excluded.contains(peer.peerId))
+          .toList();
       if (peers.isEmpty) {
         return const SyncRunResult(
           SyncRunStatus.noPeers,
@@ -197,11 +214,11 @@ class SyncController {
       );
 
       final settings = await _ref.read(appSettingsProvider.future);
-      final cascade = propagateCascade ??
-          LanNetworkProfileSettings.forProfile(settings.networkProfile)
-              .propagateCascade;
+      final profile =
+          LanNetworkProfileSettings.forProfile(settings.networkProfile);
+      final cascade = propagateCascade ?? profile.propagateCascade;
+      final effectiveHopLimit = hopLimit ?? profile.cascadeHopLimit;
 
-      final LanSyncRunResult result;
       final lan = transport.lanAccess;
       if (lan == null) {
         return const SyncRunResult(
@@ -209,13 +226,16 @@ class SyncController {
           message: 'LAN transport недоступен',
         );
       }
-      result = await coordinator.syncTrustedPeers(
+
+      final result = await coordinator.syncTrustedPeers(
         transport: lan,
         repository: repo,
         trusted: trusted,
-        excludePeerId: excludePeerId,
+        excludePeerIds: excluded.toList(growable: false),
         localPeerId: identity.peerId,
         propagateCascade: cascade,
+        hopLimit: effectiveHopLimit,
+        maxConcurrentPeers: profile.maxConcurrentPeers,
         onPeerProgress: ({required peer, required completed, required total}) {
           activity.setPeer(
             label: 'Синхронизация с ${peer.name}',
@@ -246,6 +266,7 @@ class SyncController {
     } finally {
       lanSyncTransferProgress.onProgress = null;
       activity.finish();
+      _syncInProgress = false;
     }
   }
 
@@ -257,3 +278,12 @@ class SyncController {
     _ref.invalidate(trustedDevicesProvider);
   }
 }
+
+/// Exposed for unit tests.
+bool get isSyncControllerBusy => _syncInProgress;
+
+/// Exposed for unit tests.
+void resetSyncControllerBusyForTest() => _syncInProgress = false;
+
+/// Exposed for unit tests.
+void setSyncControllerBusyForTest(bool value) => _syncInProgress = value;

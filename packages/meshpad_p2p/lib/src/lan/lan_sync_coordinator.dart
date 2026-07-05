@@ -1,7 +1,9 @@
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../meshpad_log.dart';
+import 'cascade_sync_request.dart';
 import 'lan_single_peer_sync.dart';
+import 'lan_sync_peer_order.dart';
 import 'lan_sync_transport.dart';
 
 enum LanSyncRunStatus { noPeers, completed, partial, failed }
@@ -13,6 +15,7 @@ class LanSyncRunResult {
     this.message,
     this.failedPeerIds = const [],
     this.succeededPeerIds = const [],
+    this.skippedPeerIds = const [],
   });
 
   final LanSyncRunStatus status;
@@ -20,6 +23,7 @@ class LanSyncRunResult {
   final String? message;
   final List<String> failedPeerIds;
   final List<String> succeededPeerIds;
+  final List<String> skippedPeerIds;
 }
 
 typedef LanSyncPeerProgress = void Function({
@@ -43,14 +47,20 @@ class LanSyncCoordinator {
     required NoteRepository repository,
     List<Device>? trusted,
     String? excludePeerId,
+    List<String> excludePeerIds = const [],
     String? localPeerId,
     bool propagateCascade = true,
+    int? hopLimit,
+    int maxConcurrentPeers = 1,
+    bool manageTransport = true,
     LanSyncPeerProgress? onPeerProgress,
   }) async {
     final allPeers = trusted ?? await deviceStore.listTrustedDevices();
-    final peers = excludePeerId == null
-        ? allPeers
-        : allPeers.where((peer) => peer.peerId != excludePeerId).toList();
+    final excluded = {
+      ...excludePeerIds,
+      if (excludePeerId != null) excludePeerId,
+    };
+    var peers = allPeers.where((peer) => !excluded.contains(peer.peerId)).toList();
 
     if (peers.isEmpty) {
       MeshPadLog.sync('no trusted peers');
@@ -60,20 +70,29 @@ class LanSyncCoordinator {
       );
     }
 
+    peers = orderPeersForSync(peers: peers, transport: transport);
+
+    final effectiveHopLimit = hopLimit ?? peers.length;
+    final mayCascade = propagateCascade && effectiveHopLimit > 0;
+    final concurrency = maxConcurrentPeers.clamp(1, peers.length);
+
     final batchStopwatch = Stopwatch()..start();
     try {
-      await transport.start();
+      if (manageTransport) {
+        await transport.start();
+      }
 
       var total = 0;
+      var completedCount = 0;
       final succeededPeerIds = <String>[];
       final failedPeerIds = <String>[];
+      final skippedPeerIds = <String>[];
       final failureMessages = <String>[];
 
-      for (var index = 0; index < peers.length; index++) {
-        final peer = peers[index];
+      Future<void> syncOnePeer(Device peer) async {
         onPeerProgress?.call(
           peer: peer,
-          completed: index,
+          completed: completedCount,
           total: peers.length,
         );
 
@@ -88,11 +107,18 @@ class LanSyncCoordinator {
         if (peerResult.status == LanPeerSyncStatus.completed) {
           total += peerResult.noteCount;
           succeededPeerIds.add(peer.peerId);
-          if (propagateCascade && localPeerId != null) {
+          if (mayCascade && localPeerId != null) {
             try {
               final gateway = await transport.gatewayForPeer(peer.peerId);
+              final visited = <String>{
+                ...excluded,
+                localPeerId,
+              }.toList(growable: false);
               await gateway.requestCascadeSync(
-                excludePeerId: localPeerId,
+                CascadeSyncRequest(
+                  excludePeerIds: visited,
+                  hopLimit: effectiveHopLimit - 1,
+                ),
               );
             } catch (e) {
               MeshPadLog.warn(
@@ -101,6 +127,11 @@ class LanSyncCoordinator {
               );
             }
           }
+        } else if (peerResult.status == LanPeerSyncStatus.unreachable) {
+          skippedPeerIds.add(peer.peerId);
+          MeshPadLog.sync(
+            'peer ${peer.peerId} offline, skipped',
+          );
         } else {
           failedPeerIds.add(peer.peerId);
           if (peerResult.message != null) {
@@ -108,16 +139,29 @@ class LanSyncCoordinator {
           }
           MeshPadLog.warn(
             'sync',
-            'peer ${peer.peerId} sync skipped: ${peerResult.message}',
+            'peer ${peer.peerId} sync failed: ${peerResult.message}',
           );
+        }
+
+        completedCount++;
+      }
+
+      for (var index = 0; index < peers.length; index += concurrency) {
+        final batch = peers.skip(index).take(concurrency).toList();
+        if (batch.length == 1) {
+          await syncOnePeer(batch.single);
+        } else {
+          await Future.wait(batch.map(syncOnePeer));
         }
       }
 
-      onPeerProgress?.call(
-        peer: peers.last,
-        completed: peers.length,
-        total: peers.length,
-      );
+      if (peers.isNotEmpty) {
+        onPeerProgress?.call(
+          peer: peers.last,
+          completed: peers.length,
+          total: peers.length,
+        );
+      }
 
       batchStopwatch.stop();
       MeshPadLog.metric(
@@ -126,7 +170,7 @@ class LanSyncCoordinator {
       );
 
       if (succeededPeerIds.isEmpty && failedPeerIds.isNotEmpty) {
-        MeshPadLog.sync('sync batch failed all peers');
+        MeshPadLog.sync('sync batch failed all reachable peers');
         return LanSyncRunResult(
           LanSyncRunStatus.failed,
           message: failureMessages.isNotEmpty
@@ -134,13 +178,15 @@ class LanSyncCoordinator {
               : 'Синхронизация не удалась',
           failedPeerIds: failedPeerIds,
           succeededPeerIds: succeededPeerIds,
+          skippedPeerIds: skippedPeerIds,
         );
       }
 
       if (failedPeerIds.isNotEmpty) {
         MeshPadLog.sync(
           'sync batch partial: ok=${succeededPeerIds.length} '
-          'failed=${failedPeerIds.length} totalNotes=$total',
+          'failed=${failedPeerIds.length} skipped=${skippedPeerIds.length} '
+          'totalNotes=$total',
         );
         return LanSyncRunResult(
           LanSyncRunStatus.partial,
@@ -148,14 +194,19 @@ class LanSyncCoordinator {
           message: failureMessages.isNotEmpty ? failureMessages.first : null,
           failedPeerIds: failedPeerIds,
           succeededPeerIds: succeededPeerIds,
+          skippedPeerIds: skippedPeerIds,
         );
       }
 
-      MeshPadLog.sync('sync batch completed totalNotes=$total');
+      MeshPadLog.sync(
+        'sync batch completed totalNotes=$total '
+        'skipped=${skippedPeerIds.length}',
+      );
       return LanSyncRunResult(
         LanSyncRunStatus.completed,
         noteCount: total,
         succeededPeerIds: succeededPeerIds,
+        skippedPeerIds: skippedPeerIds,
       );
     } catch (e) {
       if (e is! SyncTransportException) {

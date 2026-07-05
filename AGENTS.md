@@ -86,9 +86,14 @@ Pairing trust helpers (`packages/meshpad_p2p/lib/src/pairing_trust_handler.dart`
 cd packages/meshpad_core
 dart run build_runner build --delete-conflicting-outputs
 
-# Android release APK
+# Android release APK (+ meshpad-<version>.apk in repo root)
 .\scripts\build-android.ps1
 .\scripts\install-android-apk.ps1 -Build
+
+# Windows release (exe + zip + setup installer in repo root)
+.\scripts\build-windows.ps1
+# or: .\dev.ps1 -Release   # same build + launch meshpad.exe
+# or: dart run melos run build:windows
 
 # LAN dual debug + merged logs
 .\dev.ps1 -Device dual -CollectLogs

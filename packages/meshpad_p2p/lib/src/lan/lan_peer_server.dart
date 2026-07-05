@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import '../pairing_protocol.dart';
+import 'cascade_sync_request.dart';
 import 'lan_attachment_path.dart';
 import 'lan_sync_auth.dart';
 import 'lan_catalog_body.dart';
@@ -17,7 +18,7 @@ const meshpadPreferredLanHttpPort = 45838;
 
 typedef PairingConfirmedHandler = Future<void> Function(
     PinPairingConfirm confirm);
-typedef CascadeSyncHandler = Future<void> Function(String? excludePeerId);
+typedef CascadeSyncHandler = Future<void> Function(CascadeSyncRequest request);
 typedef TrustedPeerLookup = Future<TrustedDeviceRecord?> Function(
     String peerId);
 
@@ -257,19 +258,19 @@ class LanPeerServer {
     }
 
     if (path == '/meshpad/p2p/sync/cascade' && method == 'POST') {
-      String? excludePeerId;
+      CascadeSyncRequest cascadeRequest = const CascadeSyncRequest();
       try {
         final body = await utf8.decoder.bind(request).join();
         if (body.trim().isNotEmpty) {
           final json = jsonDecode(body) as Map<String, dynamic>;
-          excludePeerId = json['excludePeerId'] as String?;
+          cascadeRequest = CascadeSyncRequest.fromWire(json);
         }
       } catch (_) {
-        excludePeerId = null;
+        cascadeRequest = const CascadeSyncRequest();
       }
       final handler = onCascadeSyncRequested;
       if (handler != null) {
-        unawaited(handler(excludePeerId));
+        unawaited(handler(cascadeRequest));
       }
       return _HttpResponse.json({'status': 'accepted'});
     }

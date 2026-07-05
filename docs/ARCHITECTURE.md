@@ -47,6 +47,21 @@ flowchart TB
 4. Debounce ~400 ms → `SyncController.runSync()`.
 5. `LanSyncTransport` отправляет дельту доверенным пирам (зашифрованный payload).
 
+## Multi-peer sync (LAN mesh)
+
+Оркестрация в `LanSyncCoordinator` (`meshpad_p2p`):
+
+| Поведение | Описание |
+|-----------|----------|
+| Порядок пиров | Online → hub (имя содержит «Hub») → `lastSeenAt` |
+| Параллелизм | `normal`: до 2 пиров; `gentle`: 1 |
+| Offline-пир | `unreachable` — пропуск без ошибки batch |
+| Реальная ошибка | auth 401/403, timeout, partial push → `partial` / `failed` |
+| Cascade | После успешного sync — `POST /meshpad/p2p/sync/cascade` |
+| Устойчивость | Outbox + periodic auto-sync; спящие устройства догоняют при wake |
+
+Data plane (catalog delta, LWW, attachments) — без изменений; multi-peer только orchestration.
+
 ## UI
 
 | Элемент | Реализация |

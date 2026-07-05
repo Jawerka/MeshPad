@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Live sync UI state (header spinner, transfer progress).
@@ -101,15 +103,36 @@ final syncTransferReporterProvider = Provider<SyncTransferReporter>((ref) {
 class SyncTransferReporter {
   void Function(String fileName, int transferred, int total)? onProgress;
 
+  Timer? _throttleTimer;
+  String? _pendingFileName;
+  int? _pendingTransferred;
+  int? _pendingTotal;
+
+  static const _throttleDelay = Duration(milliseconds: 150);
+
   void report({
     required String fileName,
     required int transferred,
     required int total,
   }) {
+    _pendingFileName = fileName;
+    _pendingTransferred = transferred;
+    _pendingTotal = total;
+    _throttleTimer?.cancel();
+    _throttleTimer = Timer(_throttleDelay, _flushProgress);
+  }
+
+  void _flushProgress() {
+    final fileName = _pendingFileName;
+    final transferred = _pendingTransferred;
+    final total = _pendingTotal;
+    if (fileName == null || transferred == null || total == null) return;
     onProgress?.call(fileName, transferred, total);
   }
 
   void dispose() {
+    _throttleTimer?.cancel();
+    _throttleTimer = null;
     onProgress = null;
   }
 }

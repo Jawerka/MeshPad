@@ -481,9 +481,6 @@ class DevicesSheet extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (peerResult.status == LanPeerSyncStatus.unreachable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.devicesPeerUnreachable)),
-      );
       return;
     }
 
@@ -516,12 +513,23 @@ class DevicesSheet extends ConsumerWidget {
       SyncRunStatus.completed => result.noteCount > 0
           ? l10n.devicesSyncNotesCount(result.noteCount)
           : l10n.devicesSyncCompleted,
-      SyncRunStatus.partial => result.noteCount > 0
-          ? l10n.devicesSyncNotesCount(result.noteCount)
-          : (result.message ?? l10n.devicesSyncCompleted),
+      SyncRunStatus.partial => result.message != null
+          ? result.message!
+          : (result.noteCount > 0
+              ? l10n.devicesSyncNotesCount(result.noteCount)
+              : l10n.devicesSyncCompleted),
       SyncRunStatus.failed =>
         result.message ?? meshPadExceptionUserMessage('sync_failed'),
     };
+
+    if (result.status == SyncRunStatus.completed && result.noteCount == 0) {
+      return;
+    }
+    if (result.status == SyncRunStatus.partial &&
+        result.message == null &&
+        result.noteCount == 0) {
+      return;
+    }
 
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));

@@ -43,7 +43,11 @@ melos:
 
     build:android:
       run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1
-      description: Release APK build; copies meshpad.apk to the phone sync folder.
+      description: Release APK; copies meshpad.apk and meshpad-<version>.apk.
+
+    build:windows:
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1
+      description: Release Windows exe, zip, and Inno Setup installer.
 
     build:hub:
       run: cd apps/meshpad_server && dart compile exe bin/meshpad_server.dart -o meshpad-hub

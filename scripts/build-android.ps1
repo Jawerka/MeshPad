@@ -2,6 +2,7 @@
 <#
 .SYNOPSIS
   Build MeshPad release APK and copy it to a fixed destination (overwrite).
+  Also writes meshpad-<version>.apk to the repository root.
 
 .PARAMETER OutputDir
   Folder that receives meshpad.apk after a successful build.
@@ -55,14 +56,21 @@ try {
         throw "Build finished but APK not found: $ApkSource"
     }
 
+    $version = & (Join-Path $PSScriptRoot "read-app-version.ps1")
+    $versionedApkName = "meshpad-$version.apk"
+    $versionedApkDest = Join-Path $Root $versionedApkName
+
     if (-not (Test-Path $OutputDir)) {
         Write-Host "Creating output folder: $OutputDir"
         New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
     }
 
     Copy-Item -Path $ApkSource -Destination $ApkDest -Force
+    Copy-Item -Path $ApkSource -Destination $versionedApkDest -Force
     Write-Host ""
-    Write-Host "APK copied to: $ApkDest" -ForegroundColor Green
+    Write-Host "APK copied to:" -ForegroundColor Green
+    Write-Host "  $ApkDest"
+    Write-Host "  $versionedApkDest"
 } finally {
     Restore-Location $InitialLocation
 }

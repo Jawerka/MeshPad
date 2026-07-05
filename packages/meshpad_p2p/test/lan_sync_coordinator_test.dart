@@ -77,7 +77,8 @@ void main() {
       repository: repo,
     );
 
-    expect(result.status, LanSyncRunStatus.failed);
+    expect(result.status, LanSyncRunStatus.completed);
+    expect(result.skippedPeerIds, contains('peer-remote'));
     final outbox = await repo.listOutbox();
     expect(outbox, isNotEmpty);
     expect(outbox.every((entry) => entry.retryCount == 0), isTrue);
@@ -174,10 +175,53 @@ void main() {
       repository: repoLocal,
     );
 
-    expect(result.status, LanSyncRunStatus.partial);
+    expect(result.status, LanSyncRunStatus.completed);
     expect(result.succeededPeerIds, contains('peer-good'));
-    expect(result.failedPeerIds, contains('peer-missing'));
+    expect(result.skippedPeerIds, contains('peer-missing'));
+    expect(result.failedPeerIds, isEmpty);
     expect((await repoRemote.listNotes()).length, 1);
+    transport.dispose();
+  });
+
+  test('syncTrustedPeers returns completed when all peers are unreachable', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(
+      peerId: 'peer-missing-a',
+      name: 'Missing A',
+      lanHost: '127.0.0.1',
+      lanHttpPort: 1,
+    );
+    await store.trustDevice(
+      peerId: 'peer-missing-b',
+      name: 'Missing B',
+      lanHost: '127.0.0.1',
+      lanHttpPort: 2,
+    );
+
+    final db = MeshPadDatabase.inMemory();
+    addTearDown(db.close);
+    final repo = createNoteRepository(
+      dataDir: tempDir.path,
+      defaultAuthor: 'test',
+      database: db,
+    );
+    final identity = await store.loadOrCreateIdentity();
+    final engine = SyncEngine(notes: repo, identity: identity);
+    final transport = LanSyncTransport(
+      getEngine: () async => engine,
+      getIdentity: () async => identity,
+      getDeviceStore: () async => store,
+    );
+
+    final coordinator = LanSyncCoordinator(deviceStore: store);
+    final result = await coordinator.syncTrustedPeers(
+      transport: transport,
+      repository: repo,
+    );
+
+    expect(result.status, LanSyncRunStatus.completed);
+    expect(result.skippedPeerIds, containsAll(['peer-missing-a', 'peer-missing-b']));
+    expect(result.failedPeerIds, isEmpty);
     transport.dispose();
   });
 }

@@ -22,4 +22,13 @@ void main() {
     expect(appStatus, SyncRunStatus.partial);
     expect(lanResult.noteCount, 2);
   });
+
+  test('sync controller mutex flag tracks busy state', () {
+    resetSyncControllerBusyForTest();
+    expect(isSyncControllerBusy, isFalse);
+    setSyncControllerBusyForTest(true);
+    expect(isSyncControllerBusy, isTrue);
+    resetSyncControllerBusyForTest();
+    expect(isSyncControllerBusy, isFalse);
+  });
 }

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meshpad_core/meshpad_core.dart';
@@ -783,21 +785,29 @@ class _ComposerSectionState extends ConsumerState<_ComposerSection> {
               tooltip: 'Прикрепить файл',
             ),
             Expanded(
-              child: TextField(
-                focusNode: widget.focusNode,
-                controller: _bodyController,
-                decoration: const InputDecoration(
-                  hintText: 'Новая заметка…',
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.enter,
+                      control: true): () {
+                    if (!_saving) unawaited(_submit());
+                  },
+                },
+                child: TextField(
+                  focusNode: widget.focusNode,
+                  controller: _bodyController,
+                  decoration: const InputDecoration(
+                    hintText: 'Новая заметка…',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                   ),
+                  minLines: 1,
+                  maxLines: 10,
+                  textInputAction: TextInputAction.newline,
+                  keyboardType: TextInputType.multiline,
                 ),
-                minLines: 1,
-                maxLines: 10,
-                textInputAction: TextInputAction.newline,
-                keyboardType: TextInputType.multiline,
               ),
             ),
             const SizedBox(width: 8),

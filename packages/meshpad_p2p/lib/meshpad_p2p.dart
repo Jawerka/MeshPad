@@ -1,4 +1,5 @@
 export 'src/background_lan_sync.dart';
+export 'src/foreground_sync_isolate.dart';
 export 'src/sync_transport_lifecycle.dart';
 export 'src/libp2p/http_libp2p_native_api.dart';
 export 'src/libp2p/libp2p_peer_wire_registry.dart';
@@ -27,6 +28,8 @@ export 'src/lan/lan_discovery.dart';
 export 'src/lan/lan_network_profile.dart';
 export 'src/lan/lan_discovered_peer_policy.dart';
 export 'src/lan/mdns_lan_discovery.dart';
+export 'src/lan/cascade_sync_request.dart';
+export 'src/lan/lan_sync_peer_order.dart';
 export 'src/lan/lan_sync_coordinator.dart';
 export 'src/lan/lan_single_peer_sync.dart';
 export 'src/lan/udp_lan_discovery.dart';

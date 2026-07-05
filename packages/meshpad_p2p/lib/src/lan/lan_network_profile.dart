@@ -14,6 +14,9 @@ class LanNetworkProfileSettings {
     required this.idleDiscoveryEnabled,
     required this.defaultAutoSyncIntervalMinutes,
     required this.discoveryPeerTtl,
+    required this.cascadeHopLimit,
+    required this.backgroundCascadeHopLimit,
+    required this.maxConcurrentPeers,
   });
 
   final Duration mdnsBrowseInterval;
@@ -23,6 +26,9 @@ class LanNetworkProfileSettings {
   final bool idleDiscoveryEnabled;
   final int defaultAutoSyncIntervalMinutes;
   final Duration discoveryPeerTtl;
+  final int cascadeHopLimit;
+  final int backgroundCascadeHopLimit;
+  final int maxConcurrentPeers;
 
   static LanNetworkProfileSettings forProfile(LanNetworkProfile profile) {
     return switch (profile) {
@@ -34,6 +40,9 @@ class LanNetworkProfileSettings {
           idleDiscoveryEnabled: false,
           defaultAutoSyncIntervalMinutes: 15,
           discoveryPeerTtl: Duration(minutes: 15),
+          cascadeHopLimit: 8,
+          backgroundCascadeHopLimit: 3,
+          maxConcurrentPeers: 2,
         ),
       LanNetworkProfile.gentle => const LanNetworkProfileSettings(
           mdnsBrowseInterval: Duration(seconds: 60),
@@ -43,6 +52,9 @@ class LanNetworkProfileSettings {
           idleDiscoveryEnabled: true,
           defaultAutoSyncIntervalMinutes: 30,
           discoveryPeerTtl: Duration(minutes: 30),
+          cascadeHopLimit: 1,
+          backgroundCascadeHopLimit: 1,
+          maxConcurrentPeers: 1,
         ),
     };
   }

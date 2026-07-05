@@ -49,6 +49,39 @@ v1
 
 Peers paired before 2.8 may omit signing keys; token-only auth still works until re-paired.
 
+## Cascade sync (multi-peer orchestration)
+
+After a successful bidirectional sync session, the initiator may nudge the peer to sync remaining trusted devices (epidemic propagation, one HTTP nudge per direct sync).
+
+`POST /meshpad/p2p/sync/cascade`
+
+Request body (JSON):
+
+```json
+{
+  "excludePeerIds": ["initiator-peer-id", "relay-peer-id"],
+  "excludePeerId": "legacy-single-id",
+  "hopLimit": 7
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `excludePeerIds` | Peers already visited in this cascade chain (do not sync again) |
+| `excludePeerId` | Legacy single exclude; merged into `excludePeerIds` |
+| `hopLimit` | Remaining cascade hops the receiver may forward (0 = sync only, no further cascade) |
+
+Response: `{"status":"accepted"}` — sync runs asynchronously on the receiver.
+
+Receiver behavior:
+
+1. Sync all trusted peers except `excludePeerIds`.
+2. If `hopLimit > 0`, after each successful peer send cascade with updated `excludePeerIds` (add self) and `hopLimit - 1`.
+
+Initiator (app/hub) uses profile defaults: `normal` cascade hop limit 8, max 2 concurrent peers; `gentle` hop limit 1, sequential.
+
+Offline peers (`unreachable`) are skipped silently; they catch up via outbox + periodic auto-sync when online.
+
 ## Catalog
 
 `GET /meshpad/p2p/catalog`

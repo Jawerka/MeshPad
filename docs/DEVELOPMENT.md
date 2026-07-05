@@ -44,7 +44,8 @@ cd D:\Documents\Projects\MeshPad
 | Цель | Команда |
 |------|---------|
 | Windows | `.\dev.ps1` или `.\scripts\run.ps1 -Device windows` |
-| Android release APK | `.\scripts\build-android.ps1` |
+| Android release APK | `.\scripts\build-android.ps1` → `meshpad.apk` + `meshpad-<version>.apk` |
+| Windows release | `.\scripts\build-windows.ps1` → exe, zip, `meshpad-<version>-windows-x64-setup.exe` |
 | Install APK on phone | `.\scripts\install-android-apk.ps1 -Build` |
 | Linux | `cd apps/meshpad && flutter run -d linux` |
 | Dual (Win+Android) | `.\dev.ps1 -Device dual` |
@@ -206,7 +207,7 @@ git push origin v0.2.0
 
 ```powershell
 .\scripts\build-android.ps1
-cd apps\meshpad; flutter build windows --release
+.\scripts\build-windows.ps1
 ```
 
 Версия: `.\scripts\read-app-version.ps1`

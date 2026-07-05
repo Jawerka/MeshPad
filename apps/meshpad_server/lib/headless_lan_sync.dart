@@ -53,7 +53,11 @@ class HeadlessLanSyncService {
         store: deviceStore,
         confirm: confirm,
       ),
-      onCascadeSync: (excludePeerId) => runSync(excludePeerId: excludePeerId),
+      onCascadeSync: (cascade) => runSync(
+        excludePeerIds: cascade.excludePeerIds,
+        propagateCascade: cascade.hopLimit > 0,
+        hopLimit: cascade.hopLimit,
+      ),
     );
   }
 
@@ -97,7 +101,12 @@ class HeadlessLanSyncService {
     }
   }
 
-  Future<LanSyncRunResult> runSync({String? excludePeerId}) async {
+  Future<LanSyncRunResult> runSync({
+    String? excludePeerId,
+    List<String> excludePeerIds = const [],
+    bool? propagateCascade,
+    int? hopLimit,
+  }) async {
     if (_syncInProgress) {
       return const LanSyncRunResult(
         LanSyncRunStatus.failed,
@@ -113,8 +122,13 @@ class HeadlessLanSyncService {
         transport: transport,
         repository: repository,
         localPeerId: identity.peerId,
-        excludePeerId: excludePeerId,
-        propagateCascade: _profileSettings.propagateCascade,
+        excludePeerIds: {
+          ...excludePeerIds,
+          if (excludePeerId != null) excludePeerId,
+        }.toList(growable: false),
+        propagateCascade: propagateCascade ?? _profileSettings.propagateCascade,
+        hopLimit: hopLimit ?? _profileSettings.cascadeHopLimit,
+        maxConcurrentPeers: _profileSettings.maxConcurrentPeers,
       );
       if (result.status == LanSyncRunStatus.completed && result.noteCount > 0) {
         changeHub?.feedChanged();

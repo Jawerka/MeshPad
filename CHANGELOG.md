@@ -2,32 +2,21 @@
 
 ## [Unreleased]
 
+---
+
+## [0.2.7] — 2026-07-06
+
 ### Added
 
-- **Hub CI:** `build-hub-linux` job — AOT `meshpad-hub-<version>-linux-x64` in release pipeline
-- **Hub deploy:** `scripts/deploy-hub.ps1` — pack, build on server, restart systemd
-- **Hub web:** отвязка доверенных устройств (по одному и все)
-- **Empty trash:** `NoteRepository.emptyTrash()`, API `POST /api/trash/empty`, кнопка в ленте
-- **Device names:** актуализация с удалённого устройства, если не переименовано локально (`name_customized`)
+- **In-app updates:** проверка GitHub Releases API (ручная кнопка в настройках); накопительные release notes из `body` релиза
+- **Release CI:** тело релиза из CHANGELOG (`extract-changelog-section.sh`), без `version.json`
+- **Dev:** `scripts/clean-local.ps1` — очистка локальных сборок, логов и `data/`
 
 ### Changed
 
-- README: секция «Сервер / LAN Hub»; таблица CI-артефактов
-- ROADMAP: аудит проекта, test matrix, debt register C9–C10
-- AGENTS.md: `deploy-hub.ps1`, `melos run build:hub`
-- **GitHub OAuth:** Device Flow для Git sync — [docs/GIT_SYNC.md](docs/GIT_SYNC.md)
-- **UI:** заголовок заметки по дате/времени; «Скопировать всё» (desktop)
-
-### Changed
-
-- Документация актуализирована под 1.0; libp2p помечен archived
-- `sync_transport: libp2p` мигрирует в `lan` при загрузке настроек
-- Бенчмарк reconcile 1000 notes — opt-in (`dart test --tags benchmark`)
-
-### Removed
-
-- **CI/release:** Rust libp2p FFI jobs и native FFI в release pipelines
-- HTML-референс `ref/` (устаревший прототип UI)
+- **Wave 2 refactor (no behavior change):** `note_repository` part files, `lan_peer_server` route handlers, UI extracts (`pin_pairing_dialog`, `feed_composer_section`, `settings_update_actions`)
+- **Docs:** секция Clean Code в AGENTS.md; ROADMAP debt C11–C15; локальная очистка в DEVELOPMENT.md
+- `.gitignore`: корневые `meshpad-*.apk/zip/exe`
 
 ---
 

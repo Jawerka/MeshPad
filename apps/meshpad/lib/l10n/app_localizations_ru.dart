@@ -92,6 +92,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get updatesUnavailable => 'Не удалось проверить обновления';
 
   @override
+  String get updatesWhatsNew => 'Что нового';
+
+  @override
   String get purgeOutboxTitle => 'Очистить ошибки sync?';
 
   @override

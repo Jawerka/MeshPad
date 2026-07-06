@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'Не удалось проверить обновления'**
   String get updatesUnavailable;
 
+  /// No description provided for @updatesWhatsNew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что нового'**
+  String get updatesWhatsNew;
+
   /// No description provided for @purgeOutboxTitle.
   ///
   /// In ru, this message translates to:

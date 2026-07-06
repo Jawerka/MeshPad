@@ -296,29 +296,30 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
-      - name: Write version manifest for in-app updates
+      - name: Write release notes from CHANGELOG
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          REPO="${GITHUB_REPOSITORY}"
-          cat > version.json <<EOF
-          {
-            "latest_version": "${VERSION}",
-            "download_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}.apk",
-            "windows_download_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}-windows-x64.zip",
-            "windows_installer_url": "https://github.com/${REPO}/releases/download/${TAG}/meshpad-${VERSION}-windows-x64-setup.exe"
-          }
-          EOF
+          chmod +x scripts/extract-changelog-section.sh
+          if ! scripts/extract-changelog-section.sh "$VERSION" CHANGELOG.md > release-notes.md; then
+            echo "Failed to extract CHANGELOG section for $VERSION" >&2
+            exit 1
+          fi
+          if [[ ! -s release-notes.md ]]; then
+            echo "CHANGELOG section for $VERSION is empty" >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release-notes.md
           files: |
             dist/**/*
-            version.json

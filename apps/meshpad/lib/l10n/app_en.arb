@@ -24,6 +24,7 @@
   "updatesUpToDate": "You are on the latest version {version}",
   "updatesAvailable": "Version {version} is available",
   "updatesUnavailable": "Could not check for updates",
+  "updatesWhatsNew": "What's new",
   "purgeOutboxTitle": "Clear sync errors?",
   "purgeOutboxBody": "Outbox entries with exhausted retries will be removed. Notes on disk are not affected.",
   "purgeOutboxNone": "No failed sync queue entries",

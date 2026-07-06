@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../constants/app_info.dart';
+import 'release_notes_collector.dart';
 
 enum UpdateCheckStatus { upToDate, updateAvailable, unavailable }
 
@@ -13,6 +14,7 @@ class UpdateCheckResult {
     this.downloadUrl,
     this.windowsDownloadUrl,
     this.windowsInstallerUrl,
+    this.whatsNewMarkdown,
     this.message,
   });
 
@@ -21,6 +23,7 @@ class UpdateCheckResult {
   final String? downloadUrl;
   final String? windowsDownloadUrl;
   final String? windowsInstallerUrl;
+  final String? whatsNewMarkdown;
   final String? message;
 }
 
@@ -31,11 +34,15 @@ class UpdateChecker {
 
   Future<UpdateCheckResult> check({
     String currentVersion = kAppVersion,
-    String manifestUrl = kVersionManifestUrl,
+    String latestReleaseUrl = kGitHubReleasesLatestUrl,
+    String releasesListUrl = kGitHubReleasesUrl,
   }) async {
     try {
       final response = await _client
-          .get(Uri.parse(manifestUrl))
+          .get(
+            Uri.parse(latestReleaseUrl),
+            headers: _githubHeaders(currentVersion),
+          )
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode != 200) {
@@ -45,33 +52,51 @@ class UpdateChecker {
         );
       }
 
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final latest =
-          json['latest_version'] as String? ?? json['version'] as String? ?? '';
-      final downloadUrl = json['android_apk_url'] as String? ??
-          json['download_url'] as String? ??
-          json['url'] as String?;
-      final windowsDownloadUrl = json['windows_download_url'] as String?;
-      final windowsInstallerUrl = json['windows_installer_url'] as String?;
+      final release = jsonDecode(response.body) as Map<String, dynamic>;
+      if (release['prerelease'] == true) {
+        return const UpdateCheckResult(status: UpdateCheckStatus.upToDate);
+      }
 
+      final tag = release['tag_name'] as String? ?? '';
+      final latest = normalizeTagVersion(tag);
       if (latest.isEmpty) {
         return const UpdateCheckResult(
           status: UpdateCheckStatus.unavailable,
-          message: 'Некорректный манифест версий',
+          message: 'Некорректный ответ GitHub Releases',
         );
       }
 
-      if (_isNewer(latest, currentVersion)) {
-        return UpdateCheckResult(
-          status: UpdateCheckStatus.updateAvailable,
-          latestVersion: latest,
-          downloadUrl: downloadUrl,
-          windowsDownloadUrl: windowsDownloadUrl,
-          windowsInstallerUrl: windowsInstallerUrl,
-        );
+      final assets = release['assets'] as List<dynamic>? ?? [];
+      final downloadUrl =
+          _findAssetUrl(assets, (name) => name.endsWith('.apk'));
+      final windowsInstallerUrl = _findAssetUrl(
+        assets,
+        (name) => name.endsWith('-windows-x64-setup.exe'),
+      );
+      final windowsDownloadUrl = _findAssetUrl(
+        assets,
+        (name) => name.endsWith('-windows-x64.zip'),
+      );
+
+      if (!isAppVersionNewer(latest, currentVersion)) {
+        return const UpdateCheckResult(status: UpdateCheckStatus.upToDate);
       }
 
-      return UpdateCheckResult(status: UpdateCheckStatus.upToDate);
+      final whatsNewMarkdown = await _fetchWhatsNewMarkdown(
+        releasesListUrl: releasesListUrl,
+        currentVersion: currentVersion,
+        latestVersion: latest,
+        appVersion: currentVersion,
+      );
+
+      return UpdateCheckResult(
+        status: UpdateCheckStatus.updateAvailable,
+        latestVersion: latest,
+        downloadUrl: downloadUrl,
+        windowsDownloadUrl: windowsDownloadUrl,
+        windowsInstallerUrl: windowsInstallerUrl,
+        whatsNewMarkdown: whatsNewMarkdown,
+      );
     } catch (e) {
       return UpdateCheckResult(
         status: UpdateCheckStatus.unavailable,
@@ -80,24 +105,50 @@ class UpdateChecker {
     }
   }
 
-  bool _isNewer(String remote, String local) {
-    final remoteParts = _parseVersion(remote);
-    final localParts = _parseVersion(local);
-    for (var i = 0; i < 3; i++) {
-      final r = i < remoteParts.length ? remoteParts[i] : 0;
-      final l = i < localParts.length ? localParts[i] : 0;
-      if (r != l) return r > l;
+  Future<String?> _fetchWhatsNewMarkdown({
+    required String releasesListUrl,
+    required String currentVersion,
+    required String latestVersion,
+    required String appVersion,
+  }) async {
+    try {
+      final uri = Uri.parse(releasesListUrl).replace(
+        queryParameters: {'per_page': '30'},
+      );
+      final response = await _client
+          .get(uri, headers: _githubHeaders(appVersion))
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return null;
+
+      final releases = jsonDecode(response.body) as List<dynamic>;
+      return collectReleaseNotesMarkdown(
+        releases: releases.cast<Map<String, dynamic>>(),
+        currentVersion: currentVersion,
+        latestVersion: latestVersion,
+      );
+    } catch (_) {
+      return null;
     }
-    return false;
   }
 
-  List<int> _parseVersion(String raw) {
-    return raw
-        .split('+')
-        .first
-        .split('.')
-        .map((part) => int.tryParse(part.trim()) ?? 0)
-        .toList();
+  Map<String, String> _githubHeaders(String appVersion) => {
+        'User-Agent': 'MeshPad/$appVersion',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+
+  String? _findAssetUrl(
+    List<dynamic> assets,
+    bool Function(String name) matches,
+  ) {
+    for (final asset in assets) {
+      final map = asset as Map<String, dynamic>;
+      final name = map['name'] as String? ?? '';
+      if (!matches(name)) continue;
+      final url = map['browser_download_url'] as String?;
+      if (url != null && url.isNotEmpty) return url;
+    }
+    return null;
   }
 
   void close() => _client.close();

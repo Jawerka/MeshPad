@@ -92,6 +92,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updatesUnavailable => 'Could not check for updates';
 
   @override
+  String get updatesWhatsNew => 'What\'s new';
+
+  @override
   String get purgeOutboxTitle => 'Clear sync errors?';
 
   @override

@@ -49,6 +49,7 @@
     }
   },
   "updatesUnavailable": "Не удалось проверить обновления",
+  "updatesWhatsNew": "Что нового",
   "purgeOutboxTitle": "Очистить ошибки sync?",
   "purgeOutboxBody": "Записи outbox с исчерпанными повторами будут удалены. Сами заметки на диске не затрагиваются.",
   "purgeOutboxNone": "Нет записей с ошибками sync",

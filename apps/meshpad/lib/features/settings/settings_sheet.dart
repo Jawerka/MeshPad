@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
@@ -190,9 +191,35 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
         context: context,
         builder: (dialogContext) {
           final dialogL10n = AppLocalizations.of(dialogContext);
+          final whatsNew = result.whatsNewMarkdown?.trim();
           return AlertDialog(
             title: Text(dialogL10n.updatesTitle),
-            content: Text(message),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(message),
+                  if (whatsNew != null && whatsNew.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      dialogL10n.updatesWhatsNew,
+                      style: Theme.of(dialogContext).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      child: SingleChildScrollView(
+                        child: MarkdownBody(
+                          data: whatsNew,
+                          shrinkWrap: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),

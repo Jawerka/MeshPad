@@ -108,13 +108,13 @@ Run before every pipeline change: `.\dev.ps1 -Test -WithFormat`
 
 | File | ~lines | Action |
 |------|--------|--------|
-| `note_repository.dart` | 971 | `part`: CRUD, outbox, reconcile, attachments |
+| [x] `note_repository.dart` | 107 (+ parts) | `part`: CRUD, outbox, reconcile, attachments |
 | `lan_sync_transport.dart` | ~780 | Extract `LanEndpointResolver` |
-| `lan_peer_server.dart` | 574 | Route table + handlers |
+| [x] `lan_peer_server.dart` | 445 (+ routes part) | Route table + handlers |
 | `http_remote_sync_gateway.dart` | ~490 | Shared `_request` wrapper |
-| `devices_sheet.dart` | 1570 | `pin_pairing_dialog.dart`, `device_card.dart` |
-| `settings_sheet.dart` | 1416 | Section widgets |
-| `feed_screen.dart` | 962 | Composer widget (partial: `sync_run_feedback.dart` done) |
+| [x] `devices_sheet.dart` | 743 | `pin_pairing_dialog.dart`, `device_card.dart`, `device_actions.dart` |
+| [x] `settings_sheet.dart` | 1243 | `settings_update_actions.dart` |
+| [x] `feed_screen.dart` | 712 | `feed_composer_section.dart` |
 
 DRY backlog:
 
@@ -174,8 +174,8 @@ DRY backlog:
 | C8 | Startup purge hid failed sync | **Fixed** — purge only via Settings |
 | C9 | Stale trusted device names | **Fixed** — `syncRemoteDisplayNameIfAllowed` + `name_customized` |
 | C10 | Hub not in release CI | **Fixed** — `build-hub-linux` job |
-| C11 | `lan_peer_server._route` monolith (~180+ lines) | Open — Wave 2 P0 |
-| C12 | `note_repository.dart` monolith (~971 lines, no `part`) | Open — Wave 2 P0 |
-| C13 | Flutter UI sheets >1300 lines | Open — Wave 2 P1 |
+| C11 | `lan_peer_server._route` monolith (~180+ lines) | **Fixed** — `lan_peer_server_routes.dart` |
+| C12 | `note_repository.dart` monolith (~971 lines, no `part`) | **Fixed** — part files |
+| C13 | Flutter UI sheets >1300 lines | **Fixed** — extracted widgets (devices/settings/feed) |
 | C14 | In-app updates via broken `version.json` | **Fixed** — GitHub Releases API |
 | C15 | Release body auto-generated on old tags | **Fixed** in CI; optional manual backfill for 0.2.5–0.2.6 |

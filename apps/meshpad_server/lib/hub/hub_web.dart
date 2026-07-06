@@ -4,12 +4,18 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'hub_pairing_service.dart';
+import 'hub_info.dart';
 import 'hub_qr.dart';
+import 'hub_update_checker.dart';
 
 class HubWeb {
-  HubWeb({required this.pairing});
+  HubWeb({
+    required this.pairing,
+    HubUpdateChecker? updateChecker,
+  }) : _updateChecker = updateChecker ?? HubUpdateChecker();
 
   final HubPairingService pairing;
+  final HubUpdateChecker _updateChecker;
 
   Router buildRouter({required int webPort}) {
     final router = Router();
@@ -30,8 +36,26 @@ class HubWeb {
     router.post('/hub/devices/revoke-all', (_) {
       return _revokeAllDevices(webPort);
     });
+    router.post('/hub/updates/check', (_) => _checkUpdates());
 
     return router;
+  }
+
+  Map<String, dynamic> _statusJson(HubStatus status, {int? webPort}) {
+    final json = status.toJson();
+    json['hub_version'] = kHubVersion;
+    if (webPort != null) {
+      json['web_port'] = webPort;
+    }
+    return json;
+  }
+
+  Future<Response> _checkUpdates() async {
+    final result = await _updateChecker.check();
+    return Response.ok(
+      jsonEncode(result.toJson()),
+      headers: _jsonHeaders,
+    );
   }
 
   Future<Response> _revokeDevice(int webPort, String peerId) async {
@@ -50,7 +74,8 @@ class HubWeb {
     return Response.ok(
       jsonEncode({
         'revoked': count,
-        'status': (await pairing.status(webPort: webPort)).toJson(),
+        'status': _statusJson(await pairing.status(webPort: webPort),
+            webPort: webPort),
       }),
       headers: _jsonHeaders,
     );
@@ -59,7 +84,7 @@ class HubWeb {
   Future<Response> _status(int webPort) async {
     final status = await pairing.status(webPort: webPort);
     return Response.ok(
-      jsonEncode(status.toJson()),
+      jsonEncode(_statusJson(status, webPort: webPort)),
       headers: _jsonHeaders,
     );
   }
@@ -72,7 +97,7 @@ class HubWeb {
         'result': result.status.name,
         'note_count': result.noteCount,
         'message': result.message,
-        'status': status.toJson(),
+        'status': _statusJson(status),
       }),
       headers: _jsonHeaders,
     );
@@ -202,12 +227,38 @@ class HubWeb {
     button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
     button.primary:hover { background: #1d4ed8; }
     .err { color: var(--err); font-size: .85rem; text-align: center; }
+    .version { font-size: .78rem; color: var(--muted); }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem; z-index: 100;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal {
+      width: 100%; max-width: 400px; max-height: 85vh; overflow: auto;
+      background: var(--card); border-radius: 14px; padding: 1.1rem 1.25rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+    }
+    .modal h2 { margin: 0 0 .65rem; font-size: 1.1rem; }
+    .modal p { margin: 0 0 .75rem; font-size: .9rem; line-height: 1.45; }
+    .modal .whats-new {
+      font-size: .82rem; line-height: 1.45; white-space: pre-wrap;
+      max-height: 240px; overflow: auto; padding: .65rem .75rem;
+      border-radius: 8px; background: rgba(128,128,128,.08); margin-bottom: .75rem;
+    }
+    .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+    .modal-actions a.btn {
+      display: inline-block; text-decoration: none; text-align: center;
+      padding: .55rem .9rem; font-size: .9rem; border-radius: 8px;
+      background: #2563eb; color: #fff; border: 1px solid #2563eb;
+    }
+    .modal-actions a.btn:hover { background: #1d4ed8; }
   </style>
 </head>
 <body>
   <main>
     <h1>MeshPad Hub</h1>
-    <p class="sub">${_escapeHtml(status.displayName)}</p>
+    <p class="sub">${_escapeHtml(status.displayName)}<br><span class="version">v${_escapeHtml(kHubVersion)}</span></p>
 
     <div class="badge" id="sync-badge">
       <span class="dot ${_escapeHtml(status.syncBadgeKind)}" id="sync-dot"></span>
@@ -240,11 +291,27 @@ class HubWeb {
       <button type="button" class="primary" id="show-pairing-btn" onclick="showPairing()">Показать PIN и QR</button>
       <button type="button" class="primary" id="sync-btn" onclick="syncNow()">Синхронизировать</button>
       <button type="button" id="refresh-pin-btn" onclick="refreshPin()">Новый PIN</button>
+      <button type="button" id="update-btn" onclick="checkUpdates()">Проверить обновления</button>
     </div>
 
     <div class="section-title">Журнал</div>
     <ul class="log" id="log">${_logHtml(status)}</ul>
   </main>
+  <div class="modal-backdrop" id="update-modal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="update-modal-title">
+      <h2 id="update-modal-title">Обновления</h2>
+      <p id="update-modal-message"></p>
+      <div class="whats-new" id="update-modal-notes" hidden></div>
+      <p id="update-modal-hint" style="font-size:.8rem;color:var(--muted)" hidden>
+        Скачайте бинарник, замените <code>/usr/local/bin/meshpad-hub</code> и выполните
+        <code>systemctl restart meshpad-hub</code>.
+      </p>
+      <div class="modal-actions">
+        <a class="btn" id="update-download-btn" href="#" target="_blank" rel="noopener" hidden>Скачать hub</a>
+        <button type="button" onclick="closeUpdateModal()">Закрыть</button>
+      </div>
+    </div>
+  </div>
   <script>
     function fmtTime(iso) {
       if (!iso) return '—';
@@ -350,6 +417,62 @@ class HubWeb {
       if (r.ok) {
         const body = await r.json();
         if (body.status) applyStatus(body.status);
+      }
+    }
+    function closeUpdateModal() {
+      document.getElementById('update-modal').hidden = true;
+    }
+    function showUpdateModal(body) {
+      const modal = document.getElementById('update-modal');
+      const title = document.getElementById('update-modal-title');
+      const message = document.getElementById('update-modal-message');
+      const notes = document.getElementById('update-modal-notes');
+      const hint = document.getElementById('update-modal-hint');
+      const download = document.getElementById('update-download-btn');
+      const current = body.current_version || '—';
+      if (body.status === 'upToDate') {
+        title.textContent = 'Обновления';
+        message.textContent = 'Установлена актуальная версия v' + current + '.';
+        notes.hidden = true;
+        hint.hidden = true;
+        download.hidden = true;
+      } else if (body.status === 'updateAvailable') {
+        title.textContent = 'Доступно обновление';
+        message.textContent = 'Текущая v' + current + ' → новая v' + (body.latest_version || '?') + '.';
+        if (body.whats_new_markdown) {
+          notes.textContent = body.whats_new_markdown;
+          notes.hidden = false;
+        } else {
+          notes.hidden = true;
+        }
+        if (body.download_url) {
+          download.href = body.download_url;
+          download.hidden = false;
+          hint.hidden = false;
+        } else {
+          download.hidden = true;
+          hint.hidden = true;
+          if (body.message) message.textContent += ' ' + body.message;
+        }
+      } else {
+        title.textContent = 'Обновления';
+        message.textContent = body.message || 'Не удалось проверить обновления.';
+        notes.hidden = true;
+        hint.hidden = true;
+        download.hidden = true;
+      }
+      modal.hidden = false;
+    }
+    async function checkUpdates() {
+      const btn = document.getElementById('update-btn');
+      btn.disabled = true;
+      try {
+        const r = await fetch('/hub/updates/check', { method: 'POST' });
+        showUpdateModal(await r.json());
+      } catch (e) {
+        showUpdateModal({ status: 'unavailable', message: String(e) });
+      } finally {
+        btn.disabled = false;
       }
     }
     setInterval(refreshStatus, 10000);

@@ -7,7 +7,10 @@ import 'package:meshpad_server/headless_lan_sync.dart';
 import 'package:meshpad_server/hub/hub_pairing_service.dart';
 import 'package:meshpad_server/hub/hub_qr.dart';
 import 'package:meshpad_server/hub/hub_web.dart';
+import 'package:meshpad_server/hub/hub_update_checker.dart';
 import 'package:meshpad_server/meshpad_server.dart';
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
@@ -53,8 +56,10 @@ void main() {
     }
   });
 
-  Handler hubHandler() =>
-      HubWeb(pairing: pairing).buildRouter(webPort: 8787).call;
+  Handler hubHandler({HubUpdateChecker? updateChecker}) =>
+      HubWeb(pairing: pairing, updateChecker: updateChecker)
+          .buildRouter(webPort: 8787)
+          .call;
 
   test('GET /hub/status returns pin and qr_uri', () async {
     final response = await hubHandler()(
@@ -68,6 +73,7 @@ void main() {
     expect(body['display_name'], 'Test Hub');
     expect(body['note_count'], isA<int>());
     expect(body.containsKey('sync_badge_kind'), isTrue);
+    expect(body['hub_version'], isA<String>());
   });
 
   test('POST /hub/sync returns result', () async {
@@ -121,10 +127,31 @@ void main() {
     expect(html, contains('pairing-panel" hidden'));
     expect(html, contains('id="sync-badge"'));
     expect(html, contains('Синхронизировать'));
+    expect(html, contains('Проверить обновления'));
+    expect(html, contains('id="update-modal"'));
     final actionsPos = html.indexOf('class="actions"');
     final logPos = html.indexOf('class="log"');
     expect(actionsPos, greaterThan(0));
     expect(logPos, greaterThan(actionsPos));
+  });
+
+  test('POST /hub/updates/check returns update result', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        '{"tag_name":"v0.2.7","prerelease":false,"assets":[]}',
+        200,
+      );
+    });
+    final response = await hubHandler(
+      updateChecker: HubUpdateChecker(client: client),
+    )(
+      Request('POST', Uri.parse('http://localhost/hub/updates/check')),
+    );
+    expect(response.statusCode, 200);
+    final body =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(body['status'], 'upToDate');
+    expect(body['current_version'], isA<String>());
   });
 
   test('POST /hub/devices/<id>/revoke removes trusted device', () async {

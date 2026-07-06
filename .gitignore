@@ -56,6 +56,11 @@ apps/meshpad/android/app/src/main/jniLibs/**/libmeshpad_p2p_native.so
 # Release / deploy artifacts
 dist/
 meshpad-hub-src.tgz
+/meshpad.apk
+/meshpad-*.apk
+/meshpad-*-windows-x64.zip
+/meshpad-*-windows-x64-setup.exe
+/meshpad-hub
 
 # Web server runtime (Linux headless)
 var/

@@ -81,6 +81,19 @@ dart run melos run check
 | `native/meshpad_p2p_sidecar` | libp2p sidecar (archived) |
 | `native/meshpad_p2p_native` | Rust scaffold (archived) |
 
+### Локальная очистка
+
+Сборки и логи **не в git**, но копятся на диске (~100+ MB):
+
+```powershell
+.\scripts\clean-local.ps1          # logs/, dist/, data/, meshpad-*.apk/zip/exe в корне
+.\scripts\clean-local.ps1 -Build # + melos clean (нужен повторный bootstrap)
+```
+
+После `melos clean`: `dart run melos bootstrap`.
+
+**Не удалять вручную** (нужны проекту, см. [AGENTS.md](../AGENTS.md)): `native/`, `packages/meshpad_api_client`, `apps/meshpad/web/`, libp2p-код в `meshpad_p2p` — archived, но используется тестами.
+
 ## Поведение приложения
 
 ### UI

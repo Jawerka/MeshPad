@@ -183,6 +183,36 @@ Priority test areas: outbox retry, attachment partial sync, coordinator partial 
 
 Benchmark tests (opt-in): `cd packages/meshpad_core && dart test --tags benchmark`
 
+## Clean Code refactor (Wave 2)
+
+MeshPad is **Dart/Flutter**, not Python — use `dart analyze`, `dart format`, and `flutter_lints`, not PEP8/mypy/pytest.
+
+**Refactor = structure only.** Do not change wire format (`docs/SYNC_WIRE.md`), sync semantics, or outbox ack rules unless fixing a documented bug in the debt register.
+
+### Workflow
+
+1. Read surrounding code; match naming and patterns.
+2. One PR-sized change per file or subsystem.
+3. Run `.\dev.ps1 -Test -WithFormat` before commit.
+4. No behavior change — existing tests must pass unchanged.
+
+### Priority targets (see [ROADMAP.md](ROADMAP.md) Wave 2)
+
+| Priority | File | ~lines | Action |
+|----------|------|--------|--------|
+| P0 | `packages/meshpad_core/.../note_repository.dart` | 971 | `part` files: CRUD, outbox, reconcile, attachments |
+| P0 | `packages/meshpad_p2p/.../lan_peer_server.dart` | 574 | Route table + handlers (extract `_route`) |
+| P1 | `apps/meshpad/.../devices_sheet.dart` | 1570 | `pin_pairing_dialog.dart`, `device_card.dart` |
+| P1 | `apps/meshpad/.../settings_sheet.dart` | 1416 | Section widgets |
+| P1 | `apps/meshpad/.../feed_screen.dart` | 962 | Composer widget |
+
+### Do not remove without ADR
+
+- `native/` archived libp2p code (used in tests)
+- `scripts/build-native-ffi*` (documented in `docs/LIBP2P.md`)
+- `packages/meshpad_api_client` (Web dev stubs)
+- `apps/meshpad/web/` (not productized, but not deleted ad hoc)
+
 ## Dart code quality
 
 - `dart format .` — formatting (CI enforces)

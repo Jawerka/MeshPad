@@ -16,6 +16,10 @@ class MeshPadPaths {
 
   String get localIdentityFile => p.join(devicesRoot, 'local_identity.json');
 
+  /// Written when the signing private key was lost and a new pair was generated.
+  String get signingKeyResetMarkerFile =>
+      p.join(devicesRoot, 'signing_key_reset.json');
+
   /// Ed25519 private key (base64); not synced (PLAN §11.2.7).
   String get deviceSigningPrivateKeyFile =>
       p.join(devicesRoot, '.device_signing_key');

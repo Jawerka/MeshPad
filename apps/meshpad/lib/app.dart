@@ -18,6 +18,7 @@ import 'core/storage/app_settings.dart';
 import 'core/storage/app_settings_store.dart';
 import 'core/theme/meshpad_theme.dart';
 import 'core/theme/meshpad_theme_scope.dart';
+import 'core/ui/status_hint_host.dart';
 import 'features/shell/app_shell.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/background_sync.dart';
@@ -108,7 +109,18 @@ class _MeshPadAppState extends ConsumerState<MeshPadApp>
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       builder: (context, child) {
         return MeshPadThemeScope(
-          child: child ?? const SizedBox.shrink(),
+          child: Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const Align(
+                alignment: Alignment.topCenter,
+                child: SafeArea(
+                  bottom: false,
+                  child: StatusHintHost(),
+                ),
+              ),
+            ],
+          ),
         );
       },
       home: const ShareIntentListener(child: AppShell()),

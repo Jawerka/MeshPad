@@ -10,6 +10,8 @@ import '../../l10n/app_localizations.dart';
 import '../../core/errors/user_messages.dart';
 import '../../core/openers/attachment_opener.dart';
 import '../../core/providers/notes_providers.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import 'attachment_grid.dart';
@@ -146,8 +148,10 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
         );
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        showMeshPadHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     }
@@ -166,17 +170,17 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
           remoteUri: attachmentUriBuilder?.call(attachment),
         );
         if (!context.mounted || !savesOnTap) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.fileSaved)),
+        showMeshPadHint(
+          context,
+          l10n.fileSaved,
+          severity: StatusHintSeverity.success,
         );
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              savesOnTap ? l10n.fileSaveFailed : userFacingError(e),
-            ),
-          ),
+        showMeshPadHint(
+          context,
+          savesOnTap ? l10n.fileSaveFailed : userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     }

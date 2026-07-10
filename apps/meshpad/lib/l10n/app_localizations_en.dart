@@ -450,6 +450,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncFailedDefault => 'Sync failed';
 
   @override
+  String get syncRejectedInvalidKey =>
+      'Sync rejected: invalid key. Re-pair your devices.';
+
+  @override
+  String get syncRejectedUntrusted => 'Sync rejected: device is not trusted.';
+
+  @override
+  String get syncRejectedSignature =>
+      'Signing key is outdated. Re-pair your devices.';
+
+  @override
+  String get syncRejectedClockSkew =>
+      'Sync rejected: check the clock on both devices.';
+
+  @override
+  String get syncRejectedMissingPeerId =>
+      'Sync rejected: missing device identity.';
+
+  @override
+  String get syncSigningKeyReset =>
+      'Signing key was reset. Re-pair all devices.';
+
+  @override
+  String get syncNeedsRePairTooltip => 'Re-pairing required';
+
+  @override
   String get pairingQrHostHint =>
       'Scan this QR on the other device (MeshPad mobile)';
 

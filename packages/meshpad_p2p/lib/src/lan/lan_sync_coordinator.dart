@@ -3,6 +3,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 import '../meshpad_log.dart';
 import 'cascade_sync_request.dart';
 import 'lan_single_peer_sync.dart';
+import 'lan_sync_auth.dart';
 import 'lan_sync_peer_order.dart';
 import 'lan_sync_transport.dart';
 
@@ -16,6 +17,7 @@ class LanSyncRunResult {
     this.failedPeerIds = const [],
     this.succeededPeerIds = const [],
     this.skippedPeerIds = const [],
+    this.peerAuthFailures = const {},
   });
 
   final LanSyncRunStatus status;
@@ -24,6 +26,7 @@ class LanSyncRunResult {
   final List<String> failedPeerIds;
   final List<String> succeededPeerIds;
   final List<String> skippedPeerIds;
+  final Map<String, LanSyncAuthFailure> peerAuthFailures;
 }
 
 typedef LanSyncPeerProgress = void Function({
@@ -89,6 +92,7 @@ class LanSyncCoordinator {
       final failedPeerIds = <String>[];
       final skippedPeerIds = <String>[];
       final failureMessages = <String>[];
+      final peerAuthFailures = <String, LanSyncAuthFailure>{};
 
       Future<void> syncOnePeer(Device peer) async {
         onPeerProgress?.call(
@@ -137,6 +141,11 @@ class LanSyncCoordinator {
           failedPeerIds.add(peer.peerId);
           if (peerResult.message != null) {
             failureMessages.add(peerResult.message!);
+            final authFailure =
+                parseLanSyncAuthFailureBody(peerResult.message!);
+            if (authFailure != null) {
+              peerAuthFailures[peer.peerId] = authFailure;
+            }
           }
           MeshPadLog.warn(
             'sync',
@@ -180,6 +189,7 @@ class LanSyncCoordinator {
           failedPeerIds: failedPeerIds,
           succeededPeerIds: succeededPeerIds,
           skippedPeerIds: skippedPeerIds,
+          peerAuthFailures: peerAuthFailures,
         );
       }
 
@@ -196,6 +206,7 @@ class LanSyncCoordinator {
           failedPeerIds: failedPeerIds,
           succeededPeerIds: succeededPeerIds,
           skippedPeerIds: skippedPeerIds,
+          peerAuthFailures: peerAuthFailures,
         );
       }
 

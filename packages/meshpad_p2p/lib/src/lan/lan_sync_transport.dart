@@ -12,6 +12,8 @@ import 'composite_lan_discovery.dart';
 
 import 'http_remote_sync_gateway.dart';
 
+import 'lan_sync_auth.dart';
+
 import 'lan_broadcast.dart';
 import 'lan_discovery.dart';
 
@@ -616,12 +618,14 @@ class LanSyncTransport implements SyncTransport {
   }
 
   String _httpSyncErrorMessage(HttpRemoteSyncException e) {
-    return switch (e.statusCode) {
-      401 =>
-        'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.',
-      403 => 'Синхронизация отклонена: устройство не доверено.',
-      _ => e.toString(),
-    };
+    if (e.statusCode == 401 || e.statusCode == 403) {
+      final parsed = parseLanSyncAuthFailureBody(e.body);
+      if (parsed != null) return bodyFor(parsed);
+      return e.statusCode == 403
+          ? bodyFor(LanSyncAuthFailure.forbidden)
+          : e.body;
+    }
+    return e.toString();
   }
 
   /// Triggers an immediate mDNS/UDP browse (e.g. when opening «Устройства»).

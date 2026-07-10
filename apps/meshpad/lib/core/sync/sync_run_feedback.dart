@@ -1,24 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../l10n/app_localizations.dart';
 import '../providers/sync_providers.dart';
+import 'sync_result_hint.dart';
 
-/// Shows a snackbar when manual sync did not fully succeed.
+/// Shows a status hint when manual sync did not fully succeed.
 void showSyncRunFeedback(BuildContext context, SyncRunResult result) {
-  if (result.status == SyncRunStatus.completed) return;
-  if (result.status == SyncRunStatus.partial && result.message == null) return;
-
-  final l10n = AppLocalizations.of(context);
-  final message = switch (result.status) {
-    SyncRunStatus.noPeers => result.message ?? l10n.syncNoTrustedDevices,
-    SyncRunStatus.partial => result.message ?? l10n.syncPartialDefault,
-    SyncRunStatus.failed => result.message ?? l10n.syncFailedDefault,
-    SyncRunStatus.completed => '',
-  };
-
-  if (message.isEmpty) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message)),
-  );
+  showSyncResultHint(ProviderScope.containerOf(context, listen: false), result);
 }

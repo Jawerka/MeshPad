@@ -22,7 +22,17 @@ import '../../core/theme/meshpad_colors.dart';
 import '../../core/widgets/text_input_dialog.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/wifi_info.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../devices/devices_sheet.dart';
+
+void _settingsHint(
+  BuildContext context,
+  String message, {
+  StatusHintSeverity severity = StatusHintSeverity.info,
+}) {
+  showMeshPadHint(context, message, severity: severity);
+}
 
 class SettingsSheet extends ConsumerStatefulWidget {
   const SettingsSheet({super.key, required this.scrollController});
@@ -96,15 +106,19 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       await controller.setDataDirectory(picked);
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.dataDirChanged(picked))),
+        _settingsHint(
+          context,
+          l10n.dataDirChanged(picked),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.dataDirChangeFailed('$e'))),
+        _settingsHint(
+          context,
+          l10n.dataDirChangeFailed('$e'),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -147,8 +161,10 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       await ref.read(settingsControllerProvider).resetDataDirectory();
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.dataDirReset)),
+        _settingsHint(
+          context,
+          l10n.dataDirReset,
+          severity: StatusHintSeverity.success,
         );
       }
     } finally {
@@ -203,14 +219,11 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           await ref.read(settingsControllerProvider).purgeExhaustedOutbox();
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              removed == 0
-                  ? l10n.purgeOutboxNone
-                  : l10n.purgeOutboxRemoved(removed),
-            ),
-          ),
+        _settingsHint(
+          context,
+          removed == 0
+              ? l10n.purgeOutboxNone
+              : l10n.purgeOutboxRemoved(removed),
         );
       }
     } finally {
@@ -226,15 +239,19 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       final count = await ref.read(settingsControllerProvider).rebuildIndex();
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.indexRebuilt(count))),
+        _settingsHint(
+          context,
+          l10n.indexRebuilt(count),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.errorGeneric('$e'))),
+        _settingsHint(
+          context,
+          l10n.errorGeneric('$e'),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -264,8 +281,10 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       await ref.read(settingsControllerProvider).setLocalDisplayName(nextName);
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.deviceNameSaved(nextName))),
+        _settingsHint(
+          context,
+          l10n.deviceNameSaved(nextName),
+          severity: StatusHintSeverity.success,
         );
       }
     } finally {
@@ -296,18 +315,18 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           );
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              nextKey.isEmpty ? l10n.apiKeyRemoved : l10n.apiKeySaved,
-            ),
-          ),
+        _settingsHint(
+          context,
+          nextKey.isEmpty ? l10n.apiKeyRemoved : l10n.apiKeySaved,
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -339,14 +358,18 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       await ref.read(settingsControllerProvider).setApiBaseUrl(nextUrl);
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.apiUrlSaved(nextUrl))),
+        _settingsHint(
+          context,
+          l10n.apiUrlSaved(nextUrl),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -368,8 +391,10 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
       await ref.read(settingsControllerProvider).setAutoBackupDirectory(picked);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -383,9 +408,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     if (settings.autoBackupDirectory?.trim().isEmpty ?? true) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.autoBackupNeedDirectory)),
-        );
+        _settingsHint(context, l10n.autoBackupNeedDirectory);
       }
       return;
     }
@@ -396,14 +419,18 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           await ref.read(settingsControllerProvider).runAutoBackupNow();
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.autoBackupDone(count))),
+        _settingsHint(
+          context,
+          l10n.autoBackupDone(count),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -437,14 +464,18 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           .exportNotesArchive(savePath);
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.exportNotesCount(count))),
+        _settingsHint(
+          context,
+          l10n.exportNotesCount(count),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {
@@ -492,22 +523,22 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
           .importNotesArchive(picked.files.single.path!);
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n.importNotesResult(
-                result.imported,
-                result.updated,
-                result.skipped,
-              ),
-            ),
+        _settingsHint(
+          context,
+          l10n.importNotesResult(
+            result.imported,
+            result.updated,
+            result.skipped,
           ),
+          severity: StatusHintSeverity.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(e))),
+        _settingsHint(
+          context,
+          userFacingError(e),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {

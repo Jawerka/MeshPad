@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_info.dart';
 import '../../core/services/apk_update_installer.dart';
 import '../../core/services/update_checker.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../l10n/app_localizations.dart';
 
 class SettingsUpdateActions {
@@ -188,21 +190,21 @@ class SettingsUpdateActions {
       final install = await _apkInstaller.promptInstall(path);
       if (!context.mounted) return;
       if (install.type != ResultType.done) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              install.message.isNotEmpty
-                  ? install.message
-                  : l10n.updateInstallFailed,
-            ),
-          ),
+        showMeshPadHint(
+          context,
+          install.message.isNotEmpty
+              ? install.message
+              : l10n.updateInstallFailed,
+          severity: StatusHintSeverity.error,
         );
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.updateDownloadFailed('$e'))),
+        showMeshPadHint(
+          context,
+          l10n.updateDownloadFailed('$e'),
+          severity: StatusHintSeverity.error,
         );
       }
     } finally {

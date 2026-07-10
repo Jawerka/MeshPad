@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/github_auth_providers.dart';
 import '../../core/services/github_device_auth_service.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 
 Future<bool> showGitHubDeviceAuthDialog(
     BuildContext context, WidgetRef ref) async {
@@ -15,8 +17,7 @@ Future<bool> showGitHubDeviceAuthDialog(
     deviceCode = await controller.startDeviceFlow();
   } on GitHubDeviceAuthException catch (e) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(e.message)));
+    showMeshPadHint(context, e.message, severity: StatusHintSeverity.error);
     return false;
   }
 
@@ -108,8 +109,10 @@ class _GitHubDeviceAuthDialogState
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: code));
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Код скопирован')),
+              showMeshPadHint(
+                context,
+                'Код скопирован',
+                severity: StatusHintSeverity.success,
               );
             },
             icon: const Icon(Icons.copy, size: 18),

@@ -48,6 +48,29 @@ void main() {
     expect(reloaded.signingPublicKey, identity.signingPublicKey);
   });
 
+  test('lost signing private key rotates and marks re-pair needed', () async {
+    final paths = MeshPadPaths(tempDir.path);
+    final signingKeys = MemoryDeviceSigningKeyStore();
+    final store = DeviceIdentityStore(
+      paths: paths,
+      signingKeys: signingKeys,
+    );
+
+    final first = await store.loadOrCreateIdentity(defaultDisplayName: 'PC');
+    final oldPublic = first.signingPublicKey;
+    expect(oldPublic, isNotNull);
+
+    await signingKeys.delete();
+    expect(await store.signingKeyNeedsRePair(), isFalse);
+
+    final second = await store.loadOrCreateIdentity();
+    expect(second.signingPublicKey, isNot(oldPublic));
+    expect(await store.signingKeyNeedsRePair(), isTrue);
+
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone', authToken: 't');
+    expect(await store.signingKeyNeedsRePair(), isFalse);
+  });
+
   test('trust and list devices', () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     await store.trustDevice(peerId: 'peer-1', name: 'Phone');

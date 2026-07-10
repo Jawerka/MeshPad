@@ -49,6 +49,20 @@ v1
 
 Peers paired before 2.8 may omit signing keys; token-only auth still works until re-paired.
 
+### Auth failure bodies
+
+HTTP status codes stay `401` / `403`. Response body identifies the reason:
+
+| Body | Status | Meaning |
+|------|--------|---------|
+| `unauthorized:missing_peer_id` | 401 | Missing `X-MeshPad-Peer-Id` |
+| `unauthorized:token` | 401 | Missing or wrong auth token |
+| `unauthorized:missing_signature` | 401 | Trusted peer expects signing; headers absent |
+| `unauthorized:signature` | 401 | Invalid Ed25519 signature |
+| `unauthorized:clock_skew` | 401 | Timestamp outside ±5 min window |
+| `peer not trusted` | 403 | Caller peer id not in trusted store |
+| `unauthorized` | 401 | Legacy clients (treated as token failure) |
+
 ## Cascade sync (multi-peer orchestration)
 
 After a successful bidirectional sync session, the initiator may nudge the peer to sync remaining trusted devices (epidemic propagation, one HTTP nudge per direct sync).

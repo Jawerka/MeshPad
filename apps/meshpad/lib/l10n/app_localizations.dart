@@ -836,6 +836,48 @@ abstract class AppLocalizations {
   /// **'Синхронизация не удалась'**
   String get syncFailedDefault;
 
+  /// No description provided for @syncRejectedInvalidKey.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.'**
+  String get syncRejectedInvalidKey;
+
+  /// No description provided for @syncRejectedUntrusted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация отклонена: устройство не доверено.'**
+  String get syncRejectedUntrusted;
+
+  /// No description provided for @syncRejectedSignature.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ключ подписи устарел. Пересопрягите устройства.'**
+  String get syncRejectedSignature;
+
+  /// No description provided for @syncRejectedClockSkew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация отклонена: проверьте время на устройствах.'**
+  String get syncRejectedClockSkew;
+
+  /// No description provided for @syncRejectedMissingPeerId.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация отклонена: не указано устройство.'**
+  String get syncRejectedMissingPeerId;
+
+  /// No description provided for @syncSigningKeyReset.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ключ подписи был сброшен. Пересопрягите все устройства.'**
+  String get syncSigningKeyReset;
+
+  /// No description provided for @syncNeedsRePairTooltip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Требуется пересопряжение'**
+  String get syncNeedsRePairTooltip;
+
   /// No description provided for @pairingQrHostHint.
   ///
   /// In ru, this message translates to:

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/ui/meshpad_status_hint.dart';
+import '../core/ui/status_hint_provider.dart';
 import '../core/providers/notes_providers.dart';
 import 'share_intent.dart';
 
@@ -94,8 +96,7 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showMeshPadHint(context, message, severity: StatusHintSeverity.success);
   }
 
   @override

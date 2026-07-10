@@ -69,4 +69,18 @@ void main() {
     await store.revokeTrust('peer-1');
     expect(await tokens.read('peer-1'), isNull);
   });
+
+  test('missing external token yields null authTokenForPeer', () async {
+    final paths = MeshPadPaths(tempDir.path);
+    final tokens = FilePeerAuthTokenStore(paths: paths);
+    final store = DeviceIdentityStore(paths: paths, authTokens: tokens);
+    await store.trustDevice(
+      peerId: 'peer-1',
+      name: 'Phone',
+      authToken: 'secret-token',
+    );
+    await tokens.delete('peer-1');
+    expect(await store.authTokenForPeer('peer-1'), isNull);
+    expect(await File(paths.trustedDeviceFile('peer-1')).exists(), isTrue);
+  });
 }

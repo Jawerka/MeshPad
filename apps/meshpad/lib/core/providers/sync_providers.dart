@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import '../sync/sync_auth_messages.dart';
 import '../platform/default_device_display_name.dart';
 import '../storage/secure_device_signing_key_store.dart';
 import '../storage/secure_peer_auth_token_store.dart';
 import '../sync/local_author_labels.dart';
 import 'notes_providers.dart';
 import 'sync_activity_provider.dart';
+import 'sync_auth_health_provider.dart';
 
 final _outboxProcessor = OutboxProcessor();
 
@@ -188,6 +190,14 @@ class SyncController {
     lanSyncTransferProgress.onProgress = transferReporter.onProgress;
 
     try {
+      final deviceStore = await _ref.read(deviceStoreProvider.future);
+      if (await deviceStore.signingKeyNeedsRePair()) {
+        return const SyncRunResult(
+          SyncRunStatus.failed,
+          message: syncSigningKeyResetCode,
+        );
+      }
+
       final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
       final transport = _ref.read(syncTransportProvider);
 
@@ -245,6 +255,12 @@ class SyncController {
       );
 
       _invalidateSyncState();
+
+      for (final entry in result.peerAuthFailures.entries) {
+        _ref
+            .read(peerSyncAuthFailedProvider.notifier)
+            .recordFailure(entry.key, entry.value);
+      }
 
       return SyncRunResult(
         switch (result.status) {

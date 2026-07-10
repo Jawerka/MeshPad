@@ -4,6 +4,26 @@
 
 ---
 
+## [0.2.8] — 2026-07-10
+
+### Added
+
+- **LAN sync auth:** детализированные тела 401 (`unauthorized:token`, `:signature`, `:clock_skew` и др.); l10n-сообщения для каждой причины
+- **Signing key reset:** маркер `signing_key_reset.json` при потере private key; блокировка sync с понятным сообщением до пересопряжения
+- **Status hints:** компактные theme-aware подсказки сверху экрана вместо SnackBar (sync, настройки, устройства, pairing и др.)
+- **Devices UX:** подсветка «Требуется пересопряжение» на карточке устройства после 401/403
+
+### Changed
+
+- **Docs:** таблица auth failure bodies в `docs/SYNC_WIRE.md`
+- Auto-sync показывает ошибки через status hints
+
+### Fixed
+
+- Тихая ротация Ed25519 signing key без предупреждения при потере secure storage
+
+---
+
 ## [0.2.7] — 2026-07-06
 
 ### Added

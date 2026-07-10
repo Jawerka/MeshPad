@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/openers/save_attachment_file.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Top bar for fullscreen image/video viewers: optional title, Save, Close.
@@ -24,15 +26,17 @@ class MediaViewerTopBar extends StatelessWidget {
     try {
       final ok = await saveAttachmentFile(source: source, fileName: fileName);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? l10n.fileSaved : l10n.fileSaveFailed),
-        ),
+      showMeshPadHint(
+        context,
+        ok ? l10n.fileSaved : l10n.fileSaveFailed,
+        severity: ok ? StatusHintSeverity.success : StatusHintSeverity.error,
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.errorGeneric(e.toString()))),
+      showMeshPadHint(
+        context,
+        l10n.errorGeneric(e.toString()),
+        severity: StatusHintSeverity.error,
       );
     }
   }
@@ -96,15 +100,17 @@ class SaveMediaIconButton extends StatelessWidget {
     try {
       final ok = await saveAttachmentFile(source: source, fileName: fileName);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? l10n.fileSaved : l10n.fileSaveFailed),
-        ),
+      showMeshPadHint(
+        context,
+        ok ? l10n.fileSaved : l10n.fileSaveFailed,
+        severity: ok ? StatusHintSeverity.success : StatusHintSeverity.error,
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.errorGeneric(e.toString()))),
+      showMeshPadHint(
+        context,
+        l10n.errorGeneric(e.toString()),
+        severity: StatusHintSeverity.error,
       );
     }
   }

@@ -7,6 +7,8 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../l10n/app_localizations.dart';
 import 'pairing_qr_ui.dart';
 
@@ -109,8 +111,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
       _confirming = false;
       _statusMessage = l10n.pairingCompletedWith(label);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.pairingCompletedWith(label))),
+    showMeshPadHint(
+      context,
+      l10n.pairingCompletedWith(label),
+      severity: StatusHintSeverity.success,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context);
@@ -140,9 +144,7 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
     if (lan == null || targetPeer == null) {
       if (mounted && lan == null) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.devicesPairingNeedWifi)),
-        );
+        showMeshPadHint(context, l10n.devicesPairingNeedWifi);
       }
       return false;
     }
@@ -219,8 +221,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
       MeshPadLog.pairing('local trust saved for ${offer.peerId}');
       if (mounted) {
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.pairingCompletedWith(offer.displayName))),
+        showMeshPadHint(
+          context,
+          l10n.pairingCompletedWith(offer.displayName),
+          severity: StatusHintSeverity.success,
         );
       }
       return true;
@@ -252,8 +256,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
         _confirming = false;
         _statusMessage = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pairingQrProbeFailed)),
+      showMeshPadHint(
+        context,
+        l10n.pairingQrProbeFailed,
+        severity: StatusHintSeverity.error,
       );
       return;
     }
@@ -265,8 +271,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
         _confirming = false;
         _statusMessage = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pairingQrPinMismatch)),
+      showMeshPadHint(
+        context,
+        l10n.pairingQrPinMismatch,
+        severity: StatusHintSeverity.error,
       );
       return;
     }
@@ -303,8 +311,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
       Navigator.pop(context);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.devicesPairingConfirmFailed)),
+    showMeshPadHint(
+      context,
+      l10n.devicesPairingConfirmFailed,
+      severity: StatusHintSeverity.error,
     );
   }
 
@@ -496,19 +506,17 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
                               final remotePin =
                                   _remotePinController.text.trim();
                               if (!isValidPairingPin(remotePin)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(l10n.devicesPinInvalid),
-                                  ),
+                                showMeshPadHint(
+                                  context,
+                                  l10n.devicesPinInvalid,
                                 );
                                 return;
                               }
 
                               if (!widget.lanAvailable) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(l10n.devicesPairingNeedWifi),
-                                  ),
+                                showMeshPadHint(
+                                  context,
+                                  l10n.devicesPairingNeedWifi,
                                 );
                                 return;
                               }
@@ -518,11 +526,9 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
                                       ? null
                                       : discovered.first);
                               if (target == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text(l10n.devicesPairingNoDiscovered),
-                                  ),
+                                showMeshPadHint(
+                                  context,
+                                  l10n.devicesPairingNoDiscovered,
                                 );
                                 return;
                               }
@@ -543,12 +549,10 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
                                 Navigator.pop(context);
                                 return;
                               }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    l10n.devicesPairingConfirmFailed,
-                                  ),
-                                ),
+                              showMeshPadHint(
+                                context,
+                                l10n.devicesPairingConfirmFailed,
+                                severity: StatusHintSeverity.error,
                               );
                             },
                       child: Text(l10n.devicesConfirm),

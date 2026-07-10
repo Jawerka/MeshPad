@@ -14,6 +14,8 @@ import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_activity_provider.dart';
 import '../../core/sync/sync_run_feedback.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
 import '../../l10n/app_localizations.dart';
@@ -400,8 +402,10 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
 
     final purged = await ref.read(notesListProvider.notifier).emptyTrash();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.trashEmptyDone(purged))),
+    showMeshPadHint(
+      context,
+      l10n.trashEmptyDone(purged),
+      severity: StatusHintSeverity.success,
     );
   }
 
@@ -474,14 +478,14 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                       final result =
                           await ref.read(gitSyncControllerProvider).pull();
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.ok
-                                ? 'Git: обновлено'
-                                : (result.message ?? 'Git pull failed'),
-                          ),
-                        ),
+                      showMeshPadHint(
+                        context,
+                        result.ok
+                            ? 'Git: обновлено'
+                            : (result.message ?? 'Git pull failed'),
+                        severity: result.ok
+                            ? StatusHintSeverity.success
+                            : StatusHintSeverity.error,
                       );
                       if (result.ok) {
                         ref.invalidate(notesListProvider);
@@ -495,14 +499,14 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                       final result =
                           await ref.read(gitSyncControllerProvider).push();
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.ok
-                                ? 'Git: отправлено'
-                                : (result.message ?? 'Git push failed'),
-                          ),
-                        ),
+                      showMeshPadHint(
+                        context,
+                        result.ok
+                            ? 'Git: отправлено'
+                            : (result.message ?? 'Git push failed'),
+                        severity: result.ok
+                            ? StatusHintSeverity.success
+                            : StatusHintSeverity.error,
                       );
                     },
                   ),

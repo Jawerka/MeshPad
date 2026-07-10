@@ -7,6 +7,7 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 import 'notes_providers.dart';
 import 'network_sync_coordinator.dart';
 import 'sync_providers.dart';
+import '../sync/sync_result_hint.dart';
 
 final syncLoopProvider = Provider<SyncLoopController>((ref) {
   final controller = SyncLoopController(ref);
@@ -60,7 +61,8 @@ class SyncLoopController {
       final repo = await _ref.read(noteRepositoryProvider.future);
       await repo.purgeExpiredTrash();
       MeshPadLog.sync('auto-sync tick (${trusted.length} trusted peer(s))');
-      await _ref.read(syncControllerProvider).runSync();
+      final result = await _ref.read(syncControllerProvider).runSync();
+      showSyncResultHintFromRef(_ref, result);
     } catch (e, st) {
       MeshPadLog.warn('sync', 'auto-sync tick failed: $e');
       MeshPadLog.warn('sync', '$st');

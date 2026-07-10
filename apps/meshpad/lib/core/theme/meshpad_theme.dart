@@ -73,6 +73,27 @@ abstract final class MeshPadTheme {
         labelSmall: TextStyle(color: palette.textMuted, fontSize: 12),
       ),
       iconTheme: IconThemeData(color: palette.textMuted, size: 20),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFFEEEEEE) : const Color(0xFF424242),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        textStyle: TextStyle(
+          color: isDark ? const Color(0xFF212121) : Colors.white,
+          fontSize: 13,
+          height: 1.35,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        waitDuration: Duration.zero,
+        showDuration: const Duration(seconds: 4),
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: palette.primary,
         foregroundColor: Colors.white,

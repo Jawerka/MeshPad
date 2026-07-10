@@ -5,6 +5,8 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../core/providers/notes_providers.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import 'note_conflict_sheet.dart';
 import 'note_history_sheet.dart';
 import 'note_tags_editor.dart';
@@ -86,10 +88,10 @@ Future<void> handleNoteAction({
       final text = copyAllText(note);
       await Clipboard.setData(ClipboardData(text: text));
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).noteMenuCopyAll),
-        ),
+      showMeshPadHint(
+        context,
+        AppLocalizations.of(context).noteMenuCopyAll,
+        severity: StatusHintSeverity.success,
       );
   }
 }

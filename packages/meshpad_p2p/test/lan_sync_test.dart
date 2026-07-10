@@ -198,7 +198,7 @@ void main() {
     );
   });
 
-  test('sync with wrong auth token returns 401', () async {
+  test('sync with wrong auth token returns 401 token body', () async {
     final harness = await _pairingTestHarness();
     addTearDown(() async {
       await harness.dbA.close();
@@ -226,9 +226,57 @@ void main() {
 
     expect(
       () => gateway.fetchCatalog(),
-      throwsA(isA<HttpRemoteSyncException>()
-          .having((e) => e.statusCode, 'code', 401)),
+      throwsA(
+        isA<HttpRemoteSyncException>()
+            .having((e) => e.statusCode, 'code', 401)
+            .having((e) => e.body, 'body', 'unauthorized:token'),
+      ),
     );
+  });
+
+  test('401 auth failure clears transport peer cache only', () async {
+    final harness = await _pairingTestHarness();
+    addTearDown(() async {
+      await harness.dbA.close();
+      await harness.dbB.close();
+      await harness.serverA.stop();
+      await harness.serverB.stop();
+      if (await harness.dirA.exists()) {
+        await harness.dirA.delete(recursive: true);
+      }
+      if (await harness.dirB.exists()) {
+        await harness.dirB.delete(recursive: true);
+      }
+    });
+
+    final host = InternetAddress.loopbackIPv4.address;
+    final transport = LanSyncTransport(
+      getEngine: () async => harness.engineA,
+      getIdentity: () async => harness.engineA.identity,
+      getDeviceStore: () async => harness.storeA,
+    );
+    await transport.start();
+    addTearDown(transport.dispose);
+
+    transport.rememberEndpoint(
+      LanPeerEndpoint(
+        peerId: 'peer-b',
+        displayName: 'B',
+        host: host,
+        httpPort: harness.portB,
+      ),
+    );
+    expect(transport.endpointFor('peer-b'), isNotNull);
+
+    await harness.storeA.trustDevice(
+      peerId: 'peer-b',
+      name: 'B',
+      authToken: 'wrong-token',
+    );
+
+    await transport.requestSync(peerId: 'peer-b');
+    expect(transport.endpointFor('peer-b'), isNull);
+    expect(await harness.storeA.trustedRecordFor('peer-b'), isNotNull);
   });
 
   test('sync from untrusted peer returns 403', () async {

@@ -61,6 +61,7 @@ class DeviceIdentityStore {
         identity.signingPublicKey!.isNotEmpty) {
       final existing = await _signingKeys.readPrivateKey();
       if (existing != null) return identity;
+      await _markSigningKeyReset(previousPublicKey: identity.signingPublicKey);
     }
 
     final pair = await generateDeviceSigningKeyPair();
@@ -75,6 +76,29 @@ class DeviceIdentityStore {
     );
     await _saveIdentity(updated);
     return updated;
+  }
+
+  /// True when the signing private key was lost and peers need re-pairing.
+  Future<bool> signingKeyNeedsRePair() async {
+    final file = File(_paths.signingKeyResetMarkerFile);
+    return file.exists();
+  }
+
+  Future<void> clearSigningKeyResetMarker() async {
+    final file = File(_paths.signingKeyResetMarkerFile);
+    if (await file.exists()) await file.delete();
+  }
+
+  Future<void> _markSigningKeyReset({String? previousPublicKey}) async {
+    final dir = Directory(_paths.devicesRoot);
+    await dir.create(recursive: true);
+    await File(_paths.signingKeyResetMarkerFile).writeAsString(
+      const JsonEncoder.withIndent('  ').convert({
+        'reset_at': DateTime.now().toUtc().toIso8601String(),
+        if (previousPublicKey != null && previousPublicKey.isNotEmpty)
+          'previous_signing_public_key': previousPublicKey,
+      }),
+    );
   }
 
   Future<void> updateDisplayName(String displayName) async {
@@ -198,6 +222,7 @@ class DeviceIdentityStore {
       signingKeyAlgorithm: signingKeyAlgorithm,
     );
     await _writeTrustedRecord(record);
+    await clearSigningKeyResetMarker();
   }
 
   Future<TrustedDeviceRecord?> trustedRecordFor(String peerId) =>

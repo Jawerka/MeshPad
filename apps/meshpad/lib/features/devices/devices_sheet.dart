@@ -11,6 +11,11 @@ import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/providers/sync_auth_health_provider.dart';
+import '../../core/sync/sync_auth_messages.dart';
+import '../../core/sync/sync_run_feedback.dart';
+import '../../core/ui/meshpad_status_hint.dart';
+import '../../core/ui/status_hint_provider.dart';
 import '../../core/widgets/text_input_dialog.dart';
 import '../../core/theme/device_icons.dart';
 import '../../core/theme/feed_layout.dart';
@@ -141,6 +146,8 @@ class DevicesSheet extends ConsumerWidget {
                                 ),
                           );
                         }
+                        final authFailures =
+                            ref.watch(peerSyncAuthFailedProvider);
                         return Column(
                           children: [
                             for (final device in devices)
@@ -151,6 +158,17 @@ class DevicesSheet extends ConsumerWidget {
                                 icon: peerIconFor(device.icon),
                                 accent: peerAccentColor(device.peerId),
                                 compact: compact,
+                                footer: authFailures.containsKey(device.peerId)
+                                    ? Text(
+                                        l10n.syncNeedsRePairTooltip,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: MeshPadColors.danger,
+                                            ),
+                                      )
+                                    : null,
                                 onAvatarTap: () => _pickTrustedIcon(
                                   sheetContext,
                                   ref,
@@ -179,6 +197,10 @@ class DevicesSheet extends ConsumerWidget {
                                     await store.revokeTrust(device.peerId);
                                     readLanSyncTransport(ref)
                                         ?.forgetPeer(device.peerId);
+                                    ref
+                                        .read(
+                                            peerSyncAuthFailedProvider.notifier)
+                                        .clearPeer(device.peerId);
                                     ref
                                         .read(discoveredPeersProvider.notifier)
                                         .remove(device.peerId);
@@ -335,8 +357,10 @@ class DevicesSheet extends ConsumerWidget {
     final removed =
         await ref.read(settingsControllerProvider).revokeAllTrustedDevices();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.devicesRevokeAllTrustedDone(removed))),
+    showMeshPadHint(
+      context,
+      l10n.devicesRevokeAllTrustedDone(removed),
+      severity: StatusHintSeverity.success,
     );
   }
 
@@ -356,8 +380,10 @@ class DevicesSheet extends ConsumerWidget {
     await ref.read(settingsControllerProvider).setLocalDeviceIcon(picked);
     if (context.mounted) {
       final l10n = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.devicesIconUpdated)),
+      showMeshPadHint(
+        context,
+        l10n.devicesIconUpdated,
+        severity: StatusHintSeverity.success,
       );
     }
   }
@@ -380,8 +406,10 @@ class DevicesSheet extends ConsumerWidget {
         );
     if (context.mounted) {
       final l10n = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.devicesIconUpdatedNamed(device.name))),
+      showMeshPadHint(
+        context,
+        l10n.devicesIconUpdatedNamed(device.name),
+        severity: StatusHintSeverity.success,
       );
     }
   }
@@ -403,8 +431,10 @@ class DevicesSheet extends ConsumerWidget {
 
     await ref.read(settingsControllerProvider).setLocalDisplayName(nextName);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.deviceNameSaved(nextName))),
+      showMeshPadHint(
+        context,
+        l10n.deviceNameSaved(nextName),
+        severity: StatusHintSeverity.success,
       );
     }
   }
@@ -429,8 +459,10 @@ class DevicesSheet extends ConsumerWidget {
           name: nextName,
         );
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.devicesTrustedRenamed(nextName))),
+      showMeshPadHint(
+        context,
+        l10n.devicesTrustedRenamed(nextName),
+        severity: StatusHintSeverity.success,
       );
     }
   }
@@ -466,9 +498,7 @@ class DevicesSheet extends ConsumerWidget {
 
     if (lan == null) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.devicesPeerUnreachable)),
-      );
+      showMeshPadHint(context, l10n.devicesPeerUnreachable);
       return;
     }
 
@@ -498,43 +528,24 @@ class DevicesSheet extends ConsumerWidget {
     if (peerResult.status == LanPeerSyncStatus.completed) {
       ref.invalidate(trustedDevicesProvider);
       ref.invalidate(notesListProvider);
+      ref.read(peerSyncAuthFailedProvider.notifier).clearPeer(peer.peerId);
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    final displayMessage = syncRunUserMessage(message, l10n);
+    showMeshPadHint(
+      context,
+      displayMessage,
+      severity: peerResult.status == LanPeerSyncStatus.completed
+          ? StatusHintSeverity.success
+          : StatusHintSeverity.error,
+    );
   }
 
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context);
     final result = await ref.read(syncControllerProvider).runSync();
     if (!context.mounted) return;
-
-    final message = switch (result.status) {
-      SyncRunStatus.noPeers => result.message ?? l10n.devicesNoPeersToSync,
-      SyncRunStatus.completed => result.noteCount > 0
-          ? l10n.devicesSyncNotesCount(result.noteCount)
-          : l10n.devicesSyncCompleted,
-      SyncRunStatus.partial => result.message != null
-          ? result.message!
-          : (result.noteCount > 0
-              ? l10n.devicesSyncNotesCount(result.noteCount)
-              : l10n.devicesSyncCompleted),
-      SyncRunStatus.failed =>
-        result.message ?? meshPadExceptionUserMessage('sync_failed'),
-    };
-
-    if (result.status == SyncRunStatus.completed && result.noteCount == 0) {
-      return;
-    }
-    if (result.status == SyncRunStatus.partial &&
-        result.message == null &&
-        result.noteCount == 0) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showSyncRunFeedback(context, result);
   }
 
   Future<void> _showPinPairingDialog(
@@ -602,8 +613,10 @@ class DevicesSheet extends ConsumerWidget {
       MeshPadLog.warn('pairing', '$st');
       if (rootContext.mounted) {
         final snackL10n = AppLocalizations.of(rootContext);
-        ScaffoldMessenger.of(rootContext).showSnackBar(
-          SnackBar(content: Text(snackL10n.devicesPairingConfirmFailed)),
+        showMeshPadHint(
+          rootContext,
+          snackL10n.devicesPairingConfirmFailed,
+          severity: StatusHintSeverity.error,
         );
       }
     }
@@ -643,14 +656,16 @@ class _ManualPeerCardState extends ConsumerState<_ManualPeerCard> {
       if (!mounted) return;
       switch (result) {
         case ManualLanPeerProbeSuccess(:final endpoint):
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.devicesManualProbeOk(endpoint.displayName)),
-            ),
+          showMeshPadHint(
+            context,
+            l10n.devicesManualProbeOk(endpoint.displayName),
+            severity: StatusHintSeverity.success,
           );
         case ManualLanPeerProbeFailure(:final error):
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message(l10n))),
+          showMeshPadHint(
+            context,
+            error.message(l10n),
+            severity: StatusHintSeverity.error,
           );
       }
     } finally {

@@ -449,6 +449,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncFailedDefault => 'Синхронизация не удалась';
 
   @override
+  String get syncRejectedInvalidKey =>
+      'Синхронизация отклонена: неверный ключ. Пересопрягите устройства.';
+
+  @override
+  String get syncRejectedUntrusted =>
+      'Синхронизация отклонена: устройство не доверено.';
+
+  @override
+  String get syncRejectedSignature =>
+      'Ключ подписи устарел. Пересопрягите устройства.';
+
+  @override
+  String get syncRejectedClockSkew =>
+      'Синхронизация отклонена: проверьте время на устройствах.';
+
+  @override
+  String get syncRejectedMissingPeerId =>
+      'Синхронизация отклонена: не указано устройство.';
+
+  @override
+  String get syncSigningKeyReset =>
+      'Ключ подписи был сброшен. Пересопрягите все устройства.';
+
+  @override
+  String get syncNeedsRePairTooltip => 'Требуется пересопряжение';
+
+  @override
   String get pairingQrHostHint =>
       'Отсканируйте QR на другом устройстве (MeshPad на телефоне)';
 

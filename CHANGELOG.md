@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Android release signing:** `scripts/setup-android-signing.ps1` — единый release keystore для CI и локальных сборок; GitHub secrets обязательны в `build-android`
+- **CI:** проверка SHA-256 подписи APK (`scripts/verify-android-apk-signature.sh`)
+
+### Changed
+
+- **Docs:** раздел «Подпись Android» в `docs/DEVELOPMENT.md`
+
 ---
 
 ## [0.2.9] — 2026-07-11

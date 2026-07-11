@@ -51,6 +51,33 @@ cd D:\Documents\Projects\MeshPad
 | Dual (Win+Android) | `.\dev.ps1 -Device dual` |
 | Headless server (dev) | `.\scripts\run-server.ps1` — не продуктовая платформа |
 
+### Подпись Android (release APK)
+
+GitHub Release **всегда** подписывает APK одним release-ключом. Без секретов job `build-android` падает (не собирает debug-signed APK).
+
+**Один раз (maintainer):**
+
+```powershell
+.\scripts\setup-android-signing.ps1
+```
+
+Скрипт создаёт `apps/meshpad/android/meshpad-release.keystore` + `key.properties` (gitignored), записывает SHA-256 в `scripts/android-release-cert-sha256.txt` и пушит секреты в GitHub:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_STORE_PASSWORD`
+- `ANDROID_KEY_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+
+Закоммитьте `android-release-cert-sha256.txt`. Локальные release-сборки (`build-android.ps1`) с тем же `key.properties` совпадают с CI.
+
+**Проверка APK:**
+
+```bash
+scripts/verify-android-apk-signature.sh path/to/meshpad-x.y.z.apk
+```
+
+После смены keystore (`-Force`) старые release APK на устройствах не обновляются in-place — нужна переустановка.
+
 После изменений native-плагинов:
 
 ```powershell

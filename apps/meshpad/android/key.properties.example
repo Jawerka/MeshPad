@@ -1,5 +1,5 @@
-# Copy to key.properties (gitignored) for release signing.
-# CI uses GitHub secrets instead — see docs/DEVELOPMENT.md § Подпись Android.
+# Release signing — run scripts/setup-android-signing.ps1 (creates this file + GitHub secrets).
+# CI requires the same keystore via ANDROID_KEYSTORE_* secrets.
 storePassword=your-store-password
 keyPassword=your-key-password
 keyAlias=meshpad

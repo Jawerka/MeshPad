@@ -43,6 +43,14 @@ try {
     $ApkDest = Join-Path $OutputDir $ApkName
 
     Write-Host "Building MeshPad release APK..."
+    $keyProps = Join-Path $AppDir "android\key.properties"
+    if (-not (Test-Path $keyProps)) {
+        Write-Host ""
+        Write-Host "WARNING: android/key.properties not found — APK will be debug-signed." -ForegroundColor Yellow
+        Write-Host "Run .\scripts\setup-android-signing.ps1 to match GitHub Release signing." -ForegroundColor Yellow
+        Write-Host ""
+    }
+
     $script:BuildExitCode = 0
     Invoke-InDirectory $AppDir {
         flutter build apk --release

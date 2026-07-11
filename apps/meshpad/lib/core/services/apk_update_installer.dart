@@ -1,14 +1,29 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:meshpad_p2p/meshpad_p2p.dart';
-import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+/// Result of prompting the system APK installer.
+class ApkInstallResult {
+  const ApkInstallResult({
+    required this.success,
+    this.message,
+    this.needsUnknownAppsPermission = false,
+  });
+
+  final bool success;
+  final String? message;
+  final bool needsUnknownAppsPermission;
+}
 
 /// Downloads and opens an APK for system install (Android only, PLAN §11.9.1).
 class ApkUpdateInstaller {
   ApkUpdateInstaller({http.Client? client}) : _client = client ?? http.Client();
+
+  static const _channel = MethodChannel('com.meshpad/install');
 
   final http.Client _client;
 
@@ -52,11 +67,33 @@ class ApkUpdateInstaller {
     return file.path;
   }
 
-  Future<OpenResult> promptInstall(String apkPath) {
-    return OpenFile.open(
-      apkPath,
-      type: 'application/vnd.android.package-archive',
-    );
+  Future<bool> canInstallApk() async {
+    if (!Platform.isAndroid) return false;
+    final allowed = await _channel.invokeMethod<bool>('canInstallApk');
+    return allowed ?? false;
+  }
+
+  Future<void> openInstallUnknownAppsSettings() {
+    return _channel.invokeMethod<void>('openInstallUnknownAppsSettings');
+  }
+
+  Future<ApkInstallResult> promptInstall(String apkPath) async {
+    if (!Platform.isAndroid) {
+      return const ApkInstallResult(
+        success: false,
+        message: 'APK install is Android-only',
+      );
+    }
+    try {
+      await _channel.invokeMethod<void>('installApk', {'path': apkPath});
+      return const ApkInstallResult(success: true);
+    } on PlatformException catch (e) {
+      return ApkInstallResult(
+        success: false,
+        message: e.message,
+        needsUnknownAppsPermission: e.code == 'INSTALL_UNKNOWN_APPS_REQUIRED',
+      );
+    }
   }
 
   void close() => _client.close();

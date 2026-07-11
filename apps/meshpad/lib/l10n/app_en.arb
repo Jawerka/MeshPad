@@ -148,6 +148,7 @@
     }
   },
   "updateInstallFailed": "Could not open the installer",
+  "updateInstallUnknownApps": "Allow installing apps from MeshPad in Settings, then tap Download and install again.",
   "footerWeb": "Web client connects to the headless server (meshpad_server).",
   "footerNative": "Local-first Markdown. Device sync over LAN (HTTP).",
   "devicesDiscoveryHint": "Discovery on the local network (mDNS/UDP)",

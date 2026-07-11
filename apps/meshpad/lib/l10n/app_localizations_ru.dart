@@ -392,6 +392,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get updateInstallFailed => 'Не удалось открыть установщик';
 
   @override
+  String get updateInstallUnknownApps =>
+      'В настройках разрешите установку из этого приложения и снова нажмите «Скачать и установить».';
+
+  @override
   String get footerWeb =>
       'Web-клиент подключается к headless-серверу (meshpad_server).';
 

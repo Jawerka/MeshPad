@@ -1,7 +1,7 @@
 name: meshpad
 description: MeshPad — local-first Markdown notes in a chat-style feed.
 publish_to: none
-version: 0.2.8+1
+version: 0.2.9+1
 resolution: workspace
 
 environment:

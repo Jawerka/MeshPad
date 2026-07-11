@@ -393,6 +393,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateInstallFailed => 'Could not open the installer';
 
   @override
+  String get updateInstallUnknownApps =>
+      'Allow installing apps from MeshPad in Settings, then tap Download and install again.';
+
+  @override
   String get footerWeb =>
       'Web client connects to the headless server (meshpad_server).';
 

@@ -240,6 +240,7 @@
     }
   },
   "updateInstallFailed": "Не удалось открыть установщик",
+  "updateInstallUnknownApps": "В настройках разрешите установку из этого приложения и снова нажмите «Скачать и установить».",
   "footerWeb": "Web-клиент подключается к headless-серверу (meshpad_server).",
   "footerNative": "Local-first Markdown. Синхронизация между устройствами — LAN (HTTP).",
   "devicesDiscoveryHint": "Поиск устройств в локальной сети (mDNS/UDP)",

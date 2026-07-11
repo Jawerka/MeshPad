@@ -2,7 +2,7 @@
 ///
 /// Must match `version:` in [apps/meshpad/pubspec.yaml] (see `app_version_test.dart`).
 /// Release: `.\scripts\read-app-version.ps1` → tag `v<version>`.
-const kAppVersion = '0.2.8';
+const kAppVersion = '0.2.9';
 
 const kGitHubRepo = 'Jawerka/MeshPad';
 

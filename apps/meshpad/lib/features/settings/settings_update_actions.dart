@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_info.dart';
@@ -189,13 +188,17 @@ class SettingsUpdateActions {
 
       final install = await _apkInstaller.promptInstall(path);
       if (!context.mounted) return;
-      if (install.type != ResultType.done) {
+      if (!install.success) {
         showMeshPadHint(
           context,
-          install.message.isNotEmpty
-              ? install.message
-              : l10n.updateInstallFailed,
-          severity: StatusHintSeverity.error,
+          install.needsUnknownAppsPermission
+              ? l10n.updateInstallUnknownApps
+              : (install.message?.isNotEmpty == true
+                  ? install.message!
+                  : l10n.updateInstallFailed),
+          severity: install.needsUnknownAppsPermission
+              ? StatusHintSeverity.info
+              : StatusHintSeverity.error,
         );
       }
     } catch (e) {

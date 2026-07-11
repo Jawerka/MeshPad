@@ -746,6 +746,12 @@ abstract class AppLocalizations {
   /// **'Не удалось открыть установщик'**
   String get updateInstallFailed;
 
+  /// No description provided for @updateInstallUnknownApps.
+  ///
+  /// In ru, this message translates to:
+  /// **'В настройках разрешите установку из этого приложения и снова нажмите «Скачать и установить».'**
+  String get updateInstallUnknownApps;
+
   /// No description provided for @footerWeb.
   ///
   /// In ru, this message translates to:

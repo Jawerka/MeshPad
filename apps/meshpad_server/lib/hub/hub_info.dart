@@ -1,7 +1,7 @@
 /// Hub semver — must match [apps/meshpad/pubspec.yaml] (same release train as clients).
 ///
 /// Release: `.\scripts\read-app-version.ps1` → tag `v<version>`.
-const kHubVersion = '0.2.11';
+const kHubVersion = '0.2.12';
 
 const kGitHubRepo = 'Jawerka/MeshPad';
 

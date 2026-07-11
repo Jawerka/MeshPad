@@ -8,6 +8,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../core/storage/app_settings.dart';
 import '../core/storage/app_settings_store.dart';
+import '../core/storage/android_tls_root.dart';
 
 const backgroundSyncTaskName = 'meshpad_background_sync';
 
@@ -27,7 +28,10 @@ void backgroundSyncDispatcher() {
 
       final dataDir = await store.loadDataDir();
       MeshPadLog.configure(logFilePath: p.join(dataDir, 'meshpad.log'));
-      await runBackgroundSyncPass(dataDir: dataDir);
+      await runBackgroundSyncPass(
+        dataDir: dataDir,
+        getTlsRoot: resolveTlsRoot,
+      );
       return true;
     } catch (e, stack) {
       MeshPadLog.warn('sync', 'background sync failed: $e\n$stack');

@@ -232,6 +232,54 @@ class AppLocalizationsRu extends AppLocalizations {
       'Реже discovery и broadcast — меньше нагрузка на Wi‑Fi';
 
   @override
+  String get syncOnlyAllowedWifi => 'Синхронизация только в выбранных Wi‑Fi';
+
+  @override
+  String get syncOnlyAllowedWifiHintEmpty => 'Добавьте сеть ниже';
+
+  @override
+  String syncOnlyAllowedWifiHintList(String networks) {
+    return '$networks';
+  }
+
+  @override
+  String get addCurrentWifi => 'Добавить текущую Wi‑Fi';
+
+  @override
+  String get addWifiManually => 'Ввести имя Wi‑Fi вручную';
+
+  @override
+  String get addWifiManuallyTitle => 'Имя Wi‑Fi сети';
+
+  @override
+  String get addWifiManuallyLabel => 'SSID';
+
+  @override
+  String get addWifiManuallyHint => 'Как в настройках Wi‑Fi Android';
+
+  @override
+  String settingsWifiAdded(String ssid) {
+    return 'Добавлена Wi‑Fi: $ssid';
+  }
+
+  @override
+  String settingsWifiAlreadyAdded(String ssid) {
+    return 'Уже в списке: $ssid';
+  }
+
+  @override
+  String get settingsWifiPermissionDenied =>
+      'Разрешите доступ к геолокации и Wi‑Fi в диалоге или введите имя сети вручную';
+
+  @override
+  String get settingsWifiLocationDisabled =>
+      'Включите геолокацию в настройках Android, чтобы определить Wi‑Fi, или введите имя вручную';
+
+  @override
+  String get settingsWifiSsidUnavailable =>
+      'Не удалось определить текущую Wi‑Fi. Подключитесь к сети или введите имя вручную';
+
+  @override
   String minutesShort(int minutes) {
     return '$minutes мин';
   }
@@ -519,6 +567,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Отсканируйте QR на другом устройстве (MeshPad на телефоне)';
 
   @override
+  String get pairingQrPreparing => 'Запуск LAN-сервера для QR…';
+
+  @override
   String get pairingScanQr => 'Сканировать QR';
 
   @override
@@ -535,6 +586,13 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get pairingQrProbeFailed =>
       'Не удалось подключиться по QR. Проверьте Wi‑Fi.';
+
+  @override
+  String get pairingQrCameraFailed => 'Камера недоступна';
+
+  @override
+  String get pairingQrCameraFailedHint =>
+      'Разрешите доступ к камере в настройках системы или введите PIN вручную.';
 
   @override
   String get devicesSheetTitle => 'Устройства';

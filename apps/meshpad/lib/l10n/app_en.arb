@@ -63,6 +63,34 @@
   "autoSyncOff": "Off",
   "gentleNetworkMode": "Gentle network mode",
   "gentleNetworkModeHint": "Less discovery traffic — easier on Wi‑Fi",
+  "syncOnlyAllowedWifi": "Sync only on selected Wi‑Fi",
+  "syncOnlyAllowedWifiHintEmpty": "Add a network below",
+  "syncOnlyAllowedWifiHintList": "{networks}",
+  "@syncOnlyAllowedWifiHintList": {
+    "placeholders": {
+      "networks": { "type": "String" }
+    }
+  },
+  "addCurrentWifi": "Add current Wi‑Fi",
+  "addWifiManually": "Enter Wi‑Fi name manually",
+  "addWifiManuallyTitle": "Wi‑Fi network name",
+  "addWifiManuallyLabel": "SSID",
+  "addWifiManuallyHint": "As shown in Android Wi‑Fi settings",
+  "settingsWifiAdded": "Added Wi‑Fi: {ssid}",
+  "@settingsWifiAdded": {
+    "placeholders": {
+      "ssid": { "type": "String" }
+    }
+  },
+  "settingsWifiAlreadyAdded": "Already in the list: {ssid}",
+  "@settingsWifiAlreadyAdded": {
+    "placeholders": {
+      "ssid": { "type": "String" }
+    }
+  },
+  "settingsWifiPermissionDenied": "Allow location and Wi‑Fi access in the permission dialog, or enter the network name manually",
+  "settingsWifiLocationDisabled": "Turn on Location in Android settings to read the Wi‑Fi name, or enter it manually",
+  "settingsWifiSsidUnavailable": "Could not read the current Wi‑Fi name. Connect to Wi‑Fi or enter it manually",
   "minutesShort": "{minutes} min",
   "themeSection": "Theme",
   "themeDark": "Dark",
@@ -209,11 +237,14 @@
   "syncDiagnosticsCopied": "Sync log copied",
   "syncDiagnosticsEmpty": "No sync runs recorded yet",
   "pairingQrHostHint": "Scan this QR on the other device (MeshPad mobile)",
+  "pairingQrPreparing": "Starting LAN server for QR…",
   "pairingScanQr": "Scan QR",
   "pairingQrScanHint": "Point the camera at the pairing QR on the host device",
   "pairingQrInvalid": "Invalid pairing QR code",
   "pairingQrPinMismatch": "PIN in QR does not match the device offer",
   "pairingQrProbeFailed": "Could not reach the device from QR. Check Wi‑Fi.",
+  "pairingQrCameraFailed": "Camera unavailable",
+  "pairingQrCameraFailedHint": "Allow camera access in system settings, or enter the PIN manually.",
   "devicesSheetTitle": "Devices",
   "devicesTrustedSection": "Trusted",
   "devicesDiscoveredSection": "Discovered",

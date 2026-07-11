@@ -6,6 +6,17 @@ import 'package:test/test.dart';
 import 'package:meshpad_p2p/src/lan/lan_tls_identity.dart';
 
 void main() {
+  test('loadOrCreate is safe under concurrent calls', () async {
+    final dir = await Directory.systemTemp.createTemp('meshpad_tls_race_');
+    final results = await Future.wait(
+      List.generate(8, (_) => LanTlsIdentity.loadOrCreate(dir)),
+    );
+    final hash = results.first.certSha256Hex;
+    for (final identity in results) {
+      expect(identity.certSha256Hex, hash);
+    }
+  });
+
   test('loadOrCreate generates stable TLS identity', () async {
     final dir = await Directory.systemTemp.createTemp('meshpad_tls_');
     final first = await LanTlsIdentity.loadOrCreate(dir);

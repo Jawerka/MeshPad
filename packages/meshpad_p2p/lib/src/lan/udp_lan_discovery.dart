@@ -33,19 +33,24 @@ class UdpLanDiscovery implements LanDiscovery {
   @override
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
+    String? bindHost,
   }) async {
     if (_socket != null) return;
 
+    _bindHost = bindHost;
+    final bindAddress = bindHost == null || bindHost.isEmpty
+        ? InternetAddress.anyIPv4
+        : InternetAddress(bindHost);
     _socket = await RawDatagramSocket.bind(
-      InternetAddress.anyIPv4,
+      bindAddress,
       discoveryPort,
       reuseAddress: true,
       reusePort: lanDatagramReusePort,
     );
     _socket!.broadcastEnabled = true;
-    _broadcastTargets = await computeBroadcastTargets();
+    _broadcastTargets = await computeBroadcastTargets(lanHost: bindHost);
     MeshPadLog.discovery(
-      'UDP discovery listening on port $discoveryPort; '
+      'UDP discovery listening on ${bindAddress.address}:$discoveryPort; '
       'broadcast targets: ${_broadcastTargets.map((a) => a.address).join(", ")}',
     );
     _socket!.listen((event) {
@@ -87,9 +92,11 @@ class UdpLanDiscovery implements LanDiscovery {
 
   static const _refreshAttempts = refreshAttempts;
 
+  String? _bindHost;
+
   @override
   Future<void> refresh() async {
-    _broadcastTargets = await computeBroadcastTargets();
+    _broadcastTargets = await computeBroadcastTargets(lanHost: _bindHost);
     for (var attempt = 0; attempt < _refreshAttempts; attempt++) {
       if (attempt > 0) {
         final delayMs = 300 * (1 << (attempt - 1));
@@ -107,6 +114,7 @@ class UdpLanDiscovery implements LanDiscovery {
     _announceTimer?.cancel();
     _announceTimer = null;
     _sendAnnounce = null;
+    _bindHost = null;
     _socket?.close();
     _socket = null;
   }
@@ -114,34 +122,9 @@ class UdpLanDiscovery implements LanDiscovery {
 
 String defaultLanHost() => InternetAddress.loopbackIPv4.address;
 
-bool _isVirtualInterface(String name) {
-  final lower = name.toLowerCase();
-  return lower.contains('virtual') ||
-      lower.contains('vmware') ||
-      lower.contains('vbox') ||
-      lower.contains('hyper-v') ||
-      lower.contains('vethernet') ||
-      lower.contains('docker') ||
-      lower.contains('wsl');
-}
-
 Future<String> detectLanHost() async {
   try {
-    final interfaces = await NetworkInterface.list(
-      type: InternetAddressType.IPv4,
-      includeLinkLocal: false,
-    );
-    final candidates = <String>[];
-    for (final interface in interfaces) {
-      if (_isVirtualInterface(interface.name)) continue;
-      for (final address in interface.addresses) {
-        if (address.isLoopback) continue;
-        final ip = address.address;
-        if (ip.startsWith('169.254.')) continue;
-        candidates.add(ip);
-      }
-    }
-
+    final candidates = await collectLanHostCandidates();
     final preferred = pickPreferredLanHost(candidates);
     if (preferred != null) {
       MeshPadLog.lan('detectLanHost chose $preferred (private LAN)');

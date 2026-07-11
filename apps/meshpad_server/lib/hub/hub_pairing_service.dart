@@ -67,6 +67,7 @@ class HubPairingService {
     syncTracker.recordPairing(
       deviceName: device?.name ?? peerId.substring(0, 8),
     );
+    await refreshPairing();
   }
 
   Future<LanSyncRunResult> runSyncNow() => lanSync.runSync();
@@ -79,6 +80,7 @@ class HubPairingService {
     await deviceStore.revokeTrust(peerId);
     lanSync.transport.forgetPeer(peerId);
     syncTracker.recordDeviceRevoked(deviceName: device.name);
+    await refreshPairing();
     return true;
   }
 
@@ -91,14 +93,12 @@ class HubPairingService {
       lanSync.transport.forgetPeer(peerId);
     }
     syncTracker.recordAllDevicesRevoked(revoked.length);
+    await refreshPairing();
     return revoked.length;
   }
 
   Future<HubStatus> status({int? webPort}) async {
-    final offer = _offer;
-    if (offer != null && offer.isExpired) {
-      await refreshPairing();
-    }
+    await _ensureActivePairingOffer();
 
     final current = _offer;
     final transport = lanSync.transport;
@@ -168,6 +168,20 @@ class HubPairingService {
     _refreshTimer = Timer(wait, () {
       unawaited(refreshPairing());
     });
+  }
+
+  /// Keeps [HubPairingService] and [LanPeerServer] offers in sync.
+  Future<void> _ensureActivePairingOffer() async {
+    final cached = _offer;
+    if (cached != null && !cached.isExpired) {
+      final live = lanSync.transport.currentPairingOffer;
+      if (live != null &&
+          live.pin == cached.pin &&
+          live.peerId == cached.peerId) {
+        return;
+      }
+    }
+    await refreshPairing();
   }
 }
 

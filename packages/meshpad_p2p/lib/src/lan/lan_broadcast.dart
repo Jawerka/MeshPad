@@ -1,7 +1,7 @@
 import 'dart:io';
 
-/// Broadcast targets for LAN UDP discovery (global + per-subnet /24).
-Future<List<InternetAddress>> computeBroadcastTargets() async {
+/// Broadcast targets for LAN UDP discovery (global + preferred /24).
+Future<List<InternetAddress>> computeBroadcastTargets({String? lanHost}) async {
   final seen = <String>{};
   final targets = <InternetAddress>[];
 
@@ -13,22 +13,30 @@ Future<List<InternetAddress>> computeBroadcastTargets() async {
 
   add('255.255.255.255');
 
+  if (lanHost != null && lanHost.isNotEmpty) {
+    final subnetBroadcast = subnetBroadcastAddress(lanHost);
+    if (subnetBroadcast != null) {
+      add(subnetBroadcast);
+    }
+    return targets;
+  }
+
   try {
     final interfaces = await NetworkInterface.list(
       type: InternetAddressType.IPv4,
       includeLinkLocal: false,
     );
     for (final interface in interfaces) {
-      if (_isVirtualInterface(interface.name)) continue;
+      if (isExcludedDiscoveryInterface(interface)) continue;
       for (final address in interface.addresses) {
         if (address.isLoopback) continue;
         final ip = address.address;
         if (ip.startsWith('169.254.')) continue;
         if (!_isPrivateLan(ip)) continue;
+        if (isLikelyHypervisorHostOnlyIp(ip)) continue;
 
-        final parts = ip.split('.');
-        if (parts.length != 4) continue;
-        add('${parts[0]}.${parts[1]}.${parts[2]}.255');
+        final subnetBroadcast = subnetBroadcastAddress(ip);
+        if (subnetBroadcast != null) add(subnetBroadcast);
       }
     }
   } on Object {
@@ -38,7 +46,14 @@ Future<List<InternetAddress>> computeBroadcastTargets() async {
   return targets;
 }
 
-bool _isVirtualInterface(String name) {
+/// /24 broadcast for typical home LAN (e.g. 192.168.88.5 → 192.168.88.255).
+String? subnetBroadcastAddress(String ip) {
+  final parts = ip.split('.');
+  if (parts.length != 4) return null;
+  return '${parts[0]}.${parts[1]}.${parts[2]}.255';
+}
+
+bool isVirtualInterface(String name) {
   final lower = name.toLowerCase();
   return lower.contains('virtual') ||
       lower.contains('vmware') ||
@@ -47,6 +62,59 @@ bool _isVirtualInterface(String name) {
       lower.contains('vethernet') ||
       lower.contains('docker') ||
       lower.contains('wsl');
+}
+
+bool isVpnOrTunnelInterface(String name) {
+  final lower = name.toLowerCase();
+  return lower.contains('wireguard') ||
+      lower.contains('tailscale') ||
+      lower.contains('tunnel') ||
+      lower.contains('wintun') ||
+      lower.contains('tap') ||
+      lower.contains('tun') ||
+      lower.contains('vpn') ||
+      lower.contains('nordlynx') ||
+      lower.contains('zerotier') ||
+      lower.contains('openvpn') ||
+      lower.contains('cisco anyconnect') ||
+      lower.contains('globalprotect');
+}
+
+/// Interfaces that should not be used for LAN discovery (VM bridges, VPN, etc.).
+bool isExcludedDiscoveryInterface(NetworkInterface interface) {
+  if (isVirtualInterface(interface.name)) return true;
+  if (isVpnOrTunnelInterface(interface.name)) return true;
+  return isLikelyVpnOnlyInterface(interface);
+}
+
+bool isLikelyVpnOnlyInterface(NetworkInterface interface) {
+  final ips = <String>[];
+  for (final address in interface.addresses) {
+    if (address.isLoopback) continue;
+    final ip = address.address;
+    if (ip.startsWith('169.254.')) continue;
+    ips.add(ip);
+  }
+  if (ips.isEmpty) return false;
+  return ips.every(isLikelyVpnOnlyIp);
+}
+
+bool isLikelyVpnOnlyIp(String ip) {
+  if (ip.startsWith('10.')) return true;
+  // Tailscale / CGNAT overlays.
+  if (ip.startsWith('100.')) {
+    final parts = ip.split('.');
+    if (parts.length != 4) return false;
+    final second = int.tryParse(parts[1]) ?? 0;
+    return second >= 64 && second <= 127;
+  }
+  return false;
+}
+
+bool isLikelyHypervisorHostOnlyIp(String ip) {
+  return ip.startsWith('192.168.56.') ||
+      ip.startsWith('192.168.122.') ||
+      ip.startsWith('192.168.234.');
 }
 
 bool _isPrivateLan(String ip) {
@@ -60,6 +128,7 @@ bool _isPrivateLan(String ip) {
 
 /// Higher score = more likely reachable on typical home Wi‑Fi (vs VPN/tunnel).
 int lanHostPreferenceScore(String ip) {
+  if (isLikelyHypervisorHostOnlyIp(ip)) return 0;
   if (ip.startsWith('192.168.')) return 3;
   if (ip.startsWith('172.')) {
     final parts = ip.split('.');
@@ -86,6 +155,7 @@ String? pickPreferredLanHost(Iterable<String> candidates) {
   var bestScore = -1;
   for (final ip in candidates) {
     if (ip.startsWith('169.254.')) continue;
+    if (isLikelyVpnOnlyIp(ip)) continue;
     if (!_isPrivateLan(ip)) continue;
     final score = lanHostPreferenceScore(ip);
     if (score > bestScore) {
@@ -94,6 +164,25 @@ String? pickPreferredLanHost(Iterable<String> candidates) {
     }
   }
   return best;
+}
+
+/// Collects IPv4 candidates from non-VPN / non-virtual interfaces.
+Future<List<String>> collectLanHostCandidates() async {
+  final interfaces = await NetworkInterface.list(
+    type: InternetAddressType.IPv4,
+    includeLinkLocal: false,
+  );
+  final candidates = <String>[];
+  for (final interface in interfaces) {
+    if (isExcludedDiscoveryInterface(interface)) continue;
+    for (final address in interface.addresses) {
+      if (address.isLoopback) continue;
+      final ip = address.address;
+      if (ip.startsWith('169.254.')) continue;
+      candidates.add(ip);
+    }
+  }
+  return candidates;
 }
 
 /// True when [host] is on the same /24 as [localHost] (typical home Wi‑Fi).

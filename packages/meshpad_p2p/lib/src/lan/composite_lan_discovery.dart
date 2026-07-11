@@ -21,6 +21,7 @@ class CompositeLanDiscovery implements LanDiscovery {
   @override
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
+    String? bindHost,
   }) async {
     void forward(LanPeerAnnouncement announcement) {
       onPeerDiscovered?.call(announcement);
@@ -30,10 +31,14 @@ class CompositeLanDiscovery implements LanDiscovery {
     _udp.onPeerDiscovered = forward;
 
     await Future.wait([
-      _mdns.start(buildAnnouncement: buildAnnouncement).catchError((Object e) {
+      _mdns
+          .start(buildAnnouncement: buildAnnouncement, bindHost: bindHost)
+          .catchError((Object e) {
         MeshPadLog.warn('discovery', 'mDNS start failed: $e');
       }),
-      _udp.start(buildAnnouncement: buildAnnouncement).catchError((Object e) {
+      _udp
+          .start(buildAnnouncement: buildAnnouncement, bindHost: bindHost)
+          .catchError((Object e) {
         MeshPadLog.warn('discovery', 'UDP start failed: $e');
       }),
     ]);

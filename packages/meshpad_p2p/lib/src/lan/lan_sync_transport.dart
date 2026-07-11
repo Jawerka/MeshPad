@@ -42,6 +42,7 @@ class LanSyncTransport implements SyncTransport {
     required Future<SyncEngine> Function() getEngine,
     required Future<LocalDeviceIdentity> Function() getIdentity,
     this.getDeviceStore,
+    this.getTlsRoot,
     this.announceHost,
     this.onRemoteTrusted,
     this.onCascadeSync,
@@ -56,6 +57,9 @@ class LanSyncTransport implements SyncTransport {
   final Future<LocalDeviceIdentity> Function() _getIdentity;
 
   final Future<DeviceIdentityStore> Function()? getDeviceStore;
+
+  /// Optional TLS cert directory (defaults to [DeviceIdentityStore.paths.tlsRoot]).
+  final Future<String> Function(DeviceIdentityStore store)? getTlsRoot;
 
   final String? announceHost;
 
@@ -138,6 +142,9 @@ class LanSyncTransport implements SyncTransport {
     }
   }
 
+  /// Active host pairing offer on the LAN HTTP server, if any.
+  PinPairingOffer? get currentPairingOffer => _server?.currentPairingOffer;
+
   Future<void> _ensureStarted() async {
     if (_running) return;
 
@@ -146,8 +153,24 @@ class LanSyncTransport implements SyncTransport {
 
   String? _announceHost;
 
+  Future<void>? _startInProgress;
+
   @override
   Future<void> start() async {
+    if (_running) return;
+    if (_startInProgress != null) {
+      await _startInProgress;
+      return;
+    }
+    _startInProgress = _startImpl();
+    try {
+      await _startInProgress;
+    } finally {
+      _startInProgress = null;
+    }
+  }
+
+  Future<void> _startImpl() async {
     if (_running) return;
 
     _identity = await _getIdentity();
@@ -164,8 +187,10 @@ class LanSyncTransport implements SyncTransport {
 
     if (enableTls && getDeviceStore != null) {
       final store = await getDeviceStore!();
+      final tlsRoot =
+          getTlsRoot != null ? await getTlsRoot!(store) : store.paths.tlsRoot;
       _tlsIdentity = await LanTlsIdentity.loadOrCreate(
-        Directory(store.paths.tlsRoot),
+        Directory(tlsRoot),
       );
     }
 
@@ -199,7 +224,10 @@ class LanSyncTransport implements SyncTransport {
 
     _discovery!.onPeerDiscovered = _handleAnnouncement;
 
-    await _discovery!.start(buildAnnouncement: _buildAnnouncement);
+    await _discovery!.start(
+      buildAnnouncement: _buildAnnouncement,
+      bindHost: _announceHost,
+    );
 
     _pruneTimer?.cancel();
     _pruneTimer = Timer.periodic(profile.mdnsBrowseInterval, (_) {
@@ -599,7 +627,10 @@ class LanSyncTransport implements SyncTransport {
 
     await _discovery!.stop();
 
-    await _discovery!.start(buildAnnouncement: _buildAnnouncement);
+    await _discovery!.start(
+      buildAnnouncement: _buildAnnouncement,
+      bindHost: _announceHost,
+    );
 
     MeshPadLog.lan('local display name updated to $trimmed');
   }

@@ -357,6 +357,7 @@ class HubWeb {
       const panel = document.getElementById('pairing-panel');
       return panel && !panel.hidden;
     }
+    let lastPairingEventAt = null;
     function showPairing() {
       document.getElementById('pairing-panel').hidden = false;
       document.getElementById('pairing-hint').hidden = true;
@@ -364,6 +365,13 @@ class HubWeb {
       refreshStatus();
     }
     function applyStatus(s) {
+      const pairingEvent = s.recent_events && s.recent_events.find(e => e.kind === 'pairing');
+      if (pairingEvent && pairingEvent.at !== lastPairingEventAt) {
+        lastPairingEventAt = pairingEvent.at;
+        showPairing();
+      } else if ((s.trusted_count ?? 0) === 0 && !pairingVisible()) {
+        showPairing();
+      }
       if (pairingVisible()) {
         if (s.pin) document.getElementById('pin').textContent = s.pin;
         const img = document.getElementById('qr');
@@ -476,6 +484,7 @@ class HubWeb {
       }
     }
     setInterval(refreshStatus, 10000);
+    refreshStatus();
   </script>
 </body>
 </html>

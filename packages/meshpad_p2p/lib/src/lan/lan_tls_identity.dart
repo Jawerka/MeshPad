@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:basic_utils/basic_utils.dart';
 import 'package:crypto/crypto.dart';
+import 'package:meshpad_core/meshpad_core.dart';
 import 'package:path/path.dart' as p;
 
 /// Self-signed TLS identity for LAN sync (Phase B.4).
@@ -23,19 +24,28 @@ class LanTlsIdentity {
   static const keyFileName = 'server.key';
 
   static Future<LanTlsIdentity> loadOrCreate(Directory tlsDir) async {
+    return DirectoryCreationLock.run(
+        tlsDir.path, () => _loadOrCreateLocked(tlsDir));
+  }
+
+  static Future<LanTlsIdentity> _loadOrCreateLocked(Directory tlsDir) async {
     await tlsDir.create(recursive: true);
     final certFile = File(p.join(tlsDir.path, certFileName));
     final keyFile = File(p.join(tlsDir.path, keyFileName));
     if (await certFile.exists() && await keyFile.exists()) {
-      return _fromPem(
-        await certFile.readAsString(),
-        await keyFile.readAsString(),
-      );
+      try {
+        return _fromPem(
+          await certFile.readAsString(),
+          await keyFile.readAsString(),
+        );
+      } on Object {
+        // Corrupt or partial write — regenerate below.
+      }
     }
 
     final generated = _generate();
-    await certFile.writeAsString(generated.certPem);
-    await keyFile.writeAsString(generated.keyPem);
+    await writeTextFileResilient(certFile, generated.certPem);
+    await writeTextFileResilient(keyFile, generated.keyPem);
     return generated;
   }
 

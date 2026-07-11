@@ -44,6 +44,8 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
   String? _qrPayload;
   StreamSubscription<SyncTransportEvent>? _pairingEventsSub;
 
+  Timer? _qrRefreshTimer;
+
   String? _qrPayloadForLan(LanSyncTransport? lan) {
     if (lan == null) return null;
     final host = lan.localLanHost;
@@ -67,15 +69,41 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
   }
 
   Future<void> _activateOfferAfterFirstFrame() async {
+    if (widget.lan != null) {
+      try {
+        await ref.read(discoveryServiceProvider).ensureRunning();
+      } catch (e, st) {
+        MeshPadLog.warn('pairing', 'ensureRunning before offer failed: $e');
+        MeshPadLog.warn('pairing', '$st');
+      }
+    }
+
     final activate = widget.activateOffer;
-    if (activate == null) return;
-    try {
-      await activate();
-    } catch (e, st) {
-      MeshPadLog.warn('pairing', 'setPairingOffer failed: $e');
-      MeshPadLog.warn('pairing', '$st');
+    if (activate != null) {
+      try {
+        await activate();
+      } catch (e, st) {
+        MeshPadLog.warn('pairing', 'setPairingOffer failed: $e');
+        MeshPadLog.warn('pairing', '$st');
+      }
     }
     _scheduleQrRefresh();
+  }
+
+  void _startQrRefreshTimer() {
+    _qrRefreshTimer?.cancel();
+    if (!widget.asHost) return;
+    _qrRefreshTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (!mounted) return;
+      final next = _qrPayloadForLan(widget.lan);
+      if (next != _qrPayload) {
+        setState(() => _qrPayload = next);
+      }
+      if (next != null) {
+        _qrRefreshTimer?.cancel();
+        _qrRefreshTimer = null;
+      }
+    });
   }
 
   @override
@@ -84,6 +112,7 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
     _selectedPeer = widget.initialPeer;
     if (widget.asHost) {
       _qrPayload = _qrPayloadForLan(widget.lan);
+      _startQrRefreshTimer();
     }
     if (widget.activateOffer != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -131,6 +160,7 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
 
   @override
   void dispose() {
+    _qrRefreshTimer?.cancel();
     unawaited(_pairingEventsSub?.cancel());
     _remotePinController.dispose();
     super.dispose();
@@ -387,6 +417,9 @@ class PinPairingDialogState extends ConsumerState<PinPairingDialog> {
                       if (_qrPayload != null) ...[
                         const SizedBox(height: 16),
                         PairingQrCodeView(payload: _qrPayload!),
+                      ] else if (widget.lan != null) ...[
+                        const SizedBox(height: 8),
+                        const PairingQrLoadingView(),
                       ],
                     ],
                     if (!widget.asHost && widget.canScanQr) ...[

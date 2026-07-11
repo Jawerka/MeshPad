@@ -8,7 +8,6 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../core/providers/discovery_providers.dart';
-import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/providers/sync_auth_health_provider.dart';
@@ -20,6 +19,7 @@ import '../../core/widgets/text_input_dialog.dart';
 import '../../core/theme/device_icons.dart';
 import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../core/widgets/sheet_handle.dart';
 import 'device_actions.dart';
 import 'device_card.dart';
 import 'devices_l10n.dart';
@@ -73,22 +73,14 @@ class DevicesSheet extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: MeshPadColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SheetHandle(),
               Text(
                 l10n.devicesSheetTitle,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               signingKeyResetAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
@@ -579,27 +571,21 @@ class DevicesSheet extends ConsumerWidget {
     Device peer,
   ) async {
     final l10n = AppLocalizations.of(context);
-    final transport = ref.read(syncTransportProvider);
-    await transport.start();
-    final lan = transport.lanAccess;
+    final trusted = await ref.read(trustedDevicesProvider.future);
+    final excludeIds = trusted
+        .map((device) => device.peerId)
+        .where((peerId) => peerId != peer.peerId)
+        .toList();
 
-    if (lan == null) {
-      if (!context.mounted) return;
-      showMeshPadHint(context, l10n.devicesPeerUnreachable);
-      return;
-    }
-
-    final store = await ref.read(deviceStoreProvider.future);
-    final peerResult = await syncSingleTrustedPeer(
-      transport: lan,
-      deviceStore: store,
-      peer: peer,
-      timeout: const Duration(seconds: 120),
-    );
+    final result = await ref.read(syncControllerProvider).runSync(
+          excludePeerIds: excludeIds,
+        );
 
     if (!context.mounted) return;
 
-    if (peerResult.status == LanPeerSyncStatus.unreachable) {
+    if (result.skippedPeerCount > 0 &&
+        result.succeededPeerCount == 0 &&
+        result.failedPeerCount == 0) {
       showMeshPadHint(
         context,
         l10n.syncPeerUnreachable,
@@ -608,32 +594,21 @@ class DevicesSheet extends ConsumerWidget {
       return;
     }
 
-    final message = switch (peerResult.status) {
-      LanPeerSyncStatus.completed when peerResult.noteCount > 0 =>
-        l10n.devicesSyncNotesCount(peerResult.noteCount),
-      LanPeerSyncStatus.completed => l10n.devicesSyncCompleted,
-      LanPeerSyncStatus.failed ||
-      LanPeerSyncStatus.unreachable =>
-        peerResult.message ?? l10n.devicesSyncTimeout,
+    final message = switch (result.status) {
+      SyncRunStatus.completed when result.noteCount > 0 =>
+        l10n.devicesSyncNotesCount(result.noteCount),
+      SyncRunStatus.completed => l10n.devicesSyncCompleted,
+      SyncRunStatus.partial when result.noteCount > 0 =>
+        l10n.devicesSyncNotesCount(result.noteCount),
+      SyncRunStatus.partial ||
+      SyncRunStatus.failed =>
+        result.message ?? l10n.devicesSyncTimeout,
+      SyncRunStatus.noPeers => l10n.syncPeerUnreachable,
     };
 
-    if (peerResult.status == LanPeerSyncStatus.completed) {
-      ref.invalidate(trustedDevicesProvider);
-      ref.invalidate(notesListProvider);
+    if (result.status == SyncRunStatus.completed ||
+        (result.status == SyncRunStatus.partial && result.noteCount > 0)) {
       ref.read(peerSyncAuthFailedProvider.notifier).clearPeer(peer.peerId);
-    } else if (peerResult.status == LanPeerSyncStatus.failed &&
-        peerResult.message != null) {
-      final authFailure = parseLanSyncAuthFailureBody(peerResult.message!);
-      if (authFailure != null) {
-        await store.recordAuthFailure(
-          peerId: peer.peerId,
-          body: peerResult.message!,
-        );
-        ref
-            .read(peerSyncAuthFailedProvider.notifier)
-            .recordFailure(peer.peerId, authFailure);
-        ref.invalidate(trustedDevicesProvider);
-      }
     }
 
     if (!context.mounted) return;
@@ -641,16 +616,19 @@ class DevicesSheet extends ConsumerWidget {
     showMeshPadHint(
       context,
       displayMessage,
-      severity: peerResult.status == LanPeerSyncStatus.completed
+      severity: result.status == SyncRunStatus.completed ||
+              (result.status == SyncRunStatus.partial && result.noteCount > 0)
           ? StatusHintSeverity.success
           : StatusHintSeverity.error,
     );
   }
 
   Future<void> _runSync(BuildContext context, WidgetRef ref) async {
-    final result = await ref.read(syncControllerProvider).runSync();
-    if (!context.mounted) return;
-    showSyncRunFeedback(context, result);
+    unawaited(() async {
+      final result = await ref.read(syncControllerProvider).runSync();
+      if (!context.mounted) return;
+      showSyncRunFeedback(context, result);
+    }());
   }
 
   Future<void> _showPinPairingDialog(

@@ -115,6 +115,8 @@ class LanPeerServer {
 
   void setPairingOffer(PinPairingOffer? offer) => _pairingOffer = offer;
 
+  PinPairingOffer? get currentPairingOffer => _pairingOffer;
+
   Future<void> _handleRequest(HttpRequest request) async {
     try {
       final response = await _route(request);

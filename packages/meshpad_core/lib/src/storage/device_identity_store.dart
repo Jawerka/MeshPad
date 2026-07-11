@@ -12,6 +12,7 @@ import '../sync/sync_auth.dart';
 import 'device_signing_key_store.dart';
 import 'meshpad_paths.dart';
 import 'peer_auth_token_store.dart';
+import 'safe_file_write.dart';
 
 /// File-system store for local identity and trusted peers.
 class DeviceIdentityStore {
@@ -141,7 +142,8 @@ class DeviceIdentityStore {
   Future<void> _markSigningKeyReset({String? previousPublicKey}) async {
     final dir = Directory(_paths.devicesRoot);
     await dir.create(recursive: true);
-    await File(_paths.signingKeyResetMarkerFile).writeAsString(
+    await writeTextFileResilient(
+      File(_paths.signingKeyResetMarkerFile),
       const JsonEncoder.withIndent('  ').convert({
         'reset_at': DateTime.now().toUtc().toIso8601String(),
         if (previousPublicKey != null && previousPublicKey.isNotEmpty)

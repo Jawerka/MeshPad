@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
+import '../storage/android_tls_root.dart';
 import '../sync/sync_auth_messages.dart';
 import '../sync/sync_metrics_store.dart';
 import '../platform/default_device_display_name.dart';
@@ -87,6 +90,7 @@ final syncTransportProvider = Provider<SyncTransport>((ref) {
     getEngine: () => engineFuture,
     getIdentity: () => identityFuture,
     getDeviceStore: () => deviceStoreFuture,
+    getTlsRoot: resolveTlsRoot,
     onRemoteTrusted: (confirm) async {
       final store = await deviceStoreFuture;
       await trustDeviceFromPairingConfirm(
@@ -200,7 +204,6 @@ class SyncController {
     _syncInProgress = true;
     final activity = _ref.read(syncActivityProvider.notifier);
     final transferReporter = _ref.read(syncTransferReporterProvider);
-    lanSyncTransferProgress.onProgress = transferReporter.onProgress;
 
     try {
       final deviceStore = await _ref.read(deviceStoreProvider.future);
@@ -210,9 +213,6 @@ class SyncController {
           message: syncSigningKeyResetCode,
         );
       }
-
-      final coordinator = await _ref.read(lanSyncCoordinatorProvider.future);
-      final transport = _ref.read(syncTransportProvider);
 
       final trusted = await _ref.read(trustedDevicesProvider.future);
       final excluded = {
@@ -229,11 +229,17 @@ class SyncController {
       }
 
       activity.begin(totalPeers: peers.length);
+      // Let the header spinner paint before prep work.
+      await Future<void>.delayed(Duration.zero);
+
       final identity = await _ref.read(localIdentityProvider.future);
-      final repo = await _ref.read(noteRepositoryProvider.future);
-      await repo.purgeMisfiledRemoteOutbox(
-        localAuthorLabels: localAuthorLabels(identity.displayName),
-      );
+      final dataDir = await _ref.read(dataDirProvider.future);
+      if (dataDir == null || dataDir.isEmpty) {
+        return const SyncRunResult(
+          SyncRunStatus.failed,
+          message: 'Папка данных не настроена',
+        );
+      }
 
       final settings = await _ref.read(appSettingsProvider.future);
       final profile =
@@ -241,6 +247,7 @@ class SyncController {
       final cascade = propagateCascade ?? profile.propagateCascade;
       final effectiveHopLimit = hopLimit ?? profile.cascadeHopLimit;
 
+      final transport = _ref.read(syncTransportProvider);
       final lan = transport.lanAccess;
       if (lan == null) {
         return const SyncRunResult(
@@ -249,25 +256,47 @@ class SyncController {
         );
       }
 
-      final result = await coordinator.syncTrustedPeers(
-        transport: lan,
-        repository: repo,
-        trusted: trusted,
-        excludePeerIds: excluded.toList(growable: false),
+      final repo = await _ref.read(noteRepositoryProvider.future);
+      await repo.purgeMisfiledRemoteOutbox(
+        localAuthorLabels: localAuthorLabels(identity.displayName),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final signingKey = await deviceStore.readSigningPrivateKey();
+      final tlsRoot = await resolveTlsRootForDataDir(dataDir);
+
+      final result = await runForegroundLanSync(
+        dataDir: dataDir,
+        defaultAuthor: identity.displayName,
+        networkProfile: settings.networkProfile,
         localPeerId: identity.peerId,
+        deviceStore: deviceStore,
+        transport: lan,
+        trustedPeers: trusted,
+        excludePeerIds: excluded.toList(growable: false),
         propagateCascade: cascade,
         hopLimit: effectiveHopLimit,
-        maxConcurrentPeers: profile.maxConcurrentPeers,
-        onPeerProgress: ({required peer, required completed, required total}) {
-          activity.setPeer(
-            label: 'Синхронизация с ${peer.name}',
-            completedPeers: completed,
-            totalPeers: total,
-          );
+        signingKeyBase64: signingKey == null ? null : base64Encode(signingKey),
+        tlsRootPath: tlsRoot,
+        onProgress: (progress) {
+          switch (progress.kind) {
+            case SyncIsolateProgressKind.peer:
+              activity.setPeer(
+                label: progress.peerLabel ?? 'Синхронизация…',
+                completedPeers: progress.completedPeers ?? 0,
+                totalPeers: progress.totalPeers ?? peers.length,
+              );
+            case SyncIsolateProgressKind.transfer:
+              transferReporter.report(
+                fileName: progress.fileName ?? '',
+                transferred: progress.transferred ?? 0,
+                total: progress.totalBytes ?? 0,
+              );
+          }
         },
       );
 
-      _invalidateSyncState();
+      _scheduleSyncStateRefresh();
 
       for (final entry in result.peerAuthFailures.entries) {
         _ref
@@ -275,21 +304,7 @@ class SyncController {
             .recordFailure(entry.key, entry.value);
       }
 
-      final syncResult = SyncRunResult(
-        switch (result.status) {
-          LanSyncRunStatus.noPeers => SyncRunStatus.noPeers,
-          LanSyncRunStatus.completed => SyncRunStatus.completed,
-          LanSyncRunStatus.partial => SyncRunStatus.partial,
-          LanSyncRunStatus.failed => SyncRunStatus.failed,
-        },
-        noteCount: result.noteCount,
-        message: result.message,
-        succeededPeerCount: result.succeededPeerIds.length,
-        failedPeerCount: result.failedPeerIds.length,
-        skippedPeerCount: result.skippedPeerIds.length,
-        totalPeerCount: peers.length,
-      );
-
+      final syncResult = _mapLanResult(result, peers.length);
       SyncMetricsStore.instance.record(
         SyncMetricEntry(
           at: DateTime.now().toUtc(),
@@ -311,10 +326,32 @@ class SyncController {
           e is MeshPadException ? e.message : meshPadExceptionUserMessage(e);
       return SyncRunResult(SyncRunStatus.failed, message: message);
     } finally {
-      lanSyncTransferProgress.onProgress = null;
       activity.finish();
       _syncInProgress = false;
     }
+  }
+
+  SyncRunResult _mapLanResult(LanSyncRunResult result, int totalPeers) {
+    return SyncRunResult(
+      switch (result.status) {
+        LanSyncRunStatus.noPeers => SyncRunStatus.noPeers,
+        LanSyncRunStatus.completed => SyncRunStatus.completed,
+        LanSyncRunStatus.partial => SyncRunStatus.partial,
+        LanSyncRunStatus.failed => SyncRunStatus.failed,
+      },
+      noteCount: result.noteCount,
+      message: result.message,
+      succeededPeerCount: result.succeededPeerIds.length,
+      failedPeerCount: result.failedPeerIds.length,
+      skippedPeerCount: result.skippedPeerIds.length,
+      totalPeerCount: totalPeers,
+    );
+  }
+
+  void _scheduleSyncStateRefresh() {
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _invalidateSyncState();
+    });
   }
 
   void _invalidateSyncState() {

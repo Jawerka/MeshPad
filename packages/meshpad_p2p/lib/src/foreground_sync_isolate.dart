@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:meshpad_core/meshpad_core.dart';
 
 import 'lan/lan_sync_coordinator.dart';
+import 'lan/lan_single_peer_sync.dart';
 import 'lan/lan_sync_codec.dart';
 import 'lan/lan_sync_transfer_progress.dart';
 import 'lan/lan_sync_transport.dart';
@@ -68,9 +69,12 @@ class ForegroundSyncIsolateArgs {
     required this.localPeerId,
     required this.resolvedEndpoints,
     required this.authTokens,
-    this.excludePeerId,
+    this.excludePeerIds = const [],
     this.propagateCascade = true,
+    this.hopLimit,
     this.signingKeyBase64,
+    this.tlsRootPath,
+    this.enableTls = true,
     required this.progressPort,
   });
 
@@ -80,9 +84,12 @@ class ForegroundSyncIsolateArgs {
   final String localPeerId;
   final List<Map<String, dynamic>> resolvedEndpoints;
   final Map<String, String> authTokens;
-  final String? excludePeerId;
+  final List<String> excludePeerIds;
   final bool propagateCascade;
+  final int? hopLimit;
   final String? signingKeyBase64;
+  final String? tlsRootPath;
+  final bool enableTls;
   final SendPort progressPort;
 }
 
@@ -210,9 +217,12 @@ Future<LanSyncRunResult> _runForegroundSyncIsolateBody(
       getEngine: () async => engine,
       getIdentity: () async => identity,
       getDeviceStore: () async => deviceStore,
+      getTlsRoot: args.tlsRootPath != null && args.enableTls
+          ? (_) async => args.tlsRootPath!
+          : null,
       networkProfile: networkProfile,
       outboundOnly: true,
-      enableTls: false,
+      enableTls: args.enableTls,
     );
 
     for (final json in args.resolvedEndpoints) {
@@ -226,12 +236,10 @@ Future<LanSyncRunResult> _runForegroundSyncIsolateBody(
     return coordinator.syncTrustedPeers(
       transport: transport,
       repository: repo,
-      excludePeerIds: [
-        if (args.excludePeerId != null) args.excludePeerId!,
-      ],
+      excludePeerIds: args.excludePeerIds,
       localPeerId: args.localPeerId,
       propagateCascade: args.propagateCascade,
-      hopLimit: profile.cascadeHopLimit,
+      hopLimit: args.hopLimit ?? profile.cascadeHopLimit,
       maxConcurrentPeers: profile.maxConcurrentPeers,
       manageTransport: false,
       onPeerProgress: ({required peer, required completed, required total}) {
@@ -265,9 +273,12 @@ Future<LanSyncRunResult> runForegroundSyncInIsolate({
   required String localPeerId,
   required List<LanPeerEndpoint> resolvedEndpoints,
   required Map<String, String> authTokens,
-  String? excludePeerId,
+  List<String> excludePeerIds = const [],
   bool propagateCascade = true,
+  int? hopLimit,
   String? signingKeyBase64,
+  String? tlsRootPath,
+  bool enableTls = true,
   void Function(SyncIsolateProgress progress)? onProgress,
 }) async {
   final receivePort = ReceivePort();
@@ -286,9 +297,12 @@ Future<LanSyncRunResult> runForegroundSyncInIsolate({
       for (final endpoint in resolvedEndpoints) lanPeerEndpointToJson(endpoint),
     ],
     authTokens: authTokens,
-    excludePeerId: excludePeerId,
+    excludePeerIds: excludePeerIds,
     propagateCascade: propagateCascade,
+    hopLimit: hopLimit,
     signingKeyBase64: signingKeyBase64,
+    tlsRootPath: tlsRootPath,
+    enableTls: enableTls,
     progressPort: progressPort,
   );
 
@@ -298,4 +312,89 @@ Future<LanSyncRunResult> runForegroundSyncInIsolate({
     await subscription.cancel();
     receivePort.close();
   }
+}
+
+Future<Map<String, String>> collectPeerAuthTokens(
+  DeviceIdentityStore store,
+  Iterable<Device> peers,
+) async {
+  final tokens = <String, String>{};
+  for (final peer in peers) {
+    final token = await store.authTokenForPeer(peer.peerId);
+    if (token != null && token.isNotEmpty) {
+      tokens[peer.peerId] = token;
+    }
+  }
+  return tokens;
+}
+
+void seedTransportEndpoints(
+    LanSyncTransport transport, Iterable<Device> peers) {
+  for (final peer in peers) {
+    rememberPeerEndpoint(transport, peer);
+  }
+}
+
+List<LanPeerEndpoint> collectResolvedEndpoints(
+  LanSyncTransport transport,
+  Iterable<Device> peers,
+) {
+  final endpoints = <LanPeerEndpoint>[];
+  for (final peer in peers) {
+    final endpoint =
+        transport.endpointFor(peer.peerId) ?? storedEndpointForPeer(peer);
+    if (endpoint != null) {
+      endpoints.add(endpoint);
+    }
+  }
+  return endpoints;
+}
+
+/// Resolves peer endpoints on [transport], then runs sync in a background isolate.
+Future<LanSyncRunResult> runForegroundLanSync({
+  required String dataDir,
+  required String defaultAuthor,
+  required LanNetworkProfile networkProfile,
+  required String localPeerId,
+  required DeviceIdentityStore deviceStore,
+  required LanSyncTransport transport,
+  required List<Device> trustedPeers,
+  List<String> excludePeerIds = const [],
+  bool propagateCascade = true,
+  int? hopLimit,
+  String? tlsRootPath,
+  String? signingKeyBase64,
+  bool enableTls = true,
+  void Function(SyncIsolateProgress progress)? onProgress,
+}) async {
+  final excluded = excludePeerIds.toSet();
+  final peers =
+      trustedPeers.where((peer) => !excluded.contains(peer.peerId)).toList();
+  if (peers.isEmpty) {
+    return const LanSyncRunResult(
+      LanSyncRunStatus.noPeers,
+      message: 'Нет доверенных устройств',
+    );
+  }
+
+  await transport.start();
+  seedTransportEndpoints(transport, peers);
+  final resolvedEndpoints = collectResolvedEndpoints(transport, peers);
+  final authTokens = await collectPeerAuthTokens(deviceStore, peers);
+
+  return runForegroundSyncInIsolate(
+    dataDir: dataDir,
+    defaultAuthor: defaultAuthor,
+    networkProfile: networkProfile,
+    localPeerId: localPeerId,
+    resolvedEndpoints: resolvedEndpoints,
+    authTokens: authTokens,
+    excludePeerIds: excluded.toList(growable: false),
+    propagateCascade: propagateCascade,
+    hopLimit: hopLimit,
+    signingKeyBase64: signingKeyBase64,
+    tlsRootPath: tlsRootPath,
+    enableTls: enableTls,
+    onProgress: onProgress,
+  );
 }

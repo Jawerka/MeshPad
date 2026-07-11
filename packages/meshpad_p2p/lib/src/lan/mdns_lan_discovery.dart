@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:mdns_dart/mdns_dart.dart';
 
+import 'lan_broadcast.dart';
 import 'lan_discovery.dart';
 import 'lan_sync_codec.dart';
 import '../meshpad_log.dart';
@@ -29,6 +30,7 @@ class MdnsLanDiscovery implements LanDiscovery {
   @override
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
+    String? bindHost,
     bool advertise = true,
   }) async {
     if (_server != null || _browse != null) return;
@@ -127,6 +129,7 @@ class MdnsLanDiscovery implements LanDiscovery {
       );
       final ips = <InternetAddress>[];
       for (final interface in interfaces) {
+        if (isExcludedDiscoveryInterface(interface)) continue;
         for (final address in interface.addresses) {
           if (!address.isLoopback) ips.add(address);
         }

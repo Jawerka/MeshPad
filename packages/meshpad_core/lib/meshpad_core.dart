@@ -30,6 +30,7 @@ export 'src/storage/note_conflict_copy.dart';
 export 'src/storage/note_folder_repository.dart';
 export 'src/storage/note_operation_journal.dart';
 export 'src/storage/note_history_store.dart';
+export 'src/storage/safe_file_write.dart';
 export 'src/sync/headless_maintenance.dart';
 export 'src/sync/lww_merge.dart';
 export 'src/sync/note_sync_status.dart';

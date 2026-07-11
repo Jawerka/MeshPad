@@ -476,6 +476,84 @@ abstract class AppLocalizations {
   /// **'Реже discovery и broadcast — меньше нагрузка на Wi‑Fi'**
   String get gentleNetworkModeHint;
 
+  /// No description provided for @syncOnlyAllowedWifi.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизация только в выбранных Wi‑Fi'**
+  String get syncOnlyAllowedWifi;
+
+  /// No description provided for @syncOnlyAllowedWifiHintEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавьте сеть ниже'**
+  String get syncOnlyAllowedWifiHintEmpty;
+
+  /// No description provided for @syncOnlyAllowedWifiHintList.
+  ///
+  /// In ru, this message translates to:
+  /// **'{networks}'**
+  String syncOnlyAllowedWifiHintList(String networks);
+
+  /// No description provided for @addCurrentWifi.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавить текущую Wi‑Fi'**
+  String get addCurrentWifi;
+
+  /// No description provided for @addWifiManually.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ввести имя Wi‑Fi вручную'**
+  String get addWifiManually;
+
+  /// No description provided for @addWifiManuallyTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя Wi‑Fi сети'**
+  String get addWifiManuallyTitle;
+
+  /// No description provided for @addWifiManuallyLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'SSID'**
+  String get addWifiManuallyLabel;
+
+  /// No description provided for @addWifiManuallyHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как в настройках Wi‑Fi Android'**
+  String get addWifiManuallyHint;
+
+  /// No description provided for @settingsWifiAdded.
+  ///
+  /// In ru, this message translates to:
+  /// **'Добавлена Wi‑Fi: {ssid}'**
+  String settingsWifiAdded(String ssid);
+
+  /// No description provided for @settingsWifiAlreadyAdded.
+  ///
+  /// In ru, this message translates to:
+  /// **'Уже в списке: {ssid}'**
+  String settingsWifiAlreadyAdded(String ssid);
+
+  /// No description provided for @settingsWifiPermissionDenied.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разрешите доступ к геолокации и Wi‑Fi в диалоге или введите имя сети вручную'**
+  String get settingsWifiPermissionDenied;
+
+  /// No description provided for @settingsWifiLocationDisabled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Включите геолокацию в настройках Android, чтобы определить Wi‑Fi, или введите имя вручную'**
+  String get settingsWifiLocationDisabled;
+
+  /// No description provided for @settingsWifiSsidUnavailable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось определить текущую Wi‑Fi. Подключитесь к сети или введите имя вручную'**
+  String get settingsWifiSsidUnavailable;
+
   /// No description provided for @minutesShort.
   ///
   /// In ru, this message translates to:
@@ -950,6 +1028,12 @@ abstract class AppLocalizations {
   /// **'Отсканируйте QR на другом устройстве (MeshPad на телефоне)'**
   String get pairingQrHostHint;
 
+  /// No description provided for @pairingQrPreparing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запуск LAN-сервера для QR…'**
+  String get pairingQrPreparing;
+
   /// No description provided for @pairingScanQr.
   ///
   /// In ru, this message translates to:
@@ -979,6 +1063,18 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Не удалось подключиться по QR. Проверьте Wi‑Fi.'**
   String get pairingQrProbeFailed;
+
+  /// No description provided for @pairingQrCameraFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Камера недоступна'**
+  String get pairingQrCameraFailed;
+
+  /// No description provided for @pairingQrCameraFailedHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разрешите доступ к камере в настройках системы или введите PIN вручную.'**
+  String get pairingQrCameraFailedHint;
 
   /// No description provided for @devicesSheetTitle.
   ///

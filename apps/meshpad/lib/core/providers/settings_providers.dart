@@ -12,6 +12,7 @@ import '../storage/app_settings.dart';
 import '../storage/app_settings_store.dart';
 import '../storage/scheduled_notes_backup.dart';
 import '../../platform/background_sync.dart';
+import '../../platform/wifi_info.dart';
 import '../theme/device_icons.dart';
 import 'git_sync_providers.dart';
 import 'discovery_providers.dart';
@@ -112,12 +113,12 @@ class SettingsController {
   }
 
   Future<void> addAllowedWifiSsid(String ssid) async {
-    final trimmed = ssid.trim();
-    if (trimmed.isEmpty) return;
+    final normalized = WifiInfoPlatform.normalizeSsid(ssid);
+    if (normalized == null || normalized.isEmpty) return;
     final current = await _store.loadSettings();
-    if (current.allowedWifiSsids.contains(trimmed)) return;
+    if (current.allowedWifiSsids.contains(normalized)) return;
     final next = current.copyWith(
-      allowedWifiSsids: [...current.allowedWifiSsids, trimmed],
+      allowedWifiSsids: [...current.allowedWifiSsids, normalized],
     );
     await _store.saveSettings(next);
     _ref.invalidate(appSettingsProvider);

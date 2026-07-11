@@ -124,7 +124,8 @@ void main() {
     expect(html, contains('Test Hub'));
     expect(html, contains('id="show-pairing-btn"'));
     expect(html, contains('id="pairing-panel"'));
-    expect(html, contains('pairing-panel" hidden'));
+    expect(html, contains('id="pairing-panel"'));
+    expect(html, contains('refreshStatus()'));
     expect(html, contains('id="sync-badge"'));
     expect(html, contains('Синхронизировать'));
     expect(html, contains('Проверить обновления'));
@@ -170,6 +171,33 @@ void main() {
         jsonDecode(await response.readAsString()) as Map<String, dynamic>;
     expect(body['trusted_count'], 0);
     expect(await store.listTrustedDevices(), isEmpty);
+  });
+
+  test('status refreshes PIN when LAN server consumed the offer', () async {
+    final pinBefore = (await pairing.status()).pin;
+    expect(pinBefore, isNotNull);
+
+    await lanSync.transport.setPairingOffer(null);
+    expect(lanSync.transport.currentPairingOffer, isNull);
+
+    final pinAfter = (await pairing.status()).pin;
+    expect(pinAfter, isNotNull);
+    expect(pinAfter, isNot(equals(pinBefore)));
+    expect(lanSync.transport.currentPairingOffer?.pin, pinAfter);
+  });
+
+  test('recordPairing rotates PIN for the next guest', () async {
+    final pinBefore = (await pairing.status()).pin;
+    expect(pinBefore, isNotNull);
+
+    await lanSync.transport.setPairingOffer(null);
+
+    await pairing.recordPairing(peerId: 'guest-peer-1');
+
+    final pinAfter = (await pairing.status()).pin;
+    expect(pinAfter, isNotNull);
+    expect(pinAfter, isNot(equals(pinBefore)));
+    expect(lanSync.transport.currentPairingOffer?.pin, pinAfter);
   });
 
   test('POST /api/trash/empty permanently clears trash', () async {

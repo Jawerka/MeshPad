@@ -140,6 +140,34 @@
   "autoSyncOff": "Выключена",
   "gentleNetworkMode": "Щадящий режим сети",
   "gentleNetworkModeHint": "Реже discovery и broadcast — меньше нагрузка на Wi‑Fi",
+  "syncOnlyAllowedWifi": "Синхронизация только в выбранных Wi‑Fi",
+  "syncOnlyAllowedWifiHintEmpty": "Добавьте сеть ниже",
+  "syncOnlyAllowedWifiHintList": "{networks}",
+  "@syncOnlyAllowedWifiHintList": {
+    "placeholders": {
+      "networks": { "type": "String" }
+    }
+  },
+  "addCurrentWifi": "Добавить текущую Wi‑Fi",
+  "addWifiManually": "Ввести имя Wi‑Fi вручную",
+  "addWifiManuallyTitle": "Имя Wi‑Fi сети",
+  "addWifiManuallyLabel": "SSID",
+  "addWifiManuallyHint": "Как в настройках Wi‑Fi Android",
+  "settingsWifiAdded": "Добавлена Wi‑Fi: {ssid}",
+  "@settingsWifiAdded": {
+    "placeholders": {
+      "ssid": { "type": "String" }
+    }
+  },
+  "settingsWifiAlreadyAdded": "Уже в списке: {ssid}",
+  "@settingsWifiAlreadyAdded": {
+    "placeholders": {
+      "ssid": { "type": "String" }
+    }
+  },
+  "settingsWifiPermissionDenied": "Разрешите доступ к геолокации и Wi‑Fi в диалоге или введите имя сети вручную",
+  "settingsWifiLocationDisabled": "Включите геолокацию в настройках Android, чтобы определить Wi‑Fi, или введите имя вручную",
+  "settingsWifiSsidUnavailable": "Не удалось определить текущую Wi‑Fi. Подключитесь к сети или введите имя вручную",
   "minutesShort": "{minutes} мин",
   "@minutesShort": {
     "placeholders": {
@@ -301,11 +329,14 @@
   "syncDiagnosticsCopied": "Журнал синхронизации скопирован",
   "syncDiagnosticsEmpty": "Запусков синхронизации пока нет",
   "pairingQrHostHint": "Отсканируйте QR на другом устройстве (MeshPad на телефоне)",
+  "pairingQrPreparing": "Запуск LAN-сервера для QR…",
   "pairingScanQr": "Сканировать QR",
   "pairingQrScanHint": "Наведите камеру на QR с экрана устройства-хоста",
   "pairingQrInvalid": "Некорректный QR для pairing",
   "pairingQrPinMismatch": "PIN в QR не совпадает с предложением устройства",
   "pairingQrProbeFailed": "Не удалось подключиться по QR. Проверьте Wi‑Fi.",
+  "pairingQrCameraFailed": "Камера недоступна",
+  "pairingQrCameraFailedHint": "Разрешите доступ к камере в настройках системы или введите PIN вручную.",
   "devicesSheetTitle": "Устройства",
   "devicesTrustedSection": "Доверенные",
   "devicesDiscoveredSection": "Обнаруженные",

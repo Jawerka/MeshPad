@@ -4,6 +4,29 @@
 
 ---
 
+## [0.2.12] — 2026-07-11
+
+### Added
+
+- **Foreground sync isolate:** LAN batch sync runs in a background isolate on Flutter (Windows, Linux, Android) and hub — UI and HTTP handlers stay responsive
+- **`runForegroundLanSync`:** shared helper in `meshpad_p2p` (endpoint resolution on main isolate, sync in `Isolate.run`, progress via `SendPort`)
+- **Android Wi‑Fi allow-list:** location permission flow, manual SSID entry, invalid `<unknown ssid>` cleanup on load
+- **`safe_file_write`:** atomic writes for device identity and TLS material
+
+### Changed
+
+- Devices sheet and tray sync use `SyncController.runSync()` (isolate path); single-peer sync via `excludePeerIds`
+- Hub `HeadlessLanSync` delegates to `runForegroundLanSync`
+- LAN broadcast/discovery hardening; pairing QR UI improvements
+
+### Fixed
+
+- Android: `ACCESS_FINE_LOCATION` on API 33+, `FLAG_INCLUDE_LOCATION_INFO` for SSID on Android 12+
+- Main-thread deadlock reading Wi‑Fi SSID from `MethodChannel`
+- Feed header and manual sync no longer freeze the UI during outbound sync
+
+---
+
 ## [0.2.11] — 2026-07-11
 
 ### Added

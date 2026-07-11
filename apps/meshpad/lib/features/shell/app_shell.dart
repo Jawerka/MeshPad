@@ -43,8 +43,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           MeshPadLog.warn('discovery', '$st');
         }
         if (DesktopShell.isSupported) {
-          DesktopShell.instance.onSync =
-              () => ref.read(syncControllerProvider).runSync();
+          DesktopShell.instance.onSync = () async {
+            await ref.read(syncControllerProvider).runSync();
+          };
         }
         try {
           final repo = await ref.read(noteRepositoryProvider.future);

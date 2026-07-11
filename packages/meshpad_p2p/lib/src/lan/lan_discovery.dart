@@ -6,6 +6,7 @@ abstract class LanDiscovery {
 
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
+    String? bindHost,
   });
 
   Future<void> stop();

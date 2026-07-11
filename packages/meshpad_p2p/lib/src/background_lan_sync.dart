@@ -30,6 +30,7 @@ class BackgroundSyncPassResult {
 /// should only invoke on Android with [NetworkType.connected] (WorkManager).
 Future<BackgroundSyncPassResult> runBackgroundSyncPass({
   required String dataDir,
+  Future<String> Function(DeviceIdentityStore store)? getTlsRoot,
 }) async {
   final db = createMeshPadDatabase(dataDir);
   try {
@@ -72,6 +73,7 @@ Future<BackgroundSyncPassResult> runBackgroundSyncPass({
       getEngine: () async => engine,
       getIdentity: () async => identity,
       getDeviceStore: () async => deviceStore,
+      getTlsRoot: getTlsRoot,
     );
     final coordinator = LanSyncCoordinator(deviceStore: deviceStore);
 

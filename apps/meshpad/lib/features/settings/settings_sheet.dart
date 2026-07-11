@@ -261,6 +261,98 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     }
   }
 
+  Future<void> _addAllowedWifiSsid(String rawSsid) async {
+    if (_busy) return;
+
+    final l10n = AppLocalizations.of(context);
+    final ssid = WifiInfoPlatform.normalizeSsid(rawSsid);
+    if (ssid == null || ssid.isEmpty) {
+      _settingsHint(
+        context,
+        l10n.settingsWifiSsidUnavailable,
+        severity: StatusHintSeverity.info,
+      );
+      return;
+    }
+
+    final settings = await ref.read(appSettingsProvider.future);
+    if (!mounted) return;
+    if (settings.allowedWifiSsids.contains(ssid)) {
+      _settingsHint(
+        context,
+        l10n.settingsWifiAlreadyAdded(ssid),
+        severity: StatusHintSeverity.info,
+      );
+      return;
+    }
+
+    await ref.read(settingsControllerProvider).addAllowedWifiSsid(ssid);
+    if (mounted) {
+      _settingsHint(
+        context,
+        l10n.settingsWifiAdded(ssid),
+        severity: StatusHintSeverity.success,
+      );
+    }
+  }
+
+  Future<void> _addCurrentWifiSsid() async {
+    if (_busy) return;
+
+    final l10n = AppLocalizations.of(context);
+    final granted = await WifiInfoPlatform.ensureSsidPermission();
+    if (!mounted) return;
+    if (!granted) {
+      _settingsHint(
+        context,
+        l10n.settingsWifiPermissionDenied,
+        severity: StatusHintSeverity.info,
+      );
+      return;
+    }
+
+    if (!await WifiInfoPlatform.isLocationEnabled()) {
+      if (!mounted) return;
+      MeshPadLog.warn('settings', 'Wi‑Fi SSID read failed: location disabled');
+      _settingsHint(
+        context,
+        l10n.settingsWifiLocationDisabled,
+        severity: StatusHintSeverity.info,
+      );
+      return;
+    }
+
+    final ssid = await WifiInfoPlatform.currentSsid(requestPermission: false);
+    if (!mounted) return;
+    if (ssid == null || ssid.isEmpty) {
+      MeshPadLog.warn(
+          'settings', 'Wi‑Fi SSID read failed: null/empty from platform');
+      _settingsHint(
+        context,
+        l10n.settingsWifiSsidUnavailable,
+        severity: StatusHintSeverity.info,
+      );
+      return;
+    }
+
+    await _addAllowedWifiSsid(ssid);
+  }
+
+  Future<void> _addWifiManually() async {
+    if (_busy) return;
+
+    final l10n = AppLocalizations.of(context);
+    final ssid = await showTextInputDialog(
+      context,
+      title: l10n.addWifiManuallyTitle,
+      initialValue: '',
+      labelText: l10n.addWifiManuallyLabel,
+      hintText: l10n.addWifiManuallyHint,
+    );
+    if (ssid == null || ssid.trim().isEmpty) return;
+    await _addAllowedWifiSsid(ssid);
+  }
+
   Future<void> _editLocalDisplayName(String currentName) async {
     if (_busy) return;
 
@@ -845,12 +937,19 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                         if (!kIsWeb && Platform.isAndroid)
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
-                                'Синхронизация только в выбранных Wi‑Fi'),
+                            title: Text(l10n.syncOnlyAllowedWifi),
                             subtitle: Text(
-                              settings.allowedWifiSsids.isEmpty
-                                  ? 'Добавьте сеть ниже'
-                                  : settings.allowedWifiSsids.join(', '),
+                              () {
+                                final networks =
+                                    WifiInfoPlatform.sanitizeAllowedWifiSsids(
+                                  settings.allowedWifiSsids,
+                                );
+                                return networks.isEmpty
+                                    ? l10n.syncOnlyAllowedWifiHintEmpty
+                                    : l10n.syncOnlyAllowedWifiHintList(
+                                        networks.join(', '),
+                                      );
+                              }(),
                             ),
                             value: settings.syncOnlyOnAllowedWifi,
                             onChanged: _busy
@@ -862,18 +961,16 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                         if (!kIsWeb && Platform.isAndroid)
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Добавить текущую Wi‑Fi'),
+                            title: Text(l10n.addCurrentWifi),
                             trailing: const Icon(Icons.wifi),
-                            onTap: _busy
-                                ? null
-                                : () async {
-                                    final ssid =
-                                        await WifiInfoPlatform.currentSsid();
-                                    if (ssid == null || ssid.isEmpty) return;
-                                    await ref
-                                        .read(settingsControllerProvider)
-                                        .addAllowedWifiSsid(ssid);
-                                  },
+                            onTap: _busy ? null : _addCurrentWifiSsid,
+                          ),
+                        if (!kIsWeb && Platform.isAndroid)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(l10n.addWifiManually),
+                            trailing: const Icon(Icons.edit),
+                            onTap: _busy ? null : _addWifiManually,
                           ),
                         if (!kIsWeb &&
                             (Platform.isWindows || Platform.isLinux)) ...[

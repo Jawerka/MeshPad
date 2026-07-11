@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
@@ -124,18 +125,32 @@ class HeadlessLanSyncService {
     onSyncStarted?.call();
     try {
       await repository.purgeExpiredTrash();
-      final result = await coordinator.syncTrustedPeers(
-        transport: transport,
-        repository: repository,
+
+      final trusted = await deviceStore.listTrustedDevices();
+      final excluded = {
+        ...excludePeerIds,
+        if (excludePeerId != null) excludePeerId,
+      }.toList(growable: false);
+
+      final signingKey = await deviceStore.readSigningPrivateKey();
+      final dataDir = repository.paths.root;
+      final tlsRoot = MeshPadPaths(dataDir).tlsRoot;
+
+      final result = await runForegroundLanSync(
+        dataDir: dataDir,
+        defaultAuthor: identity.displayName,
+        networkProfile: networkProfile,
         localPeerId: identity.peerId,
-        excludePeerIds: {
-          ...excludePeerIds,
-          if (excludePeerId != null) excludePeerId,
-        }.toList(growable: false),
+        deviceStore: deviceStore,
+        transport: transport,
+        trustedPeers: trusted,
+        excludePeerIds: excluded,
         propagateCascade: propagateCascade ?? _profileSettings.propagateCascade,
         hopLimit: hopLimit ?? _profileSettings.cascadeHopLimit,
-        maxConcurrentPeers: _profileSettings.maxConcurrentPeers,
+        signingKeyBase64: signingKey == null ? null : base64Encode(signingKey),
+        tlsRootPath: tlsRoot,
       );
+
       if (result.status == LanSyncRunStatus.completed && result.noteCount > 0) {
         changeHub?.feedChanged();
       }

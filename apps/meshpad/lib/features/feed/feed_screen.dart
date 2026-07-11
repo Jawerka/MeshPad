@@ -380,6 +380,13 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
     ref.invalidate(searchResultsProvider);
   }
 
+  Future<void> _runHeaderSync(BuildContext context, WidgetRef ref) async {
+    final result = await ref.read(syncControllerProvider).runSync();
+    if (context.mounted) {
+      showSyncRunFeedback(context, result);
+    }
+  }
+
   Future<void> _confirmEmptyTrash(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
@@ -471,13 +478,7 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                     needsRePair: needsRePair,
                     rePairTooltip:
                         l10n?.syncNeedsRePairTooltip ?? 'Re-pairing required',
-                    onPressed: () async {
-                      final result =
-                          await ref.read(syncControllerProvider).runSync();
-                      if (context.mounted) {
-                        showSyncRunFeedback(context, result);
-                      }
-                    },
+                    onPressed: () => unawaited(_runHeaderSync(context, ref)),
                   ),
                 if (!isWeb && (Platform.isWindows || Platform.isLinux)) ...[
                   IconButton(

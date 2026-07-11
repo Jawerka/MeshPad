@@ -66,13 +66,27 @@ void main() {
     );
 
     var progressEvents = 0;
-    final result = await runForegroundSyncInIsolate(
+    final result = await runForegroundLanSync(
       dataDir: dirA.path,
       defaultAuthor: identityA.displayName,
       networkProfile: LanNetworkProfile.normal,
       localPeerId: identityA.peerId,
-      resolvedEndpoints: [endpoint],
-      authTokens: {'peer-b': sharedToken},
+      deviceStore: storeA,
+      transport: LanSyncTransport(
+        getEngine: () async => SyncEngine(
+          notes: createNoteRepository(
+            dataDir: dirA.path,
+            defaultAuthor: identityA.displayName,
+          ),
+          identity: identityA,
+        ),
+        getIdentity: () async => identityA,
+        getDeviceStore: () async => storeA,
+        outboundOnly: true,
+        enableTls: false,
+      )..rememberEndpoint(endpoint),
+      trustedPeers: await storeA.listTrustedDevices(),
+      enableTls: false,
       onProgress: (_) => progressEvents++,
     );
 

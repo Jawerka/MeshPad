@@ -232,6 +232,54 @@ class AppLocalizationsEn extends AppLocalizations {
       'Less discovery traffic — easier on Wi‑Fi';
 
   @override
+  String get syncOnlyAllowedWifi => 'Sync only on selected Wi‑Fi';
+
+  @override
+  String get syncOnlyAllowedWifiHintEmpty => 'Add a network below';
+
+  @override
+  String syncOnlyAllowedWifiHintList(String networks) {
+    return '$networks';
+  }
+
+  @override
+  String get addCurrentWifi => 'Add current Wi‑Fi';
+
+  @override
+  String get addWifiManually => 'Enter Wi‑Fi name manually';
+
+  @override
+  String get addWifiManuallyTitle => 'Wi‑Fi network name';
+
+  @override
+  String get addWifiManuallyLabel => 'SSID';
+
+  @override
+  String get addWifiManuallyHint => 'As shown in Android Wi‑Fi settings';
+
+  @override
+  String settingsWifiAdded(String ssid) {
+    return 'Added Wi‑Fi: $ssid';
+  }
+
+  @override
+  String settingsWifiAlreadyAdded(String ssid) {
+    return 'Already in the list: $ssid';
+  }
+
+  @override
+  String get settingsWifiPermissionDenied =>
+      'Allow location and Wi‑Fi access in the permission dialog, or enter the network name manually';
+
+  @override
+  String get settingsWifiLocationDisabled =>
+      'Turn on Location in Android settings to read the Wi‑Fi name, or enter it manually';
+
+  @override
+  String get settingsWifiSsidUnavailable =>
+      'Could not read the current Wi‑Fi name. Connect to Wi‑Fi or enter it manually';
+
+  @override
   String minutesShort(int minutes) {
     return '$minutes min';
   }
@@ -519,6 +567,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Scan this QR on the other device (MeshPad mobile)';
 
   @override
+  String get pairingQrPreparing => 'Starting LAN server for QR…';
+
+  @override
   String get pairingScanQr => 'Scan QR';
 
   @override
@@ -535,6 +586,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pairingQrProbeFailed =>
       'Could not reach the device from QR. Check Wi‑Fi.';
+
+  @override
+  String get pairingQrCameraFailed => 'Camera unavailable';
+
+  @override
+  String get pairingQrCameraFailedHint =>
+      'Allow camera access in system settings, or enter the PIN manually.';
 
   @override
   String get devicesSheetTitle => 'Devices';

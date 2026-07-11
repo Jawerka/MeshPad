@@ -90,6 +90,23 @@ void main() {
     expect(AppSettings.clampInterval(15), 15);
   });
 
+  test('loadSettings removes invalid Wi‑Fi SSIDs from allow-list', () async {
+    final file = File(p.join(tempDir.path, 'app_settings.json'));
+    await file.writeAsString('''
+{
+  "allowed_wifi_ssids": ["wifi-2ghz", "<unknown ssid>", "unknown ssid"],
+  "sync_only_on_allowed_wifi": true
+}
+''');
+
+    final loaded = await store.loadSettings();
+    expect(loaded.allowedWifiSsids, ['wifi-2ghz']);
+
+    final persisted =
+        jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    expect(persisted['allowed_wifi_ssids'], ['wifi-2ghz']);
+  });
+
   test('loadSettings migrates sync_transport libp2p to lan', () async {
     final file = File(p.join(tempDir.path, 'app_settings.json'));
     await file.writeAsString('''

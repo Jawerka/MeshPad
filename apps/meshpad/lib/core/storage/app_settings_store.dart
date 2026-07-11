@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import 'app_settings.dart';
+import '../../platform/wifi_info.dart';
 
 /// Persists app preferences outside the data directory (so path can be relocated).
 class AppSettingsStore {
@@ -53,15 +54,24 @@ class AppSettingsStore {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       final settings = AppSettings.fromJson(json, defaultDataDir: defaultDir);
+      final cleaned =
+          WifiInfoPlatform.sanitizeAllowedWifiSsids(settings.allowedWifiSsids);
+      final needsWifiCleanup = !_listsEqual(cleaned, settings.allowedWifiSsids);
+      final sanitized = needsWifiCleanup
+          ? settings.copyWith(allowedWifiSsids: cleaned)
+          : settings;
       // ADR 0003: libp2p removed — migrate to LAN.
       if (json['sync_transport'] == 'libp2p' ||
-          settings.syncTransportKind == SyncTransportKind.libp2p) {
+          sanitized.syncTransportKind == SyncTransportKind.libp2p) {
         final migrated =
-            settings.copyWith(syncTransportKind: SyncTransportKind.lan);
+            sanitized.copyWith(syncTransportKind: SyncTransportKind.lan);
         await saveSettings(migrated);
         return migrated;
       }
-      return settings;
+      if (needsWifiCleanup) {
+        await saveSettings(sanitized);
+      }
+      return sanitized;
     } catch (_) {
       return AppSettings(dataDir: defaultDir);
     }
@@ -96,5 +106,13 @@ class AppSettingsStore {
   Future<bool> isUsingCustomDataDir() async {
     final settings = await loadSettings();
     return settings.isUsingCustomDataDir(await defaultDataDir());
+  }
+
+  static bool _listsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 }

@@ -1,7 +1,7 @@
 name: meshpad
 description: MeshPad — local-first Markdown notes in a chat-style feed.
 publish_to: none
-version: 0.2.11+1
+version: 0.2.12+1
 resolution: workspace
 
 environment:
@@ -39,7 +39,7 @@ dependencies:
   audioplayers: ^6.1.0
   flutter_secure_storage: ^9.2.4
   qr_flutter: ^4.1.0
-  mobile_scanner: ^6.0.2
+  mobile_scanner: 7.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

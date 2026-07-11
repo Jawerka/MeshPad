@@ -17,7 +17,7 @@ if [[ ! -f "$FINGERPRINT_FILE" ]]; then
   exit 1
 fi
 
-EXPECTED="$(tr -d '[:space:]' <"$FINGERPRINT_FILE")"
+EXPECTED="$(tr -d '[:space:]\r' <"$FINGERPRINT_FILE" | sed $'s/\xef\xbb\xbf//')"
 if [[ -z "$EXPECTED" ]]; then
   echo "Expected SHA-256 fingerprint is empty in $FINGERPRINT_FILE" >&2
   exit 1
@@ -41,7 +41,7 @@ if [[ -z "$CERTS" ]]; then
   exit 1
 fi
 
-ACTUAL="$(echo "$CERTS" | grep -oE 'SHA-256 digest: [0-9A-F:]+' | head -1 | sed 's/SHA-256 digest: //' | tr -d ':')"
+ACTUAL="$(echo "$CERTS" | grep -oE 'SHA-256 digest: [0-9A-Fa-f:]+' | head -1 | sed 's/SHA-256 digest: //' | tr -d ':')"
 EXPECTED_NORM="$(echo "$EXPECTED" | tr '[:lower:]' '[:upper:]' | tr -d ':')"
 ACTUAL_NORM="$(echo "$ACTUAL" | tr '[:lower:]' '[:upper:]' | tr -d ':')"
 

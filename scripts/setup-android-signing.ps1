@@ -115,7 +115,8 @@ $keyPassword = $props['keyPassword']
 $keyAlias = $props['keyAlias']
 
 $sha256 = Get-ReleaseCertSha256 -KeystorePath $keystore -StorePassword $storePassword -Alias $keyAlias
-[System.IO.File]::WriteAllText($fingerprintFile, $sha256.Trim(), (New-Object System.Text.UTF8Encoding $false))
+$sha256Hex = ($sha256 -replace ':', '').ToLowerInvariant()
+[System.IO.File]::WriteAllText($fingerprintFile, $sha256Hex, (New-Object System.Text.UTF8Encoding $false))
 Write-Host "Certificate SHA-256: $sha256"
 Write-Host "Wrote $fingerprintFile"
 

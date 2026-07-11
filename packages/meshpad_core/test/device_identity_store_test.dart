@@ -71,6 +71,49 @@ void main() {
     expect(await store.signingKeyNeedsRePair(), isFalse);
   });
 
+  test('signing key reset marker clears only after all peers re-paired',
+      () async {
+    final paths = MeshPadPaths(tempDir.path);
+    final signingKeys = MemoryDeviceSigningKeyStore();
+    final store = DeviceIdentityStore(
+      paths: paths,
+      signingKeys: signingKeys,
+    );
+
+    await store.loadOrCreateIdentity(defaultDisplayName: 'PC');
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone A', authToken: 'a');
+    await store.trustDevice(peerId: 'peer-2', name: 'Phone B', authToken: 'b');
+
+    await signingKeys.delete();
+    await store.loadOrCreateIdentity();
+    expect(await store.signingKeyNeedsRePair(), isTrue);
+
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone A', authToken: 'a2');
+    expect(await store.signingKeyNeedsRePair(), isTrue);
+
+    await store.trustDevice(peerId: 'peer-2', name: 'Phone B', authToken: 'b2');
+    expect(await store.signingKeyNeedsRePair(), isFalse);
+  });
+
+  test('persists and clears auth failure for trusted peer', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(peerId: 'peer-1', name: 'Phone', authToken: 't');
+
+    await store.recordAuthFailure(
+      peerId: 'peer-1',
+      body: '{"unauthorized":"token"}',
+    );
+
+    var devices = await store.listTrustedDevices();
+    expect(devices.single.authFailureBody, '{"unauthorized":"token"}');
+    expect(devices.single.needsRePairing, isTrue);
+
+    await store.clearAuthFailure('peer-1');
+    devices = await store.listTrustedDevices();
+    expect(devices.single.authFailureBody, isNull);
+    expect(devices.single.needsRePairing, isFalse);
+  });
+
   test('trust and list devices', () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     await store.trustDevice(peerId: 'peer-1', name: 'Phone');

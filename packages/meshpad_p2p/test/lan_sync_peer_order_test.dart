@@ -52,4 +52,32 @@ void main() {
     ]);
     transport.dispose();
   });
+
+  test('orderPeersForSync treats recent stored endpoint as likely online', () {
+    final transport = LanSyncTransport(
+      getEngine: () async => throw UnimplementedError(),
+      getIdentity: () async => throw UnimplementedError(),
+      announceHost: '192.168.1.10',
+    );
+
+    final peers = [
+      Device(
+        peerId: 'offline-cache',
+        name: 'Desktop',
+        lastSeenAt: DateTime.utc(2026, 1, 3),
+      ),
+      Device(
+        peerId: 'stored-phone',
+        name: 'Phone',
+        lanHost: '192.168.1.20',
+        lanHttpPort: 45838,
+        lastSeenAt: DateTime.now().toUtc().subtract(const Duration(minutes: 5)),
+      ),
+    ];
+
+    final ordered = orderPeersForSync(peers: peers, transport: transport);
+
+    expect(ordered.first.peerId, 'stored-phone');
+    transport.dispose();
+  });
 }

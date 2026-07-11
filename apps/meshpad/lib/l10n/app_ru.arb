@@ -278,6 +278,28 @@
   "syncRejectedMissingPeerId": "Синхронизация отклонена: не указано устройство.",
   "syncSigningKeyReset": "Ключ подписи был сброшен. Пересопрягите все устройства.",
   "syncNeedsRePairTooltip": "Требуется пересопряжение",
+  "syncPartialPeers": "Синхронизировано {succeeded} из {total}; {failed} недоступны или с ошибкой",
+  "@syncPartialPeers": {
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "total": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "syncPeerUnreachable": "Устройство недоступно в локальной сети",
+  "signingKeyResetBanner": "Ключ подписи был сброшен. Пересопряжите все доверенные устройства.",
+  "signingKeyResetDismiss": "Я пересопряжил все устройства",
+  "devicesActionRePair": "Пересопряжение",
+  "syncConflictCopiesCount": "Конфликтные копии: {count}",
+  "@syncConflictCopiesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncDiagnosticsTitle": "Диагностика синхронизации",
+  "syncDiagnosticsCopy": "Скопировать журнал",
+  "syncDiagnosticsCopied": "Журнал синхронизации скопирован",
+  "syncDiagnosticsEmpty": "Запусков синхронизации пока нет",
   "pairingQrHostHint": "Отсканируйте QR на другом устройстве (MeshPad на телефоне)",
   "pairingScanQr": "Сканировать QR",
   "pairingQrScanHint": "Наведите камеру на QR с экрана устройства-хоста",

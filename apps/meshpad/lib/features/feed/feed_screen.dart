@@ -13,6 +13,7 @@ import '../../core/providers/git_sync_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/sync_activity_provider.dart';
 import '../../core/sync/sync_run_feedback.dart';
+import '../../core/providers/sync_auth_health_provider.dart';
 import '../../core/providers/sync_providers.dart';
 import '../../core/ui/meshpad_status_hint.dart';
 import '../../core/ui/status_hint_provider.dart';
@@ -417,6 +418,11 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
     final outboxAsync = ref.watch(outboxCountProvider);
     final outboxCount = outboxAsync.valueOrNull ?? 0;
     final syncActivity = ref.watch(syncActivityProvider);
+    final signingKeyResetAsync = ref.watch(syncAuthHealthProvider);
+    final trustedAsync = ref.watch(trustedDevicesProvider);
+    final needsRePair = signingKeyResetAsync.valueOrNull == true ||
+        (trustedAsync.valueOrNull?.any((d) => d.needsRePairing) ?? false);
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final compact = isCompactFeedLayout(context);
 
     return Column(
@@ -462,6 +468,9 @@ class _FeedHeaderState extends ConsumerState<_FeedHeader> {
                   _HeaderSyncButton(
                     activity: syncActivity,
                     outboxCount: outboxCount,
+                    needsRePair: needsRePair,
+                    rePairTooltip:
+                        l10n?.syncNeedsRePairTooltip ?? 'Re-pairing required',
                     onPressed: () async {
                       final result =
                           await ref.read(syncControllerProvider).runSync();
@@ -647,11 +656,15 @@ class _HeaderSyncButton extends StatefulWidget {
   const _HeaderSyncButton({
     required this.activity,
     required this.outboxCount,
+    required this.needsRePair,
+    required this.rePairTooltip,
     required this.onPressed,
   });
 
   final SyncActivity activity;
   final int outboxCount;
+  final bool needsRePair;
+  final String rePairTooltip;
   final VoidCallback onPressed;
 
   @override
@@ -698,14 +711,27 @@ class _HeaderSyncButtonState extends State<_HeaderSyncButton>
   @override
   Widget build(BuildContext context) {
     final active = widget.activity.active;
-    final color = active ? MeshPadColors.primary : null;
+    final color = active
+        ? MeshPadColors.primary
+        : widget.needsRePair
+            ? MeshPadColors.danger
+            : null;
 
     return IconButton(
-      tooltip: active ? 'Синхронизация…' : 'Синхронизировать',
+      tooltip: active
+          ? 'Синхронизация…'
+          : widget.needsRePair
+              ? widget.rePairTooltip
+              : 'Синхронизировать',
       onPressed: active ? null : widget.onPressed,
       icon: Badge(
-        isLabelVisible: widget.outboxCount > 0,
-        label: Text('${widget.outboxCount}'),
+        isLabelVisible: widget.outboxCount > 0 || widget.needsRePair,
+        label: widget.outboxCount > 0
+            ? Text('${widget.outboxCount}')
+            : widget.needsRePair
+                ? const Text('!')
+                : null,
+        backgroundColor: widget.needsRePair ? MeshPadColors.danger : null,
         child: RotationTransition(
           turns: active ? _turns : const AlwaysStoppedAnimation(0),
           child: Icon(Icons.sync, color: color),

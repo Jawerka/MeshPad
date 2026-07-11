@@ -226,4 +226,90 @@ void main() {
     expect(result.failedPeerIds, isEmpty);
     transport.dispose();
   });
+
+  test('syncTrustedPeers uses stored endpoint when discovery cache is empty',
+      () async {
+    final dirLocal = await Directory.systemTemp.createTemp('lan_coord_seed_');
+    final dirRemote =
+        await Directory.systemTemp.createTemp('lan_coord_seed_remote_');
+    addTearDown(() async {
+      if (await dirLocal.exists()) await dirLocal.delete(recursive: true);
+      if (await dirRemote.exists()) await dirRemote.delete(recursive: true);
+    });
+
+    final store = DeviceIdentityStore(paths: MeshPadPaths(dirLocal.path));
+    final dbLocal = MeshPadDatabase.inMemory();
+    final dbRemote = MeshPadDatabase.inMemory();
+    addTearDown(() async {
+      await dbLocal.close();
+      await dbRemote.close();
+    });
+
+    final sharedToken = generateSyncAuthToken();
+    final identity = await store.loadOrCreateIdentity();
+
+    final repoLocal = createNoteRepository(
+      dataDir: dirLocal.path,
+      defaultAuthor: 'local',
+      database: dbLocal,
+    );
+    final repoRemote = createNoteRepository(
+      dataDir: dirRemote.path,
+      defaultAuthor: 'remote',
+      database: dbRemote,
+    );
+
+    final engineLocal = SyncEngine(notes: repoLocal, identity: identity);
+    final engineRemote = SyncEngine(
+      notes: repoRemote,
+      identity: LocalDeviceIdentity(
+        peerId: 'peer-stored',
+        displayName: 'Stored Peer',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    final storeRemote =
+        DeviceIdentityStore(paths: MeshPadPaths(dirRemote.path));
+    await storeRemote.trustDevice(
+      peerId: identity.peerId,
+      name: 'Local',
+      authToken: sharedToken,
+    );
+
+    final server = LanPeerServer(
+      preferredPort: 0,
+      getEngine: () async => engineRemote,
+      lookupTrustedPeer: storeRemote.trustedRecordFor,
+    );
+    final port = await server.start();
+    addTearDown(server.stop);
+
+    await store.trustDevice(
+      peerId: 'peer-stored',
+      name: 'Stored Peer',
+      authToken: sharedToken,
+      lanHost: InternetAddress.loopbackIPv4.address,
+      lanHttpPort: port,
+    );
+
+    await repoLocal.createNote(markdown: 'via stored endpoint');
+
+    final transport = LanSyncTransport(
+      getEngine: () async => engineLocal,
+      getIdentity: () async => identity,
+      getDeviceStore: () async => store,
+    );
+
+    final coordinator = LanSyncCoordinator(deviceStore: store);
+    final result = await coordinator.syncTrustedPeers(
+      transport: transport,
+      repository: repoLocal,
+    );
+
+    expect(result.status, LanSyncRunStatus.completed);
+    expect(result.succeededPeerIds, contains('peer-stored'));
+    expect((await repoRemote.listNotes()).length, 1);
+    transport.dispose();
+  });
 }

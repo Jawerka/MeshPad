@@ -153,6 +153,12 @@ final outboxCountProvider = FutureProvider<int>((ref) async {
   return service.pendingOutboxCount();
 });
 
+final conflictCopiesCountProvider = FutureProvider<int>((ref) async {
+  if (ref.watch(isWebClientProvider)) return 0;
+  final repo = await ref.watch(noteRepositoryProvider.future);
+  return repo.countAllConflictCopies();
+});
+
 final pendingSyncNoteIdsProvider = FutureProvider<Set<String>>((ref) async {
   if (ref.watch(isWebClientProvider)) return {};
   final service = await ref.watch(notesServiceProvider.future);

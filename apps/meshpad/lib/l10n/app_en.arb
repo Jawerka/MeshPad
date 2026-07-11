@@ -186,6 +186,28 @@
   "syncRejectedMissingPeerId": "Sync rejected: missing device identity.",
   "syncSigningKeyReset": "Signing key was reset. Re-pair all devices.",
   "syncNeedsRePairTooltip": "Re-pairing required",
+  "syncPartialPeers": "Synced {succeeded} of {total} devices; {failed} unavailable or failed",
+  "@syncPartialPeers": {
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "total": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "syncPeerUnreachable": "Device is not reachable on the LAN",
+  "signingKeyResetBanner": "Signing key was reset. Re-pair all trusted devices.",
+  "signingKeyResetDismiss": "I've re-paired all devices",
+  "devicesActionRePair": "Re-pair",
+  "syncConflictCopiesCount": "Conflict copies: {count}",
+  "@syncConflictCopiesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncDiagnosticsTitle": "Sync diagnostics",
+  "syncDiagnosticsCopy": "Copy log",
+  "syncDiagnosticsCopied": "Sync log copied",
+  "syncDiagnosticsEmpty": "No sync runs recorded yet",
   "pairingQrHostHint": "Scan this QR on the other device (MeshPad mobile)",
   "pairingScanQr": "Scan QR",
   "pairingQrScanHint": "Point the camera at the pairing QR on the host device",

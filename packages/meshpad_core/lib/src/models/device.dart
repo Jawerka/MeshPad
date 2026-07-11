@@ -8,6 +8,7 @@ class Device {
     this.lastSeenAt,
     this.lanHost,
     this.lanHttpPort,
+    this.authFailureBody,
   });
 
   final String peerId;
@@ -17,8 +18,12 @@ class Device {
   final DateTime? lastSeenAt;
   final String? lanHost;
   final int? lanHttpPort;
+  final String? authFailureBody;
 
   bool get hasLanEndpoint => lanHost != null && lanHttpPort != null;
+
+  bool get needsRePairing =>
+      authFailureBody != null && authFailureBody!.isNotEmpty;
 
   Device copyWith({
     String? name,
@@ -27,6 +32,8 @@ class Device {
     DateTime? lastSeenAt,
     String? lanHost,
     int? lanHttpPort,
+    String? authFailureBody,
+    bool clearAuthFailureBody = false,
   }) {
     return Device(
       peerId: peerId,
@@ -36,6 +43,9 @@ class Device {
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       lanHost: lanHost ?? this.lanHost,
       lanHttpPort: lanHttpPort ?? this.lanHttpPort,
+      authFailureBody: clearAuthFailureBody
+          ? null
+          : (authFailureBody ?? this.authFailureBody),
     );
   }
 }

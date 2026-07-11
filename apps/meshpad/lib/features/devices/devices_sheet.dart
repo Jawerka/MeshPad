@@ -52,6 +52,7 @@ class DevicesSheet extends ConsumerWidget {
     final sheetContext = context;
     final identityAsync = ref.watch(localIdentityProvider);
     final trustedAsync = ref.watch(trustedDevicesProvider);
+    final signingKeyResetAsync = ref.watch(syncAuthHealthProvider);
     final discovered = ref.watch(discoveredPeersProvider);
     final lan = readLanSyncTransport(ref);
     final trustedIds =
@@ -88,6 +89,48 @@ class DevicesSheet extends ConsumerWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 16),
+              signingKeyResetAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (needsReset) {
+                  if (!needsReset) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Material(
+                      color: MeshPadColors.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              l10n.signingKeyResetBanner,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: MeshPadColors.danger),
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () async {
+                                  final store = await ref
+                                      .read(deviceStoreProvider.future);
+                                  await store.forceClearSigningKeyResetMarker();
+                                  ref.invalidate(syncAuthHealthProvider);
+                                },
+                                child: Text(l10n.signingKeyResetDismiss),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
               Expanded(
                 child: ListView(
                   controller: scrollController,
@@ -158,15 +201,43 @@ class DevicesSheet extends ConsumerWidget {
                                 icon: peerIconFor(device.icon),
                                 accent: peerAccentColor(device.peerId),
                                 compact: compact,
-                                footer: authFailures.containsKey(device.peerId)
-                                    ? Text(
-                                        l10n.syncNeedsRePairTooltip,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: MeshPadColors.danger,
+                                footer: device.needsRePairing ||
+                                        authFailures.containsKey(device.peerId)
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                            l10n.syncNeedsRePairTooltip,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                                  color: MeshPadColors.danger,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: TextButton(
+                                              onPressed: () =>
+                                                  _showPinPairingDialog(
+                                                sheetContext,
+                                                ref,
+                                                targetPeer: DiscoveredPeer(
+                                                  peerId: device.peerId,
+                                                  displayName: device.name,
+                                                  discoveredAt:
+                                                      DateTime.now().toUtc(),
+                                                  lanHost: device.lanHost,
+                                                  httpPort: device.lanHttpPort,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                  l10n.devicesActionRePair),
                                             ),
+                                          ),
+                                        ],
                                       )
                                     : null,
                                 onAvatarTap: () => _pickTrustedIcon(
@@ -176,6 +247,22 @@ class DevicesSheet extends ConsumerWidget {
                                 ),
                                 trailing: TrustedDeviceActions(
                                   compact: compact,
+                                  onRePair: device.needsRePairing ||
+                                          authFailures
+                                              .containsKey(device.peerId)
+                                      ? () => _showPinPairingDialog(
+                                            sheetContext,
+                                            ref,
+                                            targetPeer: DiscoveredPeer(
+                                              peerId: device.peerId,
+                                              displayName: device.name,
+                                              discoveredAt:
+                                                  DateTime.now().toUtc(),
+                                              lanHost: device.lanHost,
+                                              httpPort: device.lanHttpPort,
+                                            ),
+                                          )
+                                      : null,
                                   onPickIcon: () => _pickTrustedIcon(
                                     sheetContext,
                                     ref,
@@ -513,6 +600,11 @@ class DevicesSheet extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (peerResult.status == LanPeerSyncStatus.unreachable) {
+      showMeshPadHint(
+        context,
+        l10n.syncPeerUnreachable,
+        severity: StatusHintSeverity.info,
+      );
       return;
     }
 
@@ -529,6 +621,19 @@ class DevicesSheet extends ConsumerWidget {
       ref.invalidate(trustedDevicesProvider);
       ref.invalidate(notesListProvider);
       ref.read(peerSyncAuthFailedProvider.notifier).clearPeer(peer.peerId);
+    } else if (peerResult.status == LanPeerSyncStatus.failed &&
+        peerResult.message != null) {
+      final authFailure = parseLanSyncAuthFailureBody(peerResult.message!);
+      if (authFailure != null) {
+        await store.recordAuthFailure(
+          peerId: peer.peerId,
+          body: peerResult.message!,
+        );
+        ref
+            .read(peerSyncAuthFailedProvider.notifier)
+            .recordFailure(peer.peerId, authFailure);
+        ref.invalidate(trustedDevicesProvider);
+      }
     }
 
     if (!context.mounted) return;

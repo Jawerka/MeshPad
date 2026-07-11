@@ -89,6 +89,55 @@ class DeviceIdentityStore {
     if (await file.exists()) await file.delete();
   }
 
+  /// Clears the signing-key reset marker after explicit user confirmation.
+  Future<void> forceClearSigningKeyResetMarker() =>
+      clearSigningKeyResetMarker();
+
+  /// Clears the marker when every trusted peer was re-paired after the reset.
+  Future<void> maybeClearSigningKeyResetMarker() async {
+    final markerFile = File(_paths.signingKeyResetMarkerFile);
+    if (!await markerFile.exists()) return;
+
+    final markerJson =
+        jsonDecode(await markerFile.readAsString()) as Map<String, dynamic>;
+    final resetAtRaw = markerJson['reset_at'] as String?;
+    if (resetAtRaw == null) return;
+    final resetAt = DateTime.parse(resetAtRaw).toUtc();
+
+    final trustedDir = Directory(p.join(_paths.devicesRoot, 'trusted'));
+    if (!await trustedDir.exists()) return;
+
+    await for (final entity in trustedDir.list()) {
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      final json =
+          jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+      final record = TrustedDeviceRecord.fromJson(json);
+      if (record.trustedAt.isBefore(resetAt)) return;
+    }
+
+    await clearSigningKeyResetMarker();
+  }
+
+  Future<void> recordAuthFailure({
+    required String peerId,
+    required String body,
+  }) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null) return;
+
+    await _writeTrustedRecord(record.copyWith(authFailureBody: trimmed));
+  }
+
+  Future<void> clearAuthFailure(String peerId) async {
+    final record = await _loadTrustedRecord(peerId);
+    if (record == null || record.authFailureBody == null) return;
+
+    await _writeTrustedRecord(record.copyWith(clearAuthFailureBody: true));
+  }
+
   Future<void> _markSigningKeyReset({String? previousPublicKey}) async {
     final dir = Directory(_paths.devicesRoot);
     await dir.create(recursive: true);
@@ -222,7 +271,7 @@ class DeviceIdentityStore {
       signingKeyAlgorithm: signingKeyAlgorithm,
     );
     await _writeTrustedRecord(record);
-    await clearSigningKeyResetMarker();
+    await maybeClearSigningKeyResetMarker();
   }
 
   Future<TrustedDeviceRecord?> trustedRecordFor(String peerId) =>

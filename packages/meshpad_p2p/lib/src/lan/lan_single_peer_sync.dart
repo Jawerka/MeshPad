@@ -103,6 +103,7 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
 
     final noteCount = event is SyncCompleted ? event.noteCount : 0;
     await deviceStore.markPeerSeen(peer.peerId);
+    await deviceStore.clearAuthFailure(peer.peerId);
     final live = transport.endpointFor(peer.peerId);
     if (live != null) {
       await deviceStore.syncRemoteDisplayNameIfAllowed(

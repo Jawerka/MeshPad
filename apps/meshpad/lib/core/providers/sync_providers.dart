@@ -5,6 +5,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
 
 import '../sync/sync_auth_messages.dart';
+import '../sync/sync_metrics_store.dart';
 import '../platform/default_device_display_name.dart';
 import '../storage/secure_device_signing_key_store.dart';
 import '../storage/secure_peer_auth_token_store.dart';
@@ -116,11 +117,23 @@ final outboxFailedCountProvider = FutureProvider<int>((ref) async {
 enum SyncRunStatus { noPeers, completed, partial, failed }
 
 class SyncRunResult {
-  const SyncRunResult(this.status, {this.noteCount = 0, this.message});
+  const SyncRunResult(
+    this.status, {
+    this.noteCount = 0,
+    this.message,
+    this.succeededPeerCount = 0,
+    this.failedPeerCount = 0,
+    this.skippedPeerCount = 0,
+    this.totalPeerCount = 0,
+  });
 
   final SyncRunStatus status;
   final int noteCount;
   final String? message;
+  final int succeededPeerCount;
+  final int failedPeerCount;
+  final int skippedPeerCount;
+  final int totalPeerCount;
 }
 
 final syncControllerProvider = Provider<SyncController>((ref) {
@@ -262,7 +275,7 @@ class SyncController {
             .recordFailure(entry.key, entry.value);
       }
 
-      return SyncRunResult(
+      final syncResult = SyncRunResult(
         switch (result.status) {
           LanSyncRunStatus.noPeers => SyncRunStatus.noPeers,
           LanSyncRunStatus.completed => SyncRunStatus.completed,
@@ -271,7 +284,26 @@ class SyncController {
         },
         noteCount: result.noteCount,
         message: result.message,
+        succeededPeerCount: result.succeededPeerIds.length,
+        failedPeerCount: result.failedPeerIds.length,
+        skippedPeerCount: result.skippedPeerIds.length,
+        totalPeerCount: peers.length,
       );
+
+      SyncMetricsStore.instance.record(
+        SyncMetricEntry(
+          at: DateTime.now().toUtc(),
+          status: syncResult.status.name,
+          noteCount: syncResult.noteCount,
+          succeededPeerCount: syncResult.succeededPeerCount,
+          failedPeerCount: syncResult.failedPeerCount,
+          skippedPeerCount: syncResult.skippedPeerCount,
+          totalPeerCount: syncResult.totalPeerCount,
+          message: syncResult.message,
+        ),
+      );
+
+      return syncResult;
     } catch (e, st) {
       MeshPadLog.warn('sync', 'runSync failed: $e');
       MeshPadLog.warn('sync', '$st');
@@ -289,6 +321,7 @@ class SyncController {
     _ref.invalidate(outboxCountProvider);
     _ref.invalidate(pendingSyncNoteIdsProvider);
     _ref.invalidate(outboxFailedCountProvider);
+    _ref.invalidate(conflictCopiesCountProvider);
     _ref.invalidate(notesListProvider);
     _ref.invalidate(trustedDevicesProvider);
   }

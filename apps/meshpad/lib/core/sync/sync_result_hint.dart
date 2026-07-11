@@ -18,6 +18,14 @@ StatusHintSeverity _severityFor(SyncRunStatus status) => switch (status) {
 String? _messageFor(SyncRunResult result, AppLocalizations l10n) {
   if (result.status == SyncRunStatus.completed) return null;
   if (result.status == SyncRunStatus.partial && result.message == null) {
+    if (result.totalPeerCount > 0 &&
+        (result.failedPeerCount > 0 || result.skippedPeerCount > 0)) {
+      return l10n.syncPartialPeers(
+        result.succeededPeerCount,
+        result.totalPeerCount,
+        result.failedPeerCount + result.skippedPeerCount,
+      );
+    }
     return null;
   }
 
@@ -25,7 +33,11 @@ String? _messageFor(SyncRunResult result, AppLocalizations l10n) {
     SyncRunStatus.noPeers => result.message ?? l10n.syncNoTrustedDevices,
     SyncRunStatus.partial => syncRunUserMessage(result.message, l10n).isNotEmpty
         ? syncRunUserMessage(result.message, l10n)
-        : l10n.syncPartialDefault,
+        : l10n.syncPartialPeers(
+            result.succeededPeerCount,
+            result.totalPeerCount,
+            result.failedPeerCount + result.skippedPeerCount,
+          ),
     SyncRunStatus.failed => syncRunUserMessage(result.message, l10n).isNotEmpty
         ? syncRunUserMessage(result.message, l10n)
         : l10n.syncFailedDefault,

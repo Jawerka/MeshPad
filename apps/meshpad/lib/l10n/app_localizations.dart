@@ -884,6 +884,66 @@ abstract class AppLocalizations {
   /// **'Требуется пересопряжение'**
   String get syncNeedsRePairTooltip;
 
+  /// No description provided for @syncPartialPeers.
+  ///
+  /// In ru, this message translates to:
+  /// **'Синхронизировано {succeeded} из {total}; {failed} недоступны или с ошибкой'**
+  String syncPartialPeers(int succeeded, int total, int failed);
+
+  /// No description provided for @syncPeerUnreachable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Устройство недоступно в локальной сети'**
+  String get syncPeerUnreachable;
+
+  /// No description provided for @signingKeyResetBanner.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ключ подписи был сброшен. Пересопряжите все доверенные устройства.'**
+  String get signingKeyResetBanner;
+
+  /// No description provided for @signingKeyResetDismiss.
+  ///
+  /// In ru, this message translates to:
+  /// **'Я пересопряжил все устройства'**
+  String get signingKeyResetDismiss;
+
+  /// No description provided for @devicesActionRePair.
+  ///
+  /// In ru, this message translates to:
+  /// **'Пересопряжение'**
+  String get devicesActionRePair;
+
+  /// No description provided for @syncConflictCopiesCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Конфликтные копии: {count}'**
+  String syncConflictCopiesCount(int count);
+
+  /// No description provided for @syncDiagnosticsTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Диагностика синхронизации'**
+  String get syncDiagnosticsTitle;
+
+  /// No description provided for @syncDiagnosticsCopy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скопировать журнал'**
+  String get syncDiagnosticsCopy;
+
+  /// No description provided for @syncDiagnosticsCopied.
+  ///
+  /// In ru, this message translates to:
+  /// **'Журнал синхронизации скопирован'**
+  String get syncDiagnosticsCopied;
+
+  /// No description provided for @syncDiagnosticsEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запусков синхронизации пока нет'**
+  String get syncDiagnosticsEmpty;
+
   /// No description provided for @pairingQrHostHint.
   ///
   /// In ru, this message translates to:

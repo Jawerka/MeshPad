@@ -397,14 +397,16 @@ class LanSyncTransport implements SyncTransport {
     if (!outboundOnly) {
       await _discovery?.refresh();
 
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      for (final waitMs in const [200, 400, 800]) {
+        await Future<void>.delayed(Duration(milliseconds: waitMs));
 
-      final discovered = _peers[peerId];
+        final discovered = _peers[peerId];
 
-      if (discovered != null) {
-        final live = await probe(discovered);
+        if (discovered != null) {
+          final live = await probe(discovered);
 
-        if (live != null) return live;
+          if (live != null) return live;
+        }
       }
     }
 

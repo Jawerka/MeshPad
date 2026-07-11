@@ -66,6 +66,7 @@ class TrustedDeviceRecord {
     this.tlsCertSha256,
     this.signingPublicKey,
     this.signingKeyAlgorithm,
+    this.authFailureBody,
   });
 
   final String peerId;
@@ -83,6 +84,7 @@ class TrustedDeviceRecord {
   final String? tlsCertSha256;
   final String? signingPublicKey;
   final String? signingKeyAlgorithm;
+  final String? authFailureBody;
 
   Device toDevice() => Device(
         peerId: peerId,
@@ -92,6 +94,7 @@ class TrustedDeviceRecord {
         lastSeenAt: lastSeenAt,
         lanHost: lanHost,
         lanHttpPort: lanHttpPort,
+        authFailureBody: authFailureBody,
       );
 
   Map<String, dynamic> toJson() => {
@@ -108,6 +111,8 @@ class TrustedDeviceRecord {
         if (signingPublicKey != null) 'signing_public_key': signingPublicKey,
         if (signingKeyAlgorithm != null)
           'signing_key_algorithm': signingKeyAlgorithm,
+        if (authFailureBody != null && authFailureBody!.isNotEmpty)
+          'auth_failure_body': authFailureBody,
       };
 
   factory TrustedDeviceRecord.fromJson(Map<String, dynamic> json) {
@@ -126,6 +131,7 @@ class TrustedDeviceRecord {
       tlsCertSha256: json['tls_cert_sha256'] as String?,
       signingPublicKey: json['signing_public_key'] as String?,
       signingKeyAlgorithm: json['signing_key_algorithm'] as String?,
+      authFailureBody: json['auth_failure_body'] as String?,
     );
   }
 
@@ -142,8 +148,10 @@ class TrustedDeviceRecord {
     String? tlsCertSha256,
     String? signingPublicKey,
     String? signingKeyAlgorithm,
+    String? authFailureBody,
     bool clearLanHost = false,
     bool clearLanHttpPort = false,
+    bool clearAuthFailureBody = false,
   }) {
     return TrustedDeviceRecord(
       peerId: peerId,
@@ -158,6 +166,9 @@ class TrustedDeviceRecord {
       tlsCertSha256: tlsCertSha256 ?? this.tlsCertSha256,
       signingPublicKey: signingPublicKey ?? this.signingPublicKey,
       signingKeyAlgorithm: signingKeyAlgorithm ?? this.signingKeyAlgorithm,
+      authFailureBody: clearAuthFailureBody
+          ? null
+          : (authFailureBody ?? this.authFailureBody),
     );
   }
 

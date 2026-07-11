@@ -78,6 +78,7 @@ class TrustedDeviceActions extends StatelessWidget {
     required this.onRename,
     required this.onSync,
     required this.onRevoke,
+    this.onRePair,
   });
 
   final bool compact;
@@ -85,6 +86,7 @@ class TrustedDeviceActions extends StatelessWidget {
   final VoidCallback onRename;
   final VoidCallback onSync;
   final VoidCallback onRevoke;
+  final VoidCallback? onRePair;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +94,12 @@ class TrustedDeviceActions extends StatelessWidget {
     if (compact) {
       return DeviceActionsMenu(
         items: [
+          if (onRePair != null)
+            (
+              value: 'repair',
+              label: l10n.devicesActionRePair,
+              icon: Icons.link_outlined,
+            ),
           (
             value: 'icon',
             label: l10n.devicesActionIcon,
@@ -111,6 +119,8 @@ class TrustedDeviceActions extends StatelessWidget {
         ],
         onSelected: (value) {
           switch (value) {
+            case 'repair':
+              onRePair?.call();
             case 'icon':
               onPickIcon();
             case 'rename':
@@ -127,6 +137,12 @@ class TrustedDeviceActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (onRePair != null)
+          IconButton(
+            icon: const Icon(Icons.link_outlined),
+            tooltip: l10n.devicesActionRePair,
+            onPressed: onRePair,
+          ),
         IconButton(
           icon: const Icon(Icons.palette_outlined),
           tooltip: l10n.devicesActionIcon,

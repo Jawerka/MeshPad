@@ -53,6 +53,19 @@ mixin _NoteRepositoryReconcile
   Future<List<NoteConflictCopy>> listConflictCopies(String noteId) =>
       NoteConflictCopyStore(noteDir: _paths.noteDir(noteId)).list();
 
+  Future<int> countAllConflictCopies() async {
+    final notesDir = Directory(_paths.notesRoot);
+    if (!await notesDir.exists()) return 0;
+
+    var total = 0;
+    await for (final entity in notesDir.list()) {
+      if (entity is! Directory) continue;
+      total +=
+          (await NoteConflictCopyStore(noteDir: entity.path).list()).length;
+    }
+    return total;
+  }
+
   Future<({String title, String markdown})?> readConflictCopy(
     String noteId,
     String fileName,

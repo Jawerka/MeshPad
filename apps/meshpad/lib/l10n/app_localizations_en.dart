@@ -480,6 +480,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncNeedsRePairTooltip => 'Re-pairing required';
 
   @override
+  String syncPartialPeers(int succeeded, int total, int failed) {
+    return 'Synced $succeeded of $total devices; $failed unavailable or failed';
+  }
+
+  @override
+  String get syncPeerUnreachable => 'Device is not reachable on the LAN';
+
+  @override
+  String get signingKeyResetBanner =>
+      'Signing key was reset. Re-pair all trusted devices.';
+
+  @override
+  String get signingKeyResetDismiss => 'I\'ve re-paired all devices';
+
+  @override
+  String get devicesActionRePair => 'Re-pair';
+
+  @override
+  String syncConflictCopiesCount(int count) {
+    return 'Conflict copies: $count';
+  }
+
+  @override
+  String get syncDiagnosticsTitle => 'Sync diagnostics';
+
+  @override
+  String get syncDiagnosticsCopy => 'Copy log';
+
+  @override
+  String get syncDiagnosticsCopied => 'Sync log copied';
+
+  @override
+  String get syncDiagnosticsEmpty => 'No sync runs recorded yet';
+
+  @override
   String get pairingQrHostHint =>
       'Scan this QR on the other device (MeshPad mobile)';
 

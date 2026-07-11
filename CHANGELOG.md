@@ -4,6 +4,21 @@
 
 ---
 
+## [0.2.11] — 2026-07-11
+
+### Added
+
+- **LAN discovery:** seed transport from stored endpoints before sync; adaptive discovery wait (200/400/800 ms); peer ordering uses stored IP + subnet + recent `lastSeenAt`
+- **Auth recovery:** persist `auth_failure` per trusted device; signing-key reset banner; re-pair CTA on device cards; sync blocked until all peers re-paired or user confirms
+- **Sync UX:** partial sync hints with peer counts; unreachable hints on manual sync; conflict copies count in Settings; sync diagnostics log (copy to clipboard); feed header warning when re-pairing required
+- **Hub:** `onError` handler on headless LAN sync transport events stream
+
+### Changed
+
+- Signing key reset marker clears only after all trusted peers are re-paired (or explicit dismiss)
+
+---
+
 ## [0.2.10] — 2026-07-11
 
 ### Added

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meshpad_p2p/meshpad_p2p.dart';
@@ -13,6 +14,7 @@ import '../../core/providers/github_auth_providers.dart';
 import '../../core/providers/notes_providers.dart';
 import '../../core/providers/settings_providers.dart';
 import '../../core/providers/sync_providers.dart';
+import '../../core/sync/sync_metrics_store.dart';
 import 'github_device_auth_dialog.dart';
 import 'settings_update_actions.dart';
 import '../../core/services/apk_update_installer.dart';
@@ -554,6 +556,7 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
     final customDirAsync = ref.watch(customDataDirProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
     final failedAsync = ref.watch(outboxFailedCountProvider);
+    final conflictAsync = ref.watch(conflictCopiesCountProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -729,6 +732,48 @@ class _SettingsSheetState extends ConsumerState<SettingsSheet> {
                             onTap: _busy ? null : _purgeFailedOutbox,
                           )
                         : const SizedBox.shrink(),
+                  ),
+                  conflictAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (count) => count > 0
+                        ? ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.copy_all_outlined),
+                            title: Text(l10n.syncConflictCopiesCount(count)),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.analytics_outlined),
+                    title: Text(l10n.syncDiagnosticsTitle),
+                    subtitle: Text(
+                      SyncMetricsStore.instance.recent.isEmpty
+                          ? l10n.syncDiagnosticsEmpty
+                          : SyncMetricsStore.instance
+                              .exportText()
+                              .split('\n')
+                              .first,
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy_outlined),
+                      tooltip: l10n.syncDiagnosticsCopy,
+                      onPressed: SyncMetricsStore.instance.recent.isEmpty
+                          ? null
+                          : () {
+                              Clipboard.setData(
+                                ClipboardData(
+                                  text: SyncMetricsStore.instance.exportText(),
+                                ),
+                              );
+                              _settingsHint(
+                                context,
+                                l10n.syncDiagnosticsCopied,
+                                severity: StatusHintSeverity.success,
+                              );
+                            },
+                    ),
                   ),
                   settingsAsync.when(
                     loading: () => const SizedBox.shrink(),

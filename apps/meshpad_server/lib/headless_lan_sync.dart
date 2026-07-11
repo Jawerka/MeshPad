@@ -70,9 +70,15 @@ class HeadlessLanSyncService {
     _started = true;
 
     await transport.start();
-    _eventsSub = transport.events.listen((event) async {
-      await _onTransportEvent(event);
-    });
+    _eventsSub = transport.events.listen(
+      (event) async {
+        await _onTransportEvent(event);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        MeshPadLog.warn('sync', 'headless transport events error: $error');
+        MeshPadLog.warn('sync', '$stackTrace');
+      },
+    );
 
     _timer = Timer.periodic(syncInterval, (_) => unawaited(runSync()));
     _startupTimer =

@@ -74,6 +74,14 @@ class LanSyncCoordinator {
       );
     }
 
+    if (manageTransport) {
+      await transport.start();
+    }
+
+    for (final peer in peers) {
+      rememberPeerEndpoint(transport, peer);
+    }
+
     peers = orderPeersForSync(peers: peers, transport: transport);
 
     final effectiveHopLimit = hopLimit ?? peers.length;
@@ -82,10 +90,6 @@ class LanSyncCoordinator {
 
     final batchStopwatch = Stopwatch()..start();
     try {
-      if (manageTransport) {
-        await transport.start();
-      }
-
       var total = 0;
       var completedCount = 0;
       final succeededPeerIds = <String>[];
@@ -112,6 +116,7 @@ class LanSyncCoordinator {
         if (peerResult.status == LanPeerSyncStatus.completed) {
           total += peerResult.noteCount;
           succeededPeerIds.add(peer.peerId);
+          await deviceStore.clearAuthFailure(peer.peerId);
           if (mayCascade && localPeerId != null) {
             try {
               final gateway = await transport.gatewayForPeer(peer.peerId);
@@ -145,6 +150,10 @@ class LanSyncCoordinator {
                 parseLanSyncAuthFailureBody(peerResult.message!);
             if (authFailure != null) {
               peerAuthFailures[peer.peerId] = authFailure;
+              await deviceStore.recordAuthFailure(
+                peerId: peer.peerId,
+                body: peerResult.message!,
+              );
             }
           }
           MeshPadLog.warn(

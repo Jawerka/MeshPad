@@ -480,6 +480,41 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncNeedsRePairTooltip => 'Требуется пересопряжение';
 
   @override
+  String syncPartialPeers(int succeeded, int total, int failed) {
+    return 'Синхронизировано $succeeded из $total; $failed недоступны или с ошибкой';
+  }
+
+  @override
+  String get syncPeerUnreachable => 'Устройство недоступно в локальной сети';
+
+  @override
+  String get signingKeyResetBanner =>
+      'Ключ подписи был сброшен. Пересопряжите все доверенные устройства.';
+
+  @override
+  String get signingKeyResetDismiss => 'Я пересопряжил все устройства';
+
+  @override
+  String get devicesActionRePair => 'Пересопряжение';
+
+  @override
+  String syncConflictCopiesCount(int count) {
+    return 'Конфликтные копии: $count';
+  }
+
+  @override
+  String get syncDiagnosticsTitle => 'Диагностика синхронизации';
+
+  @override
+  String get syncDiagnosticsCopy => 'Скопировать журнал';
+
+  @override
+  String get syncDiagnosticsCopied => 'Журнал синхронизации скопирован';
+
+  @override
+  String get syncDiagnosticsEmpty => 'Запусков синхронизации пока нет';
+
+  @override
   String get pairingQrHostHint =>
       'Отсканируйте QR на другом устройстве (MeshPad на телефоне)';
 

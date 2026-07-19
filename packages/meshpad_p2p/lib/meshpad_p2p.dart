@@ -32,6 +32,7 @@ export 'src/lan/cascade_sync_request.dart';
 export 'src/lan/lan_sync_peer_order.dart';
 export 'src/lan/lan_sync_coordinator.dart';
 export 'src/lan/lan_single_peer_sync.dart';
+export 'src/lan/lan_broadcast.dart';
 export 'src/lan/udp_lan_discovery.dart';
 export 'src/lan_discovery_simulator.dart';
 export 'src/pairing_trust_handler.dart';

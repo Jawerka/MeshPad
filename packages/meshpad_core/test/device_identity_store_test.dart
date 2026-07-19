@@ -162,6 +162,24 @@ void main() {
     expect(devices.first.lanHttpPort, 45839);
   });
 
+  test('rejects and clears loopback LAN endpoints', () async {
+    final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
+    await store.trustDevice(
+      peerId: 'peer-1',
+      name: 'Phone',
+      lanHost: '192.168.1.10',
+      lanHttpPort: 45838,
+    );
+
+    await store.updateLanEndpoint(
+      peerId: 'peer-1',
+      lanHost: '127.0.0.1',
+      lanHttpPort: 45838,
+    );
+    final devices = await store.listTrustedDevices();
+    expect(devices.single.lanHost, isNull);
+  });
+
   test('persists auth token for trusted peer', () async {
     final store = DeviceIdentityStore(paths: MeshPadPaths(tempDir.path));
     const token = 'test-auth-token';

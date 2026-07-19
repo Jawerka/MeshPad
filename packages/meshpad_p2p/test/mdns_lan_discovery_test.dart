@@ -37,4 +37,39 @@ void main() {
 
     expect(LanPeerAnnouncement.tryParseMdnsService(entry), isNull);
   });
+
+  test('tryParseMdnsService rejects loopback-only addresses', () {
+    final entry = ServiceEntry(
+      name: 'MeshPad-loop',
+      addrsV4: [InternetAddress('127.0.0.1')],
+      port: 45838,
+      infoFields: [
+        'peer_id=550e8400-e29b-41d4-a716-446655440000',
+        'display_name=Phone',
+        'v=1',
+      ],
+    )..markHasTXT();
+
+    expect(LanPeerAnnouncement.tryParseMdnsService(entry), isNull);
+  });
+
+  test('tryParseMdnsService prefers private LAN over loopback', () {
+    final entry = ServiceEntry(
+      name: 'MeshPad-mixed',
+      addrsV4: [
+        InternetAddress('127.0.0.1'),
+        InternetAddress('192.168.88.5'),
+      ],
+      port: 45838,
+      infoFields: [
+        'peer_id=550e8400-e29b-41d4-a716-446655440000',
+        'display_name=Phone',
+        'v=1',
+      ],
+    )..markHasTXT();
+
+    final parsed = LanPeerAnnouncement.tryParseMdnsService(entry);
+    expect(parsed, isNotNull);
+    expect(parsed!.host, '192.168.88.5');
+  });
 }

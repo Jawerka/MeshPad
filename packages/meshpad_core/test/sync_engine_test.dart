@@ -98,4 +98,48 @@ void main() {
     expect(await repoB.pendingOutboxCount(), 0);
     expect((await repoB.getNote(note.id))?.markdown, 'from A');
   });
+
+  test('emptyTrash on one peer purges trash on the other', () async {
+    final note = await repoA.createNote(markdown: 'trash me');
+    await syncEngines(engineA, engineB);
+    await repoA.deleteNote(note.id);
+    await syncEngines(engineA, engineB);
+    expect((await repoB.listTrash()).length, 1);
+
+    expect(await repoA.emptyTrash(), 1);
+    await syncEngines(engineA, engineB);
+
+    expect(await repoA.getNote(note.id), isNull);
+    expect(await repoB.getNote(note.id), isNull);
+    expect(await repoB.listTrash(), isEmpty);
+    final headsA = await repoA.catalogHeads();
+    final headsB = await repoB.catalogHeads();
+    expect(headsA.singleWhere((h) => h.id == note.id).purged, isTrue);
+    expect(headsB.singleWhere((h) => h.id == note.id).purged, isTrue);
+  });
+
+  test('purged note is not resurrected from peer trash', () async {
+    final note = await repoA.createNote(markdown: 'gone');
+    await syncEngines(engineA, engineB);
+    await repoA.deleteNote(note.id);
+    await syncEngines(engineA, engineB);
+
+    await repoA.emptyTrash();
+    await syncEngines(engineA, engineB);
+    expect(await repoA.listTrash(), isEmpty);
+
+    await syncEngines(engineB, engineA);
+    expect(await repoA.getNote(note.id), isNull);
+    expect(await repoA.listTrash(), isEmpty);
+  });
+
+  test('opPurge outbox clears after successful sync', () async {
+    final note = await repoA.createNote(markdown: 'purge ack');
+    await repoA.deleteNote(note.id);
+    await repoA.emptyTrash();
+    expect(await repoA.pendingOutboxCount(), greaterThan(0));
+
+    await syncEngines(engineA, engineB);
+    expect(await repoA.pendingOutboxCount(), 0);
+  });
 }

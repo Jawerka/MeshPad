@@ -264,11 +264,38 @@ class HttpRemoteSyncGateway implements RemoteSyncGateway {
     }
   }
 
-  Future<LanPeerEndpoint> enrichEndpointFromHealth(
-    LanPeerEndpoint endpoint,
-  ) async {
+  Future<LanPeerEndpoint?> enrichEndpointFromHealth(
+    LanPeerEndpoint endpoint, {
+    String? expectedTlsCertSha256,
+  }) async {
     final body = await _get('/meshpad/p2p/health', secure: false);
     final json = jsonDecode(body) as Map<String, dynamic>;
+    final remotePeerId = json['peer_id'] as String?;
+    final expectPeerId =
+        endpoint.peerId.isNotEmpty && !endpoint.peerId.startsWith('_');
+    if (expectPeerId &&
+        remotePeerId != null &&
+        remotePeerId.isNotEmpty &&
+        remotePeerId != endpoint.peerId) {
+      MeshPadLog.warn(
+        'sync',
+        'health identity mismatch ${endpoint.host}: '
+            'expected=${endpoint.peerId} got=$remotePeerId',
+      );
+      return null;
+    }
+    final remotePin = (json['tls_cert_sha256'] as String?)?.toLowerCase();
+    final expectedPin = expectedTlsCertSha256?.toLowerCase();
+    if (expectedPin != null && expectedPin.isNotEmpty) {
+      if (remotePin == null || remotePin != expectedPin) {
+        MeshPadLog.warn(
+          'sync',
+          'health tls pin mismatch ${endpoint.peerId} at ${endpoint.host}: '
+              'stored=$expectedPin presented=${remotePin ?? 'none'}',
+        );
+        return null;
+      }
+    }
     final tlsPort = json['tls_port'] as int?;
     return LanPeerEndpoint(
       peerId: endpoint.peerId,

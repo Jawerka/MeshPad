@@ -58,7 +58,7 @@ Rules:
 | Attachment push/pull fails | Note stays in outbox; meta may already be on peer |
 | `SyncTransportException` | Do **not** bump outbox (transport unavailable) |
 | Other batch-level exception | `OutboxProcessor.recordSyncFailure` (coordinator catch) |
-| 401/403 on sync | `forgetPeer`; user must re-pair |
+| 401/403 on sync | Record `authFailureBody` / re-pair UX; do **not** `forgetPeer` (keep discovery cache) |
 | Stream subscription | Always add `onError` + log via `MeshPadLog.warn` |
 
 Pairing trust helpers (`packages/meshpad_p2p/lib/src/pairing_trust_handler.dart`):

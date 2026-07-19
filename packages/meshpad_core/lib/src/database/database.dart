@@ -388,14 +388,18 @@ class MeshPadDatabase extends _$MeshPadDatabase {
   Future<void> removeOutboxEntries({
     required String entityType,
     required String entityId,
-    required String operation,
+    String? operation,
   }) {
     return (delete(syncOutbox)
           ..where(
-            (t) =>
-                t.entityType.equals(entityType) &
-                t.entityId.equals(entityId) &
-                t.operation.equals(operation),
+            (t) {
+              var expr =
+                  t.entityType.equals(entityType) & t.entityId.equals(entityId);
+              if (operation != null) {
+                expr = expr & t.operation.equals(operation);
+              }
+              return expr;
+            },
           ))
         .go();
   }

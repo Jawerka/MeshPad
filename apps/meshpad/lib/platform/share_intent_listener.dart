@@ -21,15 +21,19 @@ class ShareIntentListener extends ConsumerStatefulWidget {
       _ShareIntentListenerState();
 }
 
-class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
+class _ShareIntentListenerState extends ConsumerState<ShareIntentListener>
+    with WidgetsBindingObserver {
   StreamSubscription<SharePayload>? _subscription;
+  String? _lastFingerprint;
+  DateTime? _lastHandledAt;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && Platform.isAndroid) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handleInitialShare();
+        unawaited(_handleInitialShare());
         _subscription = ShareIntentPlatform.shareStream.listen(_handleShare);
       });
     }
@@ -37,8 +41,25 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_subscription?.cancel());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (kIsWeb || !Platform.isAndroid) return;
+    unawaited(_onResumed());
+  }
+
+  Future<void> _onResumed() async {
+    await _handleInitialShare();
+    try {
+      await ref.read(notesListProvider.notifier).reload();
+    } catch (_) {
+      // Provider may not be ready yet during early resume.
+    }
   }
 
   Future<void> _handleInitialShare() async {
@@ -52,7 +73,30 @@ class _ShareIntentListenerState extends ConsumerState<ShareIntentListener> {
     }
   }
 
+  String _fingerprint(SharePayload payload) {
+    if (payload.isText) {
+      return 'text:${payload.text?.trim() ?? ''}';
+    }
+    final paths = payload.resolvedFilePaths.toList()..sort();
+    return 'files:${paths.join('|')}';
+  }
+
+  bool _isDuplicate(SharePayload payload) {
+    final fp = _fingerprint(payload);
+    final at = _lastHandledAt;
+    if (at != null &&
+        fp == _lastFingerprint &&
+        DateTime.now().difference(at) < const Duration(seconds: 5)) {
+      return true;
+    }
+    _lastFingerprint = fp;
+    _lastHandledAt = DateTime.now();
+    return false;
+  }
+
   Future<void> _handleShare(SharePayload payload) async {
+    if (_isDuplicate(payload)) return;
+
     final notifier = ref.read(notesListProvider.notifier);
 
     if (payload.isText &&

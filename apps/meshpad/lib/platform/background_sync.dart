@@ -63,7 +63,7 @@ class BackgroundSyncRegistrar {
       backgroundSyncTaskName,
       frequency: Duration(minutes: minutes),
       constraints: Constraints(
-        networkType: NetworkType.connected,
+        networkType: NetworkType.unmetered,
       ),
     );
   }

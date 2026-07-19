@@ -183,22 +183,25 @@ class _FeedComposerSectionState extends ConsumerState<FeedComposerSection> {
               tooltip: 'Прикрепить файл',
             ),
             Expanded(
-              child: CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(LogicalKeyboardKey.enter,
-                      control: true): () {
-                    if (!_saving) unawaited(_submit());
-                  },
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                  if (event.logicalKey == LogicalKeyboardKey.enter &&
+                      HardwareKeyboard.instance.isControlPressed &&
+                      !_saving) {
+                    unawaited(_submit());
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
                 },
                 child: TextField(
                   focusNode: widget.focusNode,
                   controller: _bodyController,
                   decoration: const InputDecoration(
-                    hintText: 'Новая заметка…',
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 10,
+                      vertical: 12,
                     ),
                   ),
                   minLines: 1,

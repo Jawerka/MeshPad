@@ -23,9 +23,48 @@ mixin _NoteRepositoryInternals on _NoteRepositoryHost {
       noteId: id,
       device: defaultAuthor,
     );
-    await _fs.deleteNoteFolder(id);
-    await _db.deleteNoteRow(id);
-    await _enqueue(SyncEvent.opPurge, id);
+    final now = DateTime.now().toUtc();
+    final existingMeta = await _fs.readMeta(id);
+    final tombstone = NoteMeta(
+      schemaVersion: NoteMeta.currentSchemaVersion,
+      id: id,
+      title: '',
+      createdAt: existingMeta?.createdAt ?? now,
+      updatedAt: now,
+      author: existingMeta?.author ?? defaultAuthor,
+      deleted: true,
+      deletedAt: existingMeta?.deletedAt ?? now,
+      purged: true,
+      purgedAt: now,
+      tags: existingMeta?.tags ?? const [],
+      revision: existingMeta?.revision ?? 0,
+    );
+    await _applyPurgeTombstone(tombstone, enqueueOutbox: true);
+  }
+
+  /// Applies a remote or local purge tombstone without re-enqueueing unless asked.
+  Future<void> _applyPurgeTombstone(
+    NoteMeta tombstone, {
+    bool enqueueOutbox = false,
+  }) async {
+    final meta = tombstone.purged
+        ? tombstone
+        : tombstone.copyWith(
+            purged: true,
+            purgedAt: tombstone.purgedAt ?? tombstone.updatedAt,
+            deleted: true,
+            attachments: const [],
+          );
+    await _fs.writePurgeTombstone(meta);
+    await _db.deleteNoteRow(meta.id);
+    if (enqueueOutbox) {
+      // Drop upsert/delete/etc. so the badge shows one pending purge.
+      await _db.removeOutboxEntries(
+        entityType: SyncEvent.entityNote,
+        entityId: meta.id,
+      );
+      await _enqueue(SyncEvent.opPurge, meta.id);
+    }
   }
 
   Future<void> _logOperation(

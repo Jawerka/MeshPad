@@ -7,7 +7,6 @@ import 'lan_broadcast.dart';
 import 'lan_discovery.dart';
 import 'lan_sync_codec.dart';
 import '../meshpad_log.dart';
-import 'udp_lan_discovery.dart';
 
 /// mDNS/Bonjour discovery and advertisement for MeshPad peers (PLAN §5.1).
 class MdnsLanDiscovery implements LanDiscovery {
@@ -35,7 +34,19 @@ class MdnsLanDiscovery implements LanDiscovery {
   }) async {
     if (_server != null || _browse != null) return;
 
-    if (advertise) {
+    var shouldAdvertise = advertise;
+    if (shouldAdvertise) {
+      final probe = buildAnnouncement();
+      if (!isUsableRemoteLanHost(probe.host)) {
+        MeshPadLog.warn(
+          'discovery',
+          'mDNS advertise skipped: unusable host ${probe.host}',
+        );
+        shouldAdvertise = false;
+      }
+    }
+
+    if (shouldAdvertise) {
       final announcement = buildAnnouncement();
       final ips = await _resolveIps(announcement.host);
       MeshPadLog.discovery(
@@ -54,7 +65,11 @@ class MdnsLanDiscovery implements LanDiscovery {
       );
       await _server!.start();
     } else {
-      MeshPadLog.discovery('mDNS browse-only (no advertise)');
+      MeshPadLog.discovery(
+        advertise
+            ? 'mDNS browse-only (no usable advertise host)'
+            : 'mDNS browse-only (no advertise)',
+      );
     }
 
     Future<void> browse() async {
@@ -118,7 +133,7 @@ class MdnsLanDiscovery implements LanDiscovery {
   }
 
   Future<List<InternetAddress>> _resolveIps(String host) async {
-    if (host != defaultLanHost()) {
+    if (isUsableRemoteLanHost(host)) {
       return [InternetAddress(host)];
     }
 
@@ -131,14 +146,16 @@ class MdnsLanDiscovery implements LanDiscovery {
       for (final interface in interfaces) {
         if (isExcludedDiscoveryInterface(interface)) continue;
         for (final address in interface.addresses) {
-          if (!address.isLoopback) ips.add(address);
+          if (isUsableRemoteLanHost(address.address)) {
+            ips.add(address);
+          }
         }
       }
       if (ips.isNotEmpty) return ips;
     } on Object {
       // Fall back below.
     }
-    return [InternetAddress(host)];
+    return const [];
   }
 }
 

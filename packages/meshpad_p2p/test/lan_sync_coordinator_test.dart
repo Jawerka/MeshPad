@@ -299,6 +299,7 @@ void main() {
       getEngine: () async => engineLocal,
       getIdentity: () async => identity,
       getDeviceStore: () async => store,
+      announceHost: InternetAddress.loopbackIPv4.address,
     );
 
     final coordinator = LanSyncCoordinator(deviceStore: store);

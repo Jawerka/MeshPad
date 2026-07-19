@@ -34,6 +34,7 @@ class NoteFolderRepository {
     final meta = NoteMeta.fromJson(
       jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>,
     );
+    if (meta.purged) return null;
     final markdown = await mdFile.readAsString();
     return NoteFolder(path: dir.path, meta: meta, markdown: markdown);
   }
@@ -59,6 +60,34 @@ class NoteFolderRepository {
     }
   }
 
+  /// Deletes binary attachment and thumb dirs for [id] (soft-delete / free disk).
+  Future<void> clearAttachmentDirs(String id) async {
+    for (final name in ['attachments', '.thumbs']) {
+      final sub = Directory(p.join(notePath(id), name));
+      if (await sub.exists()) await sub.delete(recursive: true);
+    }
+  }
+
+  /// Writes a permanent-delete tombstone (`meta.json` only, no body/attachments).
+  Future<void> writePurgeTombstone(NoteMeta tombstone) async {
+    assert(tombstone.purged);
+    final dir = Directory(notePath(tombstone.id));
+    await dir.create(recursive: true);
+
+    final mdFile = File(p.join(dir.path, 'note.md'));
+    if (await mdFile.exists()) await mdFile.delete();
+
+    for (final name in ['attachments', '.thumbs', 'history']) {
+      final sub = Directory(p.join(dir.path, name));
+      if (await sub.exists()) await sub.delete(recursive: true);
+    }
+
+    final metaFile = File(p.join(dir.path, 'meta.json'));
+    await metaFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(tombstone.toJson()),
+    );
+  }
+
   /// Directory names under [notesRoot] without reading note bodies.
   Future<List<String>> listNoteDirectoryIds() async {
     final root = Directory(notesRoot);
@@ -81,9 +110,10 @@ class NoteFolderRepository {
     await for (final entity in root.list()) {
       if (entity is! Directory) continue;
       final id = p.basename(entity.path);
-      final folder = await read(id);
-      if (folder == null) continue;
-      if (!includeDeleted && folder.meta.deleted) continue;
+      final meta = await readMeta(id);
+      if (meta == null) continue;
+      if (meta.purged) continue;
+      if (!includeDeleted && meta.deleted) continue;
       ids.add(id);
     }
     return ids;

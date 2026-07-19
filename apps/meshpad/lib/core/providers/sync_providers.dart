@@ -14,6 +14,7 @@ import '../storage/secure_device_signing_key_store.dart';
 import '../storage/secure_peer_auth_token_store.dart';
 import '../sync/local_author_labels.dart';
 import 'notes_providers.dart';
+import 'network_sync_coordinator.dart';
 import 'sync_activity_provider.dart';
 import 'sync_auth_health_provider.dart';
 
@@ -191,6 +192,16 @@ class SyncController {
       return const SyncRunResult(
         SyncRunStatus.noPeers,
         message: 'Синхронизация недоступна в Web-клиенте',
+      );
+    }
+
+    final networkAllowed =
+        await _ref.read(networkSyncCoordinatorProvider).isSyncAllowed();
+    if (!networkAllowed) {
+      MeshPadLog.lan('sync skipped — нет Wi‑Fi / LAN');
+      return const SyncRunResult(
+        SyncRunStatus.noPeers,
+        message: 'Синхронизация только по Wi‑Fi',
       );
     }
 

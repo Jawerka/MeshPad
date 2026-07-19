@@ -234,7 +234,7 @@ void main() {
     );
   });
 
-  test('401 auth failure clears transport peer cache only', () async {
+  test('401 auth failure keeps transport peer cache for re-pair', () async {
     final harness = await _pairingTestHarness();
     addTearDown(() async {
       await harness.dbA.close();
@@ -275,7 +275,7 @@ void main() {
     );
 
     await transport.requestSync(peerId: 'peer-b');
-    expect(transport.endpointFor('peer-b'), isNull);
+    expect(transport.endpointFor('peer-b'), isNotNull);
     expect(await harness.storeA.trustedRecordFor('peer-b'), isNotNull);
   });
 

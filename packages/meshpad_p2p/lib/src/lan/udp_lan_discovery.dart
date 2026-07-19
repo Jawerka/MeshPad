@@ -34,10 +34,12 @@ class UdpLanDiscovery implements LanDiscovery {
   Future<void> start({
     required LanPeerAnnouncement Function() buildAnnouncement,
     String? bindHost,
+    bool advertise = true,
   }) async {
     if (_socket != null) return;
 
     _bindHost = bindHost;
+    _advertise = advertise;
     final bindAddress = bindHost == null || bindHost.isEmpty
         ? InternetAddress.anyIPv4
         : InternetAddress(bindHost);
@@ -51,14 +53,32 @@ class UdpLanDiscovery implements LanDiscovery {
     _broadcastTargets = await computeBroadcastTargets(lanHost: bindHost);
     MeshPadLog.discovery(
       'UDP discovery listening on ${bindAddress.address}:$discoveryPort; '
-      'broadcast targets: ${_broadcastTargets.map((a) => a.address).join(", ")}',
+      'broadcast targets: ${_broadcastTargets.map((a) => a.address).join(", ")}'
+      '${advertise ? '' : ' (browse-only)'}',
     );
     _socket!.listen((event) {
       if (event != RawSocketEvent.read) return;
       final datagram = _socket!.receive();
       if (datagram == null) return;
-      final announcement = LanPeerAnnouncement.tryParseDatagram(datagram.data);
+      var announcement = LanPeerAnnouncement.tryParseDatagram(datagram.data);
       if (announcement == null) return;
+      if (!isUsableRemoteLanHost(announcement.host)) {
+        final sourceHost = datagram.address.address;
+        if (!isUsableRemoteLanHost(sourceHost)) {
+          MeshPadLog.discovery(
+            'UDP peer ${announcement.peerId} discarded '
+            '(host=${announcement.host} source=$sourceHost)',
+          );
+          return;
+        }
+        announcement = LanPeerAnnouncement(
+          peerId: announcement.peerId,
+          displayName: announcement.displayName,
+          host: sourceHost,
+          httpPort: announcement.httpPort,
+          tlsPort: announcement.tlsPort,
+        );
+      }
       MeshPadLog.discovery(
         'UDP peer ${announcement.peerId} at '
         '${announcement.host}:${announcement.httpPort}',
@@ -67,7 +87,15 @@ class UdpLanDiscovery implements LanDiscovery {
     });
 
     void sendAnnounce() {
+      if (!_advertise) return;
       final announcement = buildAnnouncement();
+      if (!isUsableRemoteLanHost(announcement.host)) {
+        MeshPadLog.warn(
+          'discovery',
+          'UDP announce skipped: unusable host ${announcement.host}',
+        );
+        return;
+      }
       final payload = announcement.toDatagram();
       MeshPadLog.discovery(
         'UDP announce ${announcement.displayName} '
@@ -83,8 +111,10 @@ class UdpLanDiscovery implements LanDiscovery {
     }
 
     _sendAnnounce = sendAnnounce;
-    sendAnnounce();
-    _announceTimer = Timer.periodic(announceInterval, (_) => sendAnnounce());
+    if (advertise) {
+      sendAnnounce();
+      _announceTimer = Timer.periodic(announceInterval, (_) => sendAnnounce());
+    }
   }
 
   /// Exposed for tests (PLAN §11.4.1).
@@ -94,9 +124,12 @@ class UdpLanDiscovery implements LanDiscovery {
 
   String? _bindHost;
 
+  bool _advertise = true;
+
   @override
   Future<void> refresh() async {
     _broadcastTargets = await computeBroadcastTargets(lanHost: _bindHost);
+    if (!_advertise) return;
     for (var attempt = 0; attempt < _refreshAttempts; attempt++) {
       if (attempt > 0) {
         final delayMs = 300 * (1 << (attempt - 1));
@@ -115,6 +148,7 @@ class UdpLanDiscovery implements LanDiscovery {
     _announceTimer = null;
     _sendAnnounce = null;
     _bindHost = null;
+    _advertise = true;
     _socket?.close();
     _socket = null;
   }

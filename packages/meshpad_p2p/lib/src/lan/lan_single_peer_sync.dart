@@ -4,6 +4,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../meshpad_log.dart';
 import '../sync_transport.dart';
+import 'lan_broadcast.dart';
 import 'lan_sync_codec.dart';
 import 'lan_sync_transport.dart';
 
@@ -24,8 +25,14 @@ class LanPeerSyncResult {
   final String? message;
 }
 
-LanPeerEndpoint? storedEndpointForPeer(Device peer) {
+LanPeerEndpoint? storedEndpointForPeer(
+  Device peer, {
+  String? localLanHost,
+}) {
   if (!peer.hasLanEndpoint) return null;
+  if (!isProbeableLanHost(peer.lanHost!, localHost: localLanHost)) {
+    return null;
+  }
   return LanPeerEndpoint(
     peerId: peer.peerId,
     displayName: peer.name,
@@ -41,7 +48,10 @@ Future<LanPeerSyncResult> syncSingleTrustedPeer({
   required Device peer,
   Duration timeout = const Duration(seconds: 120),
 }) async {
-  final stored = storedEndpointForPeer(peer);
+  final stored = storedEndpointForPeer(
+    peer,
+    localLanHost: transport.localLanHost,
+  );
 
   final endpoint = await transport.resolvePeerEndpoint(
     peerId: peer.peerId,

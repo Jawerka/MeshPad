@@ -168,7 +168,7 @@ DRY backlog:
 | C2 | Pairing trust asymmetric if initiator endpoint null | Mitigated — guest sends full initiator fields |
 | C3 | Batch `recordSyncFailure` on unexpected errors | **Fixed** — skip for `SyncTransportException` |
 | C4 | Feed ignored sync result | **Fixed** — `showSyncRunFeedback` |
-| C5 | 401/403 → forgetPeer | By design — re-pair required |
+| C5 | 401/403 → record auth failure (keep endpoint cache) | By design — re-pair required; do not forgetPeer |
 | C6 | `confirmPairing` silent false | **Fixed** — logged |
 | C7 | Stream listeners without `onError` | **Partial** — key paths covered |
 | C8 | Startup purge hid failed sync | **Fixed** — purge only via Settings |

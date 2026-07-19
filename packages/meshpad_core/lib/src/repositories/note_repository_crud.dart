@@ -43,8 +43,7 @@ mixin _NoteRepositoryCrud on _NoteRepositoryHost, _NoteRepositoryInternals {
       markdown: markdown,
       explicitTitle: title.isEmpty ? null : title,
     );
-    final finalTitle =
-        resolvedTitle.isEmpty ? defaultTitleFromCreatedAt(now) : resolvedTitle;
+    final finalTitle = resolvedTitle;
     final meta = NoteMeta(
       schemaVersion: NoteMeta.currentSchemaVersion,
       id: id,
@@ -96,23 +95,29 @@ mixin _NoteRepositoryCrud on _NoteRepositoryHost, _NoteRepositoryInternals {
   }
 
   Future<List<NoteHead>> catalogHeads() async {
-    final ids = await _fs.listNoteIds(includeDeleted: true);
+    final ids = await _fs.listNoteDirectoryIds();
     final heads = <NoteHead>[];
     for (final id in ids) {
-      final folder = await _fs.read(id);
-      if (folder == null) continue;
+      final meta = await _fs.readMeta(id);
+      if (meta == null) continue;
       heads.add(
         NoteHead(
           id: id,
-          updatedAt: folder.meta.updatedAt,
-          deleted: folder.meta.deleted,
+          updatedAt: meta.updatedAt,
+          deleted: meta.deleted,
+          purged: meta.purged,
         ),
       );
     }
     return heads;
   }
 
+  /// Reads `meta.json` for sync (includes purge tombstones).
+  Future<NoteMeta?> readNoteMeta(String id) => _fs.readMeta(id);
+
   Future<Note?> getNote(String id) async {
+    final meta = await _fs.readMeta(id);
+    if (meta == null || meta.purged) return null;
     final folder = await _fs.read(id);
     if (folder == null) return null;
     return Note.fromMeta(meta: folder.meta, markdown: folder.markdown);
@@ -289,13 +294,18 @@ mixin _NoteRepositoryCrud on _NoteRepositoryHost, _NoteRepositoryInternals {
     if (existing == null || existing.deleted) return;
 
     final now = DateTime.now().toUtc();
-    final deleted =
-        existing.copyWith(deleted: true, deletedAt: now, updatedAt: now);
+    final deleted = existing.copyWith(
+      deleted: true,
+      deletedAt: now,
+      updatedAt: now,
+      attachments: const [],
+    );
+    await _fs.clearAttachmentDirs(id);
+    // Single opUpsert (deleted:true); push is catalog-driven — no opDelete stack.
     await _persist(
       deleted,
       operation: NoteOperationType.deleteNote,
     );
-    await _enqueue(SyncEvent.opDelete, id);
   }
 
   Future<void> restoreNote(String id) async {

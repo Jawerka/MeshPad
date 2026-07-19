@@ -11,6 +11,8 @@ class NoteMeta {
     required this.author,
     this.deleted = false,
     this.deletedAt,
+    this.purged = false,
+    this.purgedAt,
     this.attachments = const [],
     this.tags = const [],
     this.revision = 0,
@@ -27,6 +29,11 @@ class NoteMeta {
   final String author;
   final bool deleted;
   final DateTime? deletedAt;
+
+  /// Permanent delete tombstone (empty trash); survives in catalog for sync.
+  final bool purged;
+  final DateTime? purgedAt;
+
   final List<AttachmentMeta> attachments;
   final List<String> tags;
 
@@ -45,6 +52,8 @@ class NoteMeta {
         'author': author,
         'deleted': deleted,
         'deleted_at': deletedAt?.toUtc().toIso8601String(),
+        if (purged) 'purged': true,
+        if (purgedAt != null) 'purged_at': purgedAt!.toUtc().toIso8601String(),
         'attachments': attachments.map((a) => a.toJson()).toList(),
         if (tags.isNotEmpty) 'tags': normalizeTags(tags),
         if (revision > 0) 'revision': revision,
@@ -63,6 +72,10 @@ class NoteMeta {
       deletedAt: json['deleted_at'] != null
           ? DateTime.parse(json['deleted_at'] as String).toUtc()
           : null,
+      purged: json['purged'] as bool? ?? false,
+      purgedAt: json['purged_at'] != null
+          ? DateTime.parse(json['purged_at'] as String).toUtc()
+          : null,
       attachments: (json['attachments'] as List<dynamic>? ?? [])
           .map((e) => AttachmentMeta.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -79,6 +92,8 @@ class NoteMeta {
     DateTime? updatedAt,
     bool? deleted,
     DateTime? deletedAt,
+    bool? purged,
+    DateTime? purgedAt,
     List<AttachmentMeta>? attachments,
     List<String>? tags,
     int? revision,
@@ -94,6 +109,8 @@ class NoteMeta {
       author: author,
       deleted: deleted ?? this.deleted,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      purged: purged ?? this.purged,
+      purgedAt: purgedAt ?? this.purgedAt,
       attachments: attachments ?? this.attachments,
       tags: tags ?? this.tags,
       revision: revision ?? this.revision,

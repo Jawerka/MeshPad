@@ -5,7 +5,6 @@ import 'package:meshpad_p2p/meshpad_p2p.dart';
 import '../../core/providers/git_sync_providers.dart';
 import '../../core/providers/network_sync_coordinator.dart';
 import '../../core/providers/notes_providers.dart';
-import '../../core/providers/discovery_providers.dart';
 import '../../core/providers/settings_providers.dart';
 import '../../core/providers/sync_loop_provider.dart';
 import '../../core/providers/sync_providers.dart';
@@ -36,7 +35,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           await ref.read(localIdentityProvider.future);
           ref.read(syncLoopProvider).start();
           await ref.read(networkSyncCoordinatorProvider).start();
-          await ref.read(discoveryServiceProvider).start();
+          // Discovery start/stop is owned by NetworkSyncCoordinator.
           await ref.read(gitSyncLoopProvider).start();
         } catch (e, st) {
           MeshPadLog.warn('discovery', 'LAN transport startup failed: $e');

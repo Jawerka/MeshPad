@@ -61,6 +61,11 @@ Future<ManualLanPeerProbeResult> probeManualLanPeer({
   }
 
   final enriched = await gateway.enrichEndpointFromHealth(probeEndpoint);
+  if (enriched == null) {
+    return const ManualLanPeerProbeFailure(
+      ManualLanPeerProbeError.unreachable,
+    );
+  }
   final offer = await gateway.fetchPairingOffer();
   final peerId = offer?.peerId ?? 'manual-$trimmedHost-$httpPort';
   final displayName = offer?.displayName ?? 'MeshPad ($trimmedHost)';

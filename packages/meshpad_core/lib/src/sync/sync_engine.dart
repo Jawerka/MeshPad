@@ -56,6 +56,11 @@ class SyncEngine {
   Future<List<NoteHead>> localCatalog() => notes.catalogHeads();
 
   Future<RemoteNoteSnapshot?> exportNote(String id) async {
+    final meta = await notes.readNoteMeta(id);
+    if (meta == null) return null;
+    if (meta.purged) {
+      return RemoteNoteSnapshot(meta: meta, markdown: '');
+    }
     final note = await notes.getNote(id);
     if (note == null) return null;
     return RemoteNoteSnapshot(meta: note.toMeta(), markdown: note.markdown);
@@ -134,6 +139,7 @@ NoteHead noteToHead(Note note) => NoteHead(
       id: note.id,
       updatedAt: note.updatedAt,
       deleted: note.deleted,
+      purged: false,
     );
 
 NoteMeta? mergeRemoteMeta(NoteMeta? local, NoteMeta? remote) =>

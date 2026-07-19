@@ -533,6 +533,44 @@ Future<HttpServer> serveMeshPadHttp({
   return shelf_io.serve(handler, host, port);
 }
 
+/// Binds hub/API HTTP with short retries for `EADDRINUSE` after systemd restart.
+Future<HttpServer> serveMeshPadHttpWithRetry({
+  required MeshPadHttpServer server,
+  required String host,
+  required int port,
+  ApiKeyAuth? apiKeyAuth,
+  Handler? hubHandler,
+  int attempts = 5,
+  Duration retryDelay = const Duration(seconds: 1),
+}) async {
+  Object? lastError;
+  for (var attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await serveMeshPadHttp(
+        server: server,
+        host: host,
+        port: port,
+        apiKeyAuth: apiKeyAuth,
+        hubHandler: hubHandler,
+      );
+    } on SocketException catch (e) {
+      lastError = e;
+      final message = e.message.toLowerCase();
+      final code = e.osError?.errorCode;
+      final inUse = code == 98 ||
+          code == 10048 ||
+          message.contains('address already in use') ||
+          message.contains('только одно использование');
+      if (!inUse || attempt == attempts) rethrow;
+      stderr.writeln(
+        'Port $port busy (attempt $attempt/$attempts), retrying…',
+      );
+      await Future<void>.delayed(retryDelay);
+    }
+  }
+  throw lastError ?? StateError('failed to bind $host:$port');
+}
+
 Future<({NoteRepository repository, MeshPadDatabase db})> openRepository({
   required String dataDir,
   String defaultAuthor = 'MeshPad Server',

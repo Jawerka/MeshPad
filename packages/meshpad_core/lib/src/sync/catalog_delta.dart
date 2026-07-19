@@ -6,9 +6,23 @@ bool noteHeadNeedsRemotePull({
   required NoteHead remoteHead,
 }) {
   if (localHead == null) return true;
+
+  if (localHead.purged) {
+    if (remoteHead.purged) {
+      return remoteHead.updatedAt.isAfter(localHead.updatedAt);
+    }
+    return remoteHead.updatedAt.isAfter(localHead.updatedAt);
+  }
+
+  if (remoteHead.purged) {
+    return remoteHead.updatedAt.isAfter(localHead.updatedAt) ||
+        !localHead.deleted;
+  }
+
   if (remoteHead.updatedAt.isAfter(localHead.updatedAt)) return true;
   if (remoteHead.updatedAt == localHead.updatedAt &&
-      remoteHead.deleted != localHead.deleted) {
+      (remoteHead.deleted != localHead.deleted ||
+          remoteHead.purged != localHead.purged)) {
     return true;
   }
   return false;

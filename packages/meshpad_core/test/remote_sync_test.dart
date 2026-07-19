@@ -384,6 +384,137 @@ void main() {
       1,
     );
   });
+
+  test('deleteNote enqueues a single outbox row', () async {
+    final dir = await Directory.systemTemp.createTemp('delete_one_op_');
+    final db = MeshPadDatabase.inMemory();
+    addTearDown(() async {
+      await db.close();
+      if (await dir.exists()) await dir.delete(recursive: true);
+    });
+
+    final repo = createNoteRepository(
+      dataDir: dir.path,
+      defaultAuthor: 'a',
+      database: db,
+    );
+    final note = await repo.createNote(markdown: 'trash me');
+    await repo.deleteNote(note.id);
+
+    final outbox = await repo.listOutbox();
+    final forNote = outbox.where((e) => e.entityId == note.id).toList();
+    expect(forNote.length, 1);
+    expect(forNote.single.operation, SyncEvent.opUpsert);
+  });
+
+  test('emptyTrash via syncWithRemote clears purge outbox on peer', () async {
+    final dirA = await Directory.systemTemp.createTemp('purge_remote_a_');
+    final dirB = await Directory.systemTemp.createTemp('purge_remote_b_');
+    final dbA = MeshPadDatabase.inMemory();
+    final dbB = MeshPadDatabase.inMemory();
+
+    addTearDown(() async {
+      await dbA.close();
+      await dbB.close();
+      if (await dirA.exists()) await dirA.delete(recursive: true);
+      if (await dirB.exists()) await dirB.delete(recursive: true);
+    });
+
+    final repoA = createNoteRepository(
+      dataDir: dirA.path,
+      defaultAuthor: 'a',
+      database: dbA,
+    );
+    final repoB = createNoteRepository(
+      dataDir: dirB.path,
+      defaultAuthor: 'b',
+      database: dbB,
+    );
+    final engineA = SyncEngine(
+      notes: repoA,
+      identity: LocalDeviceIdentity(
+        peerId: 'a',
+        displayName: 'A',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+    final engineB = SyncEngine(
+      notes: repoB,
+      identity: LocalDeviceIdentity(
+        peerId: 'b',
+        displayName: 'B',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    final note = await repoA.createNote(markdown: 'gone forever');
+    await engineA.syncWithRemote(_MemoryGateway(engineB));
+    await repoA.deleteNote(note.id);
+    await engineA.syncWithRemote(_MemoryGateway(engineB));
+    expect((await repoB.listTrash()).length, 1);
+
+    expect(await repoA.emptyTrash(), 1);
+    expect(await repoA.pendingOutboxCount(), 1);
+
+    await engineA.syncWithRemote(_MemoryGateway(engineB));
+
+    expect(await repoA.pendingOutboxCount(), 0);
+    expect(await repoB.listTrash(), isEmpty);
+    expect(await repoB.getNote(note.id), isNull);
+    expect((await repoB.readNoteMeta(note.id))?.purged, isTrue);
+  });
+
+  test('orphan outbox clears when remote has no note', () async {
+    final dirA = await Directory.systemTemp.createTemp('orphan_ack_a_');
+    final dirB = await Directory.systemTemp.createTemp('orphan_ack_b_');
+    final dbA = MeshPadDatabase.inMemory();
+    final dbB = MeshPadDatabase.inMemory();
+
+    addTearDown(() async {
+      await dbA.close();
+      await dbB.close();
+      if (await dirA.exists()) await dirA.delete(recursive: true);
+      if (await dirB.exists()) await dirB.delete(recursive: true);
+    });
+
+    final repoA = createNoteRepository(
+      dataDir: dirA.path,
+      defaultAuthor: 'a',
+      database: dbA,
+    );
+    final repoB = createNoteRepository(
+      dataDir: dirB.path,
+      defaultAuthor: 'b',
+      database: dbB,
+    );
+    final engineA = SyncEngine(
+      notes: repoA,
+      identity: LocalDeviceIdentity(
+        peerId: 'a',
+        displayName: 'A',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+    final engineB = SyncEngine(
+      notes: repoB,
+      identity: LocalDeviceIdentity(
+        peerId: 'b',
+        displayName: 'B',
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    );
+
+    const ghostId = '00000000-0000-4000-8000-000000000099';
+    await dbA.enqueueSync(
+      entityType: SyncEvent.entityNote,
+      entityId: ghostId,
+      operation: SyncEvent.opPurge,
+    );
+    expect(await repoA.pendingOutboxCount(), 1);
+
+    await engineA.syncWithRemote(_MemoryGateway(engineB));
+    expect(await repoA.pendingOutboxCount(), 0);
+  });
 }
 
 class _FailingAttachmentGateway implements RemoteSyncGateway {

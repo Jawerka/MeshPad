@@ -61,6 +61,31 @@ void main() {
     expect(await repo.listTrash(), isEmpty);
   });
 
+  test('deleteNote removes attachment files from disk', () async {
+    final file = File(p.join(tempDir.path, 'photo.bin'));
+    await file.writeAsBytes([1, 2, 3, 4]);
+    final note = await repo.createNote(
+      markdown: 'with file',
+      attachmentPaths: [file.path],
+    );
+    expect(note.attachments, isNotEmpty);
+    final attDir = Directory(
+      p.join(tempDir.path, 'notes', note.id, 'attachments'),
+    );
+    expect(await attDir.exists(), isTrue);
+    expect(attDir.listSync(), isNotEmpty);
+
+    await repo.deleteNote(note.id);
+
+    final trashed = await repo.getNote(note.id);
+    expect(trashed?.deleted, isTrue);
+    expect(trashed?.attachments, isEmpty);
+    expect(
+      await attDir.exists() && attDir.listSync().isNotEmpty,
+      isFalse,
+    );
+  });
+
   test('emptyTrash permanently removes all trashed notes', () async {
     await repo.createNote(title: 'a');
     final b = await repo.createNote(title: 'b');
@@ -69,6 +94,9 @@ void main() {
     expect(await repo.emptyTrash(), 1);
     expect(await repo.listTrash(), isEmpty);
     expect((await repo.listNotes()).length, 1);
+    expect(await repo.getNote(b.id), isNull);
+    final meta = await repo.readNoteMeta(b.id);
+    expect(meta?.purged, isTrue);
   });
 
   test('purgeExpiredTrash removes notes older than ttl', () async {

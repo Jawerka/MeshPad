@@ -9,6 +9,7 @@ import '../models/device.dart';
 import '../models/local_device_identity.dart';
 import '../security/device_signing.dart';
 import '../sync/sync_auth.dart';
+import 'lan_host_guard.dart';
 import 'device_signing_key_store.dart';
 import 'meshpad_paths.dart';
 import 'peer_auth_token_store.dart';
@@ -291,6 +292,13 @@ class DeviceIdentityStore {
   }) async {
     final record = await _loadTrustedRecord(peerId);
     if (record == null) return;
+
+    if (isInvalidPersistedLanHost(lanHost)) {
+      if (record.lanHost != null) {
+        await clearLanEndpoint(peerId);
+      }
+      return;
+    }
 
     await _writeTrustedRecord(
       record.copyWith(

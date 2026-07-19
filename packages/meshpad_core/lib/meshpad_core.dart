@@ -22,6 +22,7 @@ export 'src/storage/attachment_thumbnails.dart';
 export 'src/storage/thumb_cache_eviction.dart';
 export 'src/storage/note_fs_signatures.dart';
 export 'src/storage/device_identity_store.dart';
+export 'src/storage/lan_host_guard.dart';
 export 'src/storage/file_peer_auth_token_store.dart';
 export 'src/storage/meshpad_paths.dart';
 export 'src/storage/peer_auth_token_store.dart';

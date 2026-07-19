@@ -15,7 +15,10 @@ bool isPeerLikelyOnline(
 }) {
   if (transport.endpointFor(peer.peerId) != null) return true;
 
-  final stored = storedEndpointForPeer(peer);
+  final stored = storedEndpointForPeer(
+    peer,
+    localLanHost: transport.localLanHost,
+  );
   if (stored == null) return false;
 
   if (!shouldTryStoredLanEndpoint(

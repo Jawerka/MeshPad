@@ -1,17 +1,26 @@
 part of 'lan_peer_server.dart';
 
 extension _LanPeerServerRoutes on LanPeerServer {
-  Future<_HttpResponse> _handleHealthRoute() {
-    return Future.value(
-      _HttpResponse.json({
-        'status': 'ok',
-        if (tlsIdentity != null) ...{
-          'tls': true,
-          'tls_cert_sha256': tlsIdentity!.certSha256Hex,
-          if (tlsPort != null) 'tls_port': tlsPort,
-        },
-      }),
-    );
+  Future<_HttpResponse> _handleHealthRoute() async {
+    String? peerId;
+    String? displayName;
+    try {
+      final engine = await _getEngine();
+      peerId = engine.identity.peerId;
+      displayName = engine.identity.displayName;
+    } on Object {
+      // Liveness must succeed even when the engine is not ready (tests / startup).
+    }
+    return _HttpResponse.json({
+      'status': 'ok',
+      if (peerId != null) 'peer_id': peerId,
+      if (displayName != null) 'display_name': displayName,
+      if (tlsIdentity != null) ...{
+        'tls': true,
+        'tls_cert_sha256': tlsIdentity!.certSha256Hex,
+        if (tlsPort != null) 'tls_port': tlsPort,
+      },
+    });
   }
 
   Future<_HttpResponse> _handleCatalogRoute(HttpRequest request) async {

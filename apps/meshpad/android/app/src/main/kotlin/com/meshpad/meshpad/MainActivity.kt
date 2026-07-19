@@ -61,8 +61,12 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInitialShare" -> {
-                    result.success(pendingShare)
+                    val share = pendingShare
                     pendingShare = null
+                    if (share != null) {
+                        clearConsumedShareIntent()
+                    }
+                    result.success(share)
                 }
                 else -> result.notImplemented()
             }
@@ -155,6 +159,12 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     shareEventSink = events
+                    val pending = pendingShare
+                    if (pending != null && events != null) {
+                        pendingShare = null
+                        events.success(pending)
+                        clearConsumedShareIntent()
+                    }
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -223,9 +233,15 @@ class MainActivity : FlutterActivity() {
 
         if (shareEventSink != null) {
             shareEventSink?.success(payload)
+            clearConsumedShareIntent()
         } else {
             pendingShare = payload
         }
+    }
+
+    /** Drop sticky ACTION_SEND so a later cold start cannot create a duplicate note. */
+    private fun clearConsumedShareIntent() {
+        setIntent(Intent(this, MainActivity::class.java))
     }
 
     private fun buildSendPayload(intent: Intent): Map<String, Any?>? {

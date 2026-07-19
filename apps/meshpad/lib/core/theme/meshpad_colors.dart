@@ -26,7 +26,8 @@ abstract final class MeshPadColors {
   static const sidebarWidth = 280.0;
   static const headerHeight = 52.0;
   static const chatMaxWidth = 820.0;
-  static const composerMaxWidth = 640.0;
+  static const composerMaxWidth = 800.0;
+  static const settingsSheetMaxWidth = 736.0;
   static const radiusMd = 12.0;
   static const radiusLg = 18.0;
 }

@@ -20,7 +20,9 @@ import 'settings_update_actions.dart';
 import '../../core/services/apk_update_installer.dart';
 import '../../core/services/update_checker.dart';
 import '../../core/storage/app_settings.dart';
+import '../../core/theme/feed_layout.dart';
 import '../../core/theme/meshpad_colors.dart';
+import '../../platform/desktop_shell.dart';
 import '../../core/widgets/text_input_dialog.dart';
 import '../../l10n/app_localizations.dart';
 import '../../platform/wifi_info.dart';
@@ -42,10 +44,15 @@ class SettingsSheet extends ConsumerStatefulWidget {
   final ScrollController scrollController;
 
   static Future<void> show(BuildContext context) {
+    final wideDesktop =
+        DesktopShell.isSupported && !isCompactFeedLayout(context);
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: MeshPadColors.backgroundElevated,
+      constraints: wideDesktop
+          ? const BoxConstraints(maxWidth: MeshPadColors.settingsSheetMaxWidth)
+          : null,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),

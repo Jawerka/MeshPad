@@ -10,18 +10,32 @@ Future<bool> isNoteFullySyncedOnRemote({
   required RemoteSyncGateway remote,
   required String noteId,
 }) async {
+  final localMeta = await localNotes.readNoteMeta(noteId);
+  final remoteSnapshot = await remote.fetchNote(noteId);
+
+  // Orphan outbox (folder gone before purge tombstones): clear when peer
+  // also lacks the note or already has a purge tombstone.
+  if (localMeta == null) {
+    if (remoteSnapshot == null) return true;
+    return remoteSnapshot.meta.purged;
+  }
+
+  if (localMeta.purged) {
+    if (remoteSnapshot == null) return true;
+    return remoteSnapshot.meta.purged;
+  }
+
   final local = await localNotes.getNote(noteId);
   if (local == null) return false;
 
-  final localMeta = local.toMeta();
-  final remoteSnapshot = await remote.fetchNote(noteId);
+  final localNoteMeta = local.toMeta();
   if (remoteSnapshot == null) return false;
 
   final remoteMeta = remoteSnapshot.meta;
-  if (remoteMeta.updatedAt.isBefore(localMeta.updatedAt)) return false;
-  if (remoteMeta.deleted != localMeta.deleted) return false;
+  if (remoteMeta.updatedAt.isBefore(localNoteMeta.updatedAt)) return false;
+  if (remoteMeta.deleted != localNoteMeta.deleted) return false;
 
-  if (localMeta.deleted) return true;
+  if (localNoteMeta.deleted) return true;
 
   for (final attachment in localMeta.attachments) {
     final hasMeta =

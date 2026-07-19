@@ -26,6 +26,23 @@ Peers without the header continue to receive plain JSON (re-pair to enable encry
 
 Endpoints under `/meshpad/p2p/*` (except pairing and health) require auth token from PIN pairing.
 
+### Health (`GET /meshpad/p2p/health`)
+
+Unauthenticated liveness probe. Response JSON (additive fields are optional for older peers):
+
+```json
+{
+  "status": "ok",
+  "peer_id": "<local-peer-id>",
+  "display_name": "Device name",
+  "tls": true,
+  "tls_cert_sha256": "<hex>",
+  "tls_port": 45840
+}
+```
+
+Clients that already trust a peer should reject an endpoint when `peer_id` does not match, or when a stored TLS pin does not match `tls_cert_sha256` (prevents treating loopback/self as a remote peer).
+
 libp2p is **archived** — see [LIBP2P.md](LIBP2P.md).
 
 ### Request signing (волна 2.8)
@@ -109,10 +126,13 @@ Response: JSON array of note heads:
   {
     "id": "uuid",
     "updated_at": "2026-05-31T12:00:00.000Z",
-    "deleted": false
+    "deleted": false,
+    "purged": false
   }
 ]
 ```
+
+Optional `"purged": true` marks a permanently deleted note (empty trash). Purged heads stay in the catalog so peers can propagate permanent deletion and avoid resurrecting trashed copies.
 
 Dart: `NoteHead.toJson()` / `noteHeadsFromJsonList`.
 
@@ -135,6 +155,8 @@ Body (`RemoteNoteSnapshot`):
     "author": "device-name",
     "deleted": false,
     "deleted_at": null,
+    "purged": false,
+    "purged_at": null,
     "attachments": [
       { "name": "photo.jpg", "size": 12345, "mime": "image/jpeg", "sha256": "…" }
     ],
@@ -143,6 +165,8 @@ Body (`RemoteNoteSnapshot`):
   "markdown": "# Body\n"
 }
 ```
+
+Permanent delete (empty trash): `meta.purged` is `true`, `meta.purged_at` is set, `markdown` is empty, `attachments` is empty. Peers apply purge tombstones instead of recreating note folders from older trash snapshots.
 
 Response on push:
 

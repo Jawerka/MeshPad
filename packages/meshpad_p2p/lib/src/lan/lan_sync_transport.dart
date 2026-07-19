@@ -224,9 +224,18 @@ class LanSyncTransport implements SyncTransport {
 
     _discovery!.onPeerDiscovered = _handleAnnouncement;
 
+    final canAdvertise = isUsableRemoteLanHost(_announceHost!);
+    if (!canAdvertise) {
+      MeshPadLog.warn(
+        'lan',
+        'LAN advertise disabled: unusable host $_announceHost',
+      );
+    }
+
     await _discovery!.start(
       buildAnnouncement: _buildAnnouncement,
-      bindHost: _announceHost,
+      bindHost: canAdvertise ? _announceHost : null,
+      advertise: canAdvertise,
     );
 
     _pruneTimer?.cancel();
@@ -285,6 +294,14 @@ class LanSyncTransport implements SyncTransport {
     final localId = _identity?.peerId;
 
     if (localId == null || announcement.peerId == localId) return;
+
+    if (!isUsableRemoteLanHost(announcement.host)) {
+      MeshPadLog.discovery(
+        'peer ${announcement.peerId} discarded unusable host '
+        '${announcement.host}',
+      );
+      return;
+    }
 
     final endpoint = LanPeerEndpoint.fromAnnouncement(announcement);
 
@@ -400,7 +417,14 @@ class LanSyncTransport implements SyncTransport {
         return null;
       }
 
-      final enriched = await gateway.enrichEndpointFromHealth(endpoint);
+      final expectedPin = await _tlsCertFor(peerId);
+      final enriched = await gateway.enrichEndpointFromHealth(
+        endpoint,
+        expectedTlsCertSha256: expectedPin,
+      );
+      if (enriched == null) {
+        return null;
+      }
 
       MeshPadLog.sync(
         'health ok ${enriched.peerId} ${enriched.host}:${enriched.httpPort}'
@@ -536,16 +560,26 @@ class LanSyncTransport implements SyncTransport {
         SyncCompleted(peerId: peerId, noteCount: result.total),
       );
     } catch (e) {
-      if (e is HttpRemoteSyncException &&
-          (e.statusCode == 401 || e.statusCode == 403)) {
-        forgetPeer(peerId);
-      }
+      // Keep discovery cache on auth failure so re-pair UX can still reach
+      // the peer; trust/tokens are unchanged (coordinator records authFailure).
 
-      final message = e is MeshPadException
+      var message = e is MeshPadException
           ? e.message
           : e is HttpRemoteSyncException
               ? _httpSyncErrorMessage(e)
               : e.toString();
+
+      if (_looksLikeTlsHandshakeFailure(e)) {
+        final storedPin = await _tlsCertFor(peerId);
+        if (storedPin != null && storedPin.isNotEmpty) {
+          message = await _tlsPinMismatchMessage(
+            peerId: peerId,
+            endpoint: resolved,
+            storedPin: storedPin,
+            fallback: message,
+          );
+        }
+      }
 
       MeshPadLog.warn('sync', 'sync failed $peerId: $message');
 
@@ -596,6 +630,7 @@ class LanSyncTransport implements SyncTransport {
   Future<String?> fetchPeerTlsCertSha256(LanPeerEndpoint endpoint) async {
     final gateway = HttpRemoteSyncGateway(endpoint: endpoint);
     final enriched = await gateway.enrichEndpointFromHealth(endpoint);
+    if (enriched == null) return null;
     return HttpRemoteSyncGateway(endpoint: enriched).fetchTlsCertSha256();
   }
 
@@ -627,9 +662,12 @@ class LanSyncTransport implements SyncTransport {
 
     await _discovery!.stop();
 
+    final canAdvertise =
+        _announceHost != null && isUsableRemoteLanHost(_announceHost!);
     await _discovery!.start(
       buildAnnouncement: _buildAnnouncement,
-      bindHost: _announceHost,
+      bindHost: canAdvertise ? _announceHost : null,
+      advertise: canAdvertise,
     );
 
     MeshPadLog.lan('local display name updated to $trimmed');
@@ -659,6 +697,40 @@ class LanSyncTransport implements SyncTransport {
           : e.body;
     }
     return e.toString();
+  }
+
+  bool _looksLikeTlsHandshakeFailure(Object e) {
+    final text = e.toString();
+    return text.contains('HandshakeException') ||
+        text.contains('CERTIFICATE_VERIFY_FAILED') ||
+        text.contains('CertificateException');
+  }
+
+  /// Compares stored pin to live cert; never auto-updates pin (MITM-safe).
+  Future<String> _tlsPinMismatchMessage({
+    required String peerId,
+    required LanPeerEndpoint endpoint,
+    required String storedPin,
+    required String fallback,
+  }) async {
+    try {
+      final presented = await fetchPeerTlsCertSha256(endpoint);
+      MeshPadLog.warn(
+        'sync',
+        'TLS pin check $peerId stored=${storedPin.toLowerCase()} '
+            'presented=${presented?.toLowerCase() ?? 'null'}',
+      );
+      if (presented != null &&
+          presented.toLowerCase() != storedPin.toLowerCase()) {
+        return 'TLS pin не совпадает — переподключите устройство (Hub)';
+      }
+    } on Object catch (probeError) {
+      MeshPadLog.warn('sync', 'TLS pin probe failed $peerId: $probeError');
+    }
+    return fallback.contains('CERTIFICATE_VERIFY_FAILED') ||
+            fallback.contains('HandshakeException')
+        ? 'TLS pin не совпадает — переподключите устройство (Hub)'
+        : fallback;
   }
 
   /// Triggers an immediate mDNS/UDP browse (e.g. when opening «Устройства»).

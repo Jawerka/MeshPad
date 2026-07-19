@@ -57,11 +57,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final composerField = find.byWidgetPredicate(
-      (widget) =>
-          widget is TextField &&
-          widget.decoration?.hintText == 'Новая заметка…',
-    );
+    final composerField = find.byType(TextField).first;
     expect(composerField, findsOneWidget);
 
     await tester.enterText(composerField, 'Hello sync');

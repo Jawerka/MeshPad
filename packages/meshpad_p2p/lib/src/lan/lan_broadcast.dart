@@ -126,6 +126,38 @@ bool _isPrivateLan(String ip) {
   return second >= 16 && second <= 31;
 }
 
+/// True when [host] is loopback or IPv4 link-local (not a remote LAN peer).
+bool isLoopbackOrLinkLocalHost(String host) {
+  final ip = host.trim();
+  if (ip.isEmpty) return true;
+  if (ip == 'localhost' || ip == '::1') return true;
+  if (ip.startsWith('127.')) return true;
+  if (ip.startsWith('169.254.')) return true;
+  return false;
+}
+
+bool _isLoopbackOrLinkLocalHost(String host) => isLoopbackOrLinkLocalHost(host);
+
+/// True when [host] is a reachable private-LAN address for a remote peer.
+///
+/// Rejects loopback / link-local so discovery cannot poison sync with
+/// `127.0.0.1` (which would health-check the local process).
+bool isUsableRemoteLanHost(String host) {
+  final ip = host.trim();
+  if (_isLoopbackOrLinkLocalHost(ip)) return false;
+  return _isPrivateLan(ip);
+}
+
+/// Whether [host] may be probed as a peer endpoint.
+///
+/// Loopback is allowed only when [localHost] is also loopback (same-host
+/// unit tests / single-machine harness).
+bool isProbeableLanHost(String host, {String? localHost}) {
+  if (isUsableRemoteLanHost(host)) return true;
+  if (!isLoopbackOrLinkLocalHost(host)) return false;
+  return localHost != null && isLoopbackOrLinkLocalHost(localHost);
+}
+
 /// Higher score = more likely reachable on typical home Wi‑Fi (vs VPN/tunnel).
 int lanHostPreferenceScore(String ip) {
   if (isLikelyHypervisorHostOnlyIp(ip)) return 0;
@@ -143,6 +175,10 @@ int lanHostPreferenceScore(String ip) {
 
 /// Picks the address most likely to work for LAN sync on the local network.
 String preferredLanHost(String a, String b) {
+  final aOk = isUsableRemoteLanHost(a);
+  final bOk = isUsableRemoteLanHost(b);
+  if (aOk && !bOk) return a;
+  if (!aOk && bOk) return b;
   final scoreA = lanHostPreferenceScore(a);
   final scoreB = lanHostPreferenceScore(b);
   if (scoreA != scoreB) return scoreA > scoreB ? a : b;
@@ -200,7 +236,9 @@ bool shouldTryStoredLanEndpoint({
   required String storedHost,
   required String? localHost,
 }) {
+  if (!isProbeableLanHost(storedHost, localHost: localHost)) return false;
+  if (isLoopbackOrLinkLocalHost(storedHost)) return true;
   if (localHost == null || localHost.isEmpty) return true;
-  if (!_isPrivateLan(localHost) || !_isPrivateLan(storedHost)) return true;
+  if (!isUsableRemoteLanHost(localHost)) return true;
   return isSameLanSubnet(storedHost, localHost);
 }

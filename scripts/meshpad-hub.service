@@ -2,6 +2,8 @@
 Description=MeshPad LAN Hub
 After=network-online.target avahi-daemon.service
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -11,6 +13,7 @@ EnvironmentFile=-/etc/meshpad/hub.env
 ExecStart=/usr/local/bin/meshpad-hub --hub --data-dir /var/lib/meshpad-hub
 Restart=always
 RestartSec=5
+TimeoutStopSec=15
 
 [Install]
 WantedBy=multi-user.target

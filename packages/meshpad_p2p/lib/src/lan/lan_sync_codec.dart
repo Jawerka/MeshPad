@@ -88,12 +88,19 @@ class LanPeerAnnouncement {
 
 String? _preferredMdnsHost(ServiceEntry entry) {
   final addresses = entry.addrsV4;
-  if (addresses == null || addresses.isEmpty) {
-    return entry.primaryAddress?.address;
+  final candidates = <String>[];
+  if (addresses != null) {
+    for (final address in addresses) {
+      candidates.add(address.address);
+    }
   }
-  var best = addresses.first.address;
-  for (final address in addresses.skip(1)) {
-    best = preferredLanHost(best, address.address);
+  final primary = entry.primaryAddress?.address;
+  if (primary != null) candidates.add(primary);
+
+  String? best;
+  for (final host in candidates) {
+    if (!isUsableRemoteLanHost(host)) continue;
+    best = best == null ? host : preferredLanHost(best, host);
   }
   return best;
 }

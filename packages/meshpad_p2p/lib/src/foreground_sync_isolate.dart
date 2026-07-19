@@ -341,8 +341,11 @@ List<LanPeerEndpoint> collectResolvedEndpoints(
 ) {
   final endpoints = <LanPeerEndpoint>[];
   for (final peer in peers) {
-    final endpoint =
-        transport.endpointFor(peer.peerId) ?? storedEndpointForPeer(peer);
+    final endpoint = transport.endpointFor(peer.peerId) ??
+        storedEndpointForPeer(
+          peer,
+          localLanHost: transport.localLanHost,
+        );
     if (endpoint != null) {
       endpoints.add(endpoint);
     }

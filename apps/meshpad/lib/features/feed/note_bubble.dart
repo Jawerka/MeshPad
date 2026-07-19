@@ -185,53 +185,40 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
       }
     }
 
-    final headline = displayNoteTitle(
-      title: note.title,
-      markdown: note.markdown,
-      createdAt: note.createdAt,
-    );
-
     final cardContent = Padding(
       padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 12, compact ? 4 : 8, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onLongPress: () {
-              final box = context.findRenderObject() as RenderBox?;
-              if (box == null) return;
-              unawaited(_openContextMenuAt(
-                box.localToGlobal(box.size.center(Offset.zero)),
-              ));
-            },
-            child: Text(
-              headline,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _editing
-                    ? TextField(
-                        controller: _bodyController,
-                        minLines: 1,
-                        maxLines: 10,
-                        decoration: const InputDecoration(
-                          hintText: 'Markdown',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                child: GestureDetector(
+                  onLongPress: () {
+                    final box = context.findRenderObject() as RenderBox?;
+                    if (box == null) return;
+                    unawaited(_openContextMenuAt(
+                      box.localToGlobal(box.size.center(Offset.zero)),
+                    ));
+                  },
+                  child: _editing
+                      ? TextField(
+                          controller: _bodyController,
+                          minLines: 1,
+                          maxLines: 10,
+                          decoration: const InputDecoration(
+                            hintText: 'Markdown',
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                           ),
-                        ),
-                        textInputAction: TextInputAction.newline,
-                      )
-                    : _buildMarkdownBody(context, note, openLink),
+                          textInputAction: TextInputAction.newline,
+                        )
+                      : _buildMarkdownBody(context, note, openLink),
+                ),
               ),
               PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
@@ -358,16 +345,7 @@ class _NoteBubbleState extends ConsumerState<NoteBubble> {
     return card;
   }
 
-  String _copyAllText(Note note) {
-    final title = displayNoteTitle(
-      title: note.title,
-      markdown: note.markdown,
-      createdAt: note.createdAt,
-    );
-    final body = note.markdown.trim();
-    if (body.isEmpty) return title;
-    return '$title\n\n$body';
-  }
+  String _copyAllText(Note note) => note.markdown.trim();
 
   Widget _buildMarkdownBody(
     BuildContext context,

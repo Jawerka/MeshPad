@@ -130,8 +130,6 @@ API endpoints:
       );
       hub = pairing;
       hubPairing = pairing;
-      await lanSync.start();
-      await pairing.start();
       hubHandler = HubWeb(pairing: pairing).buildRouter(webPort: port).call;
     } else {
       hub = HubPairingService(
@@ -140,21 +138,34 @@ API endpoints:
         repository: opened.repository,
         identity: identity,
       );
-      await lanSync.start();
     }
+  }
 
+  // Bind web UI before LAN advertise so a port conflict cannot leave mDNS up.
+  late final HttpServer server;
+  try {
+    server = await serveMeshPadHttpWithRetry(
+      server: httpServer,
+      host: host,
+      port: port,
+      apiKeyAuth: auth,
+      hubHandler: hubHandler,
+    );
+  } on Object catch (e) {
+    stderr.writeln('Failed to bind http://$host:$port: $e');
+    await opened.db.close();
+    exit(1);
+  }
+
+  if (p2pEnabled && lanSync != null) {
+    await lanSync.start();
+    if (hubMode && hubPairing != null) {
+      await hubPairing.start();
+    }
     stdout.writeln(
       'LAN P2P sync enabled (interval: $syncIntervalMinutes min)',
     );
   }
-
-  final server = await serveMeshPadHttp(
-    server: httpServer,
-    host: host,
-    port: port,
-    apiKeyAuth: auth,
-    hubHandler: hubHandler,
-  );
 
   stdout.writeln(
     'MeshPad ${hubMode ? 'hub' : 'server'} listening on http://${server.address.host}:${server.port}',

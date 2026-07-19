@@ -2,6 +2,7 @@ import 'package:meshpad_core/meshpad_core.dart';
 
 import '../meshpad_log.dart';
 import 'cascade_sync_request.dart';
+import 'lan_broadcast.dart';
 import 'lan_single_peer_sync.dart';
 import 'lan_sync_auth.dart';
 import 'lan_sync_peer_order.dart';
@@ -252,6 +253,12 @@ class LanSyncCoordinator {
 
     final endpoint = transport.endpointFor(peerId);
     if (endpoint == null) return false;
+    if (!isUsableRemoteLanHost(endpoint.host)) {
+      MeshPadLog.discovery(
+        'skip trusted endpoint update $peerId unusable ${endpoint.host}',
+      );
+      return false;
+    }
 
     var changed = false;
     if (await deviceStore.syncRemoteDisplayNameIfAllowed(
@@ -259,6 +266,25 @@ class LanSyncCoordinator {
       remoteDisplayName: endpoint.displayName,
     )) {
       changed = true;
+    }
+
+    Device? existing;
+    for (final device in trusted) {
+      if (device.peerId == peerId) {
+        existing = device;
+        break;
+      }
+    }
+    final existingHost = existing?.lanHost;
+    if (existingHost != null &&
+        isUsableRemoteLanHost(existingHost) &&
+        preferredLanHost(existingHost, endpoint.host) == existingHost &&
+        existingHost != endpoint.host) {
+      MeshPadLog.discovery(
+        'keep trusted endpoint $peerId $existingHost '
+        '(prefer over ${endpoint.host})',
+      );
+      return changed;
     }
 
     MeshPadLog.discovery(
@@ -269,7 +295,7 @@ class LanSyncCoordinator {
       lanHost: endpoint.host,
       lanHttpPort: endpoint.httpPort,
     );
-    return changed;
+    return true;
   }
 }
 
@@ -277,7 +303,10 @@ void rememberPeerEndpoint(LanSyncTransport transport, Device peer) {
   final live = transport.endpointFor(peer.peerId);
   if (live != null) return;
 
-  final stored = storedEndpointForPeer(peer);
+  final stored = storedEndpointForPeer(
+    peer,
+    localLanHost: transport.localLanHost,
+  );
   if (stored != null) {
     transport.rememberEndpoint(stored);
   }

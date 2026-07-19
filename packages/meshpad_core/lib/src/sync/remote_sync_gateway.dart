@@ -80,7 +80,9 @@ extension SyncEngineRemote on SyncEngine {
           result == NoteApplyResult.conflictCopyCreated) {
         applied++;
       }
-      await syncAttachmentsFrom(remote, snapshot.meta);
+      if (!snapshot.meta.purged) {
+        await syncAttachmentsFrom(remote, snapshot.meta);
+      }
     }
 
     return CatalogPullStats(
@@ -102,7 +104,8 @@ extension SyncEngineRemote on SyncEngine {
       final needsPush = remoteHead == null ||
           head.updatedAt.isAfter(remoteHead.updatedAt) ||
           (head.updatedAt == remoteHead.updatedAt &&
-              head.deleted != remoteHead.deleted);
+              (head.deleted != remoteHead.deleted ||
+                  head.purged != remoteHead.purged));
       if (!needsPush) continue;
 
       final snapshot = await exportNote(head.id);
@@ -111,7 +114,9 @@ extension SyncEngineRemote on SyncEngine {
       try {
         final result = await remote.pushNote(snapshot);
         if (result == NoteApplyResult.applied) pushed++;
-        await syncAttachmentsTo(remote, snapshot.meta);
+        if (!snapshot.meta.purged) {
+          await syncAttachmentsTo(remote, snapshot.meta);
+        }
         if (!await isNoteFullySyncedOnRemote(
           localNotes: notes,
           remote: remote,

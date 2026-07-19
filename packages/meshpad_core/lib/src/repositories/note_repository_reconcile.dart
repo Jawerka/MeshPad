@@ -10,12 +10,27 @@ mixin _NoteRepositoryReconcile
     NoteMeta remoteMeta,
     String remoteMarkdown,
   ) async {
+    final localMeta = await _fs.readMeta(remoteMeta.id);
     final local = await getNote(remoteMeta.id);
     inspectRemoteNoteTimestamp(
       noteId: remoteMeta.id,
       remoteUpdatedAt: remoteMeta.updatedAt,
-      localUpdatedAt: local?.updatedAt,
+      localUpdatedAt: local?.updatedAt ?? localMeta?.updatedAt,
     );
+
+    if (remoteMeta.purged) {
+      if (localMeta?.purged == true &&
+          !remoteMeta.updatedAt.isAfter(localMeta!.updatedAt)) {
+        return NoteApplyResult.unchanged;
+      }
+      await _applyPurgeTombstone(remoteMeta);
+      return NoteApplyResult.applied;
+    }
+
+    if (localMeta?.purged == true &&
+        !remoteMeta.updatedAt.isAfter(localMeta!.updatedAt)) {
+      return NoteApplyResult.skippedLocalNewer;
+    }
 
     if (local == null) {
       final note = Note.fromMeta(meta: remoteMeta, markdown: remoteMarkdown);
@@ -129,6 +144,12 @@ mixin _NoteRepositoryReconcile
 
     var count = 0;
     for (final id in dirIds) {
+      final dirMeta = await _fs.readMeta(id);
+      if (dirMeta?.purged == true) {
+        await _db.deleteNoteRow(id);
+        continue;
+      }
+
       final signatures = await readNoteFsSignatures(_paths, id);
       if (signatures == null) continue;
 
@@ -143,8 +164,7 @@ mixin _NoteRepositoryReconcile
               attachmentsModifiedAt: cached.attachments,
             ),
           )) {
-        final meta = await _fs.readMeta(id);
-        if (meta != null && await _driftIndexMatchesMeta(id, meta)) {
+        if (dirMeta != null && await _driftIndexMatchesMeta(id, dirMeta)) {
           continue;
         }
       }

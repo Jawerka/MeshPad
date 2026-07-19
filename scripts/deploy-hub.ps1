@@ -67,7 +67,7 @@ echo "[hub] dart compile exe (may take several minutes)..."
 dart compile exe bin/meshpad_server.dart -o meshpad-hub
 echo "[hub] install + restart..."
 install -m 0755 meshpad-hub /usr/local/bin/meshpad-hub
-install -m 0644 scripts/meshpad-hub.service /etc/systemd/system/meshpad-hub.service
+install -m 0644 "$REMOTE_WORK/scripts/meshpad-hub.service" /etc/systemd/system/meshpad-hub.service
 systemctl daemon-reload
 systemctl restart meshpad-hub
 sleep 2

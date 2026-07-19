@@ -4,6 +4,30 @@
 
 ---
 
+## [0.2.13] — 2026-07-19
+
+### Added
+
+- **LAN host guards:** reject loopback/link-local remote endpoints in mDNS/UDP discovery; UDP falls back to datagram source IP; do not advertise without a usable private LAN host
+- **Health identity:** `/meshpad/p2p/health` returns `peer_id` / `display_name`; probe rejects peer-id or TLS-pin mismatches
+- **Purge tombstones:** empty trash syncs via `purged` note meta so peers clear deleted notes
+- **Share intent hardening:** sticky `ACTION_SEND` consume, fingerprint dedupe, reload notes on resume
+
+### Changed
+
+- Chat-style feed: note titles hidden; composer wider/taller, Ctrl+Enter to send, no placeholder; settings sheet wider on desktop
+- Soft-delete clears attachment files on disk; outbox purge/ack for orphans
+- Sync gated to Wi‑Fi / unmetered; TLS pin mismatch surfaces a re-pair message (no auto pin update)
+- 401/403 on sync records auth failure for re-pair UX but no longer drops the discovery endpoint cache
+- Hub binds `:8787` before LAN P2P; EADDRINUSE retry; systemd `StartLimitBurst` / `TimeoutStopSec`
+
+### Fixed
+
+- Cascade where phone advertised `127.0.0.1` poisoned hub trusted endpoints and broke TLS sync
+- Hub restart race advertising mDNS before web port bind failed
+
+---
+
 ## [0.2.12] — 2026-07-11
 
 ### Added
